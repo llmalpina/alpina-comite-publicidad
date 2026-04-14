@@ -1,0 +1,410 @@
+import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { ChevronRight, ChevronLeft, Upload, FileText, CheckCircle2, X, Info, ShieldCheck, AlertTriangle, Loader2, Clock } from 'lucide-react';
+import { Button } from '../../../components/ui/Button';
+import { Card, CardContent, CardFooter } from '../../../components/ui/Card';
+import { Input } from '../../../components/ui/Input';
+import { Badge } from '../../../components/ui/Badge';
+import { useMaestros } from '../../../contexts/MaestrosContext';
+import { useNotifications } from '../../../contexts/NotificationContext';
+import { useAuth } from '../../../contexts/AuthContext';
+import { useConfig } from '../../../contexts/ConfigContext';
+import { useDropzone } from 'react-dropzone';
+import { cn } from '../../../lib/utils';
+import { analizarConBedrock, BedrockResult } from '../../../lib/services';
+import { solicitudesApi } from '../../../lib/api';
+import { Solicitud } from '../../../types';
+
+const STEPS = [
+  { id: 1, title: 'Información Básica' },
+  { id: 2, title: 'Archivos PDF' },
+  { id: 3, title: 'Detalles' },
+  { id: 4, title: 'Pre-validación IA' },
+];
+
+const NuevaSolicitudPage: React.FC = () => {
+  const navigate = useNavigate();
+  const { notify } = useNotifications();
+  const { config: maestros } = useMaestros();
+  const { user } = useAuth();
+  const { canSubmitNow, emailConfig } = useConfig();
+
+  const [step, setStep] = useState(1);
+  const [files, setFiles] = useState<File[]>([]);
+  const [analyzing, setAnalyzing] = useState(false);
+  const [iaResult, setIaResult] = useState<BedrockResult | null>(null);
+  const [iaError, setIaError] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+  const [confirmed, setConfirmed] = useState(false);
+
+  const [brand, setBrand] = useState('');
+  const [product, setProduct] = useState('');
+  const [contentType, setContentType] = useState('');
+  const [channel, setChannel] = useState('');
+  const [description, setDescription] = useState('');
+  const [deadline, setDeadline] = useState('');
+
+  const marcasActivas = maestros.marcas.filter(m => m.activo);
+  const tiposActivos = maestros.tiposContenido.filter(t => t.activo);
+  const canalesActivos = maestros.canales.filter(c => c.activo);
+
+  const { getRootProps, getInputProps, isDragActive } = useDropzone({
+    onDrop: (accepted: File[]) => {
+      const pdfs = accepted.filter(f => f.type === 'application/pdf');
+      if (pdfs.length < accepted.length) notify('Solo se permiten archivos PDF', 'error');
+      setFiles(prev => [...prev, ...pdfs]);
+    },
+    accept: { 'application/pdf': ['.pdf'] },
+    maxSize: 52428800,
+  });
+
+  const removeFile = (i: number) => setFiles(prev => prev.filter((_, idx) => idx !== i));
+
+  const runBedrock = async () => {
+    if (!files[0]) return;
+    setAnalyzing(true);
+    setIaError(null);
+    try {
+      const result = await analizarConBedrock(files[0], { brand, product, channel, contentType, description }, maestros.promptIA);
+      setIaResult(result);
+    } catch (e: any) {
+      setIaError(e.message || 'Error al analizar');
+    } finally {
+      setAnalyzing(false);
+    }
+  };
+
+  const handleNext = async () => {
+    if (step === 1 && (!brand || !product || !contentType || !channel)) {
+      notify('Completa todos los campos obligatorios', 'error'); return;
+    }
+    if (step === 2 && files.length === 0) {
+      notify('Debes subir al menos un archivo PDF', 'error'); return;
+    }
+    if (step === 3) { setStep(4); await runBedrock(); return; }
+    if (step === 4) { await handleSubmit(); return; }
+    setStep(s => s + 1);
+  };
+
+  const handleBack = () => { if (step > 1) setStep(s => s - 1); };
+
+  const handleSubmit = async () => {
+    if (!confirmed) { notify('Confirma que revisaste las observaciones', 'error'); return; }
+    // Validar horario de envío
+    const scheduleCheck = canSubmitNow(user?.role || 'SOLICITANTE');
+    if (!scheduleCheck.allowed) {
+      notify(scheduleCheck.message || 'Fuera del horario de envío', 'error');
+      return;
+    }
+    setSubmitting(true);
+    try {
+      const now = new Date().toISOString();
+      const PRESIGN_URL = (import.meta as any).env?.VITE_PRESIGN_URL as string;
+
+      // 1. Subir PDFs a S3 via presigned URL
+      const uploadedFiles = await Promise.all(files.map(async (f, i) => {
+        let s3Key = '';
+        let s3Url = '';
+        if (PRESIGN_URL) {
+          try {
+            // Pedimos presigned URL (usamos un ID temporal, se actualiza después)
+            const presignRes = await fetch(PRESIGN_URL, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ action: 'upload', solicitudId: `temp-${Date.now()}`, fileName: f.name, version: 1 }),
+            });
+            const { url, key } = await presignRes.json();
+            // Subimos el archivo directo a S3
+            await fetch(url, { method: 'PUT', headers: { 'Content-Type': 'application/pdf' }, body: f });
+            s3Key = key;
+            s3Url = `https://alpina-analytics-prod-us-east-1-586139298250-silver.s3.amazonaws.com/${key}`;
+          } catch (uploadErr) {
+            console.warn('No se pudo subir a S3, continuando sin URL:', uploadErr);
+          }
+        }
+        return {
+          id: `f-${Date.now()}-${i}`, name: f.name, type: 'pdf' as const,
+          url: s3Url, s3Key, size: f.size, uploadedAt: now, version: 1,
+        };
+      }));
+
+      const solicitudData = {
+        title: `${brand} — ${product}`,
+        description, brand, product, contentType, channel,
+        deadline: deadline || new Date(Date.now() + 7 * 86400000).toISOString(),
+        iaResult: iaResult ?? undefined,
+        files: uploadedFiles,
+        annotations: [], comments: [], currentVersion: 1, versions: [],
+        solicitanteName: user?.name || '',
+        solicitanteEmail: user?.email || '',
+        area: user?.area || '',
+      };
+
+      let solicitud: Solicitud;
+      solicitud = await solicitudesApi.create(solicitudData);
+
+      // Enviar correo de nueva solicitud a los revisores (usa reglas configuradas)
+      const SES_URL = (import.meta as any).env?.VITE_SES_LAMBDA_URL as string;
+      if (SES_URL) {
+        const rule = emailConfig.rules.find(r => r.event === 'solicitud_creada' && r.enabled);
+        const extraTo = rule?.toEmails || [];
+        const extraCc = rule?.cc || ['nicolas.carreno@alpina.com'];
+        const defaultTo = ['nicolas.carreno@alpina.com'];
+        const to = [...new Set([...defaultTo, ...extraTo])];
+        const token = localStorage.getItem('alpina_id_token');
+        fetch(SES_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+          body: JSON.stringify({
+            template: 'nueva_solicitud',
+            to,
+            cc: extraCc,
+            data: {
+              id: solicitud.id, consecutive: solicitud.consecutive, title: solicitud.title,
+              brand, area: user?.area || '', solicitanteName: user?.name || '',
+              deadline: solicitudData.deadline,
+            },
+          }),
+        }).catch(console.error);
+      }
+
+      notify(`Solicitud ${solicitud.consecutive} enviada al comité`, 'success');
+      navigate('/solicitudes');
+    } catch (e: any) {
+      console.error('[NuevaSolicitud]', e);
+      notify(e.message || 'Error al enviar la solicitud', 'error');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const severityColor = (s: string) =>
+    s === 'ERROR' ? 'bg-red-50 border-red-200 text-red-800' :
+    s === 'WARNING' ? 'bg-yellow-50 border-yellow-200 text-yellow-800' :
+    'bg-blue-50 border-blue-200 text-blue-800';
+
+  // Verificar horario al cargar la página
+  const scheduleStatus = canSubmitNow(user?.role || 'SOLICITANTE');
+
+  return (
+    <div className="max-w-4xl mx-auto space-y-8 pb-20">
+      <div className="flex justify-between items-center">
+        <div>
+          <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Nueva Solicitud</h1>
+          <p className="text-slate-500 dark:text-slate-400">Completa los pasos para enviar tu pieza a revisión.</p>
+        </div>
+        <Button variant="ghost" onClick={() => navigate('/solicitudes')}>Cancelar</Button>
+      </div>
+
+      {!scheduleStatus.allowed && (
+        <div className="flex items-center gap-4 p-6 bg-red-50 dark:bg-red-900/20 border-2 border-red-200 dark:border-red-800 rounded-xl">
+          <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center shrink-0">
+            <Clock size={24} className="text-red-600" />
+          </div>
+          <div>
+            <p className="font-bold text-red-800 dark:text-red-300">Fuera del horario de envío</p>
+            <p className="text-sm text-red-600 dark:text-red-400 mt-1">{scheduleStatus.message}</p>
+            <Button variant="outline" size="sm" className="mt-3 text-red-600 border-red-300" onClick={() => navigate('/solicitudes')}>
+              Volver a mis solicitudes
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {scheduleStatus.allowed && (<>
+
+      {/* Stepper */}
+      <div className="flex items-center justify-between px-4">
+        {STEPS.map((s, i) => (
+          <React.Fragment key={s.id}>
+            <div className="flex flex-col items-center gap-2">
+              <div className={cn('w-10 h-10 rounded-full flex items-center justify-center font-bold transition-colors',
+                step >= s.id ? 'bg-[#1e3a5f] text-white' : 'bg-slate-200 dark:bg-slate-700 text-slate-500')}>
+                {step > s.id ? <CheckCircle2 size={20} /> : s.id}
+              </div>
+              <span className={cn('text-xs font-medium', step >= s.id ? 'text-[#1e3a5f]' : 'text-slate-400')}>{s.title}</span>
+            </div>
+            {i < STEPS.length - 1 && (
+              <div className={cn('flex-1 h-0.5 mx-4 -mt-6', step > s.id ? 'bg-[#1e3a5f]' : 'bg-slate-200 dark:bg-slate-700')} />
+            )}
+          </React.Fragment>
+        ))}
+      </div>
+
+      <Card className="shadow-lg border-none">
+        <CardContent className="p-8">
+
+          {step === 1 && (
+            <div className="space-y-6 animate-in fade-in duration-300">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="space-y-2">
+                  <label className="text-sm font-semibold text-slate-700 dark:text-slate-300">Marca *</label>
+                  <select value={brand} onChange={e => setBrand(e.target.value)} className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+                    <option value="">Selecciona una marca</option>
+                    {marcasActivas.map(m => <option key={m.id} value={m.value}>{m.label}</option>)}
+                  </select>
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-semibold text-slate-700 dark:text-slate-300">Producto *</label>
+                  <Input placeholder="Ej: Bon Yurt Original 170g" value={product} onChange={e => setProduct(e.target.value)} />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-semibold text-slate-700 dark:text-slate-300">Tipo de Contenido *</label>
+                  <select value={contentType} onChange={e => setContentType(e.target.value)} className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+                    <option value="">Selecciona tipo</option>
+                    {tiposActivos.map(t => <option key={t.id} value={t.value}>{t.label}</option>)}
+                  </select>
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-semibold text-slate-700 dark:text-slate-300">Canal de Publicación *</label>
+                  <select value={channel} onChange={e => setChannel(e.target.value)} className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+                    <option value="">Selecciona canal</option>
+                    {canalesActivos.map(c => <option key={c.id} value={c.value}>{c.label}</option>)}
+                  </select>
+                </div>
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-semibold text-slate-700 dark:text-slate-300">Descripción / Brief</label>
+                <textarea value={description} onChange={e => setDescription(e.target.value)} className="flex min-h-[120px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" placeholder="Describe el objetivo de la pieza y contexto relevante..." />
+              </div>
+            </div>
+          )}
+
+          {step === 2 && (
+            <div className="space-y-6 animate-in fade-in duration-300">
+              <div {...getRootProps()} className={cn('border-2 border-dashed rounded-xl p-12 text-center transition-colors cursor-pointer',
+                isDragActive ? 'border-[#1e3a5f] bg-blue-50' : 'border-slate-300 dark:border-slate-600 hover:border-[#1e3a5f] hover:bg-slate-50 dark:bg-slate-800')}>
+                <input {...getInputProps()} />
+                <div className="w-16 h-16 bg-blue-50 rounded-full flex items-center justify-center mx-auto mb-4 text-[#1e3a5f]"><Upload size={32} /></div>
+                <h3 className="text-lg font-bold text-slate-900 dark:text-white">Arrastra tu PDF aquí</h3>
+                <p className="text-slate-500 dark:text-slate-400 mt-2">O haz clic para seleccionar desde tu equipo</p>
+                <Badge variant="outline" className="mt-4 bg-white dark:bg-slate-800">Solo archivos PDF · Máx. 50 MB</Badge>
+              </div>
+              {files.map((file, i) => (
+                <div key={i} className="flex items-center justify-between p-3 bg-slate-50 dark:bg-slate-800 rounded-lg border">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 bg-red-50 rounded border flex items-center justify-center text-red-500"><FileText size={20} /></div>
+                    <div>
+                      <p className="text-sm font-medium text-slate-900 dark:text-white truncate max-w-[200px]">{file.name}</p>
+                      <p className="text-xs text-slate-500">{(file.size / 1024 / 1024).toFixed(2)} MB</p>
+                    </div>
+                  </div>
+                  <button onClick={() => removeFile(i)} className="p-1 hover:bg-red-100 text-red-500 rounded-full"><X size={18} /></button>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {step === 3 && (
+            <div className="space-y-8 animate-in fade-in duration-300">
+              <div className="space-y-2">
+                <label className="text-sm font-semibold text-slate-700 dark:text-slate-300">Fecha Límite Deseada</label>
+                <div
+                  className="flex items-center gap-3 h-12 w-full rounded-xl border-2 border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 px-4 cursor-pointer hover:border-[#1e3a5f] transition-colors focus-within:border-[#1e3a5f] focus-within:ring-2 focus-within:ring-[#1e3a5f]/20"
+                  onClick={() => { const el = document.getElementById('deadline-input') as HTMLInputElement; el?.showPicker?.(); el?.focus(); }}
+                >
+                  <span className="text-slate-400 text-lg">📅</span>
+                  <input
+                    id="deadline-input"
+                    type="date"
+                    value={deadline}
+                    onChange={e => setDeadline(e.target.value)}
+                    className="flex-1 bg-transparent text-sm text-slate-700 dark:text-slate-200 outline-none cursor-pointer w-full"
+                  />
+                </div>
+                <p className="text-xs text-slate-400">Sujeto a disponibilidad de la bolsa de horas.</p>
+              </div>
+            </div>
+          )}
+
+          {step === 4 && (
+            <div className="space-y-8 animate-in fade-in duration-300">
+              {analyzing ? (
+                <div className="text-center py-16 space-y-4">
+                  <div className="w-20 h-20 bg-blue-50 rounded-full flex items-center justify-center mx-auto">
+                    <Loader2 size={40} className="text-[#1e3a5f] animate-spin" />
+                  </div>
+                  <h3 className="text-xl font-bold text-slate-900 dark:text-white">Analizando con Amazon Bedrock...</h3>
+                  <p className="text-slate-500">Claude está revisando tu pieza según el ABC de Publicidad Alpina.</p>
+                </div>
+              ) : iaError ? (
+                <div className="text-center py-12 space-y-3">
+                  <div className="w-20 h-20 bg-amber-50 rounded-full flex items-center justify-center mx-auto">
+                    <AlertTriangle size={40} className="text-amber-500" />
+                  </div>
+                  <h3 className="text-xl font-bold text-slate-900 dark:text-white">Análisis no disponible</h3>
+                  <p className="text-sm text-slate-500 max-w-md mx-auto">Configura <code className="bg-slate-100 px-1 rounded">VITE_BEDROCK_LAMBDA_URL</code> en .env.local para activar el análisis.</p>
+                </div>
+              ) : iaResult ? (
+                <>
+                  <div className="text-center space-y-2">
+                    <div className="w-20 h-20 bg-emerald-50 text-emerald-600 rounded-full flex items-center justify-center mx-auto mb-4 border-4 border-emerald-100">
+                      <ShieldCheck size={40} />
+                    </div>
+                    <h3 className="text-xl font-bold text-slate-900 dark:text-white">Análisis completado</h3>
+                  </div>
+                  <div className="flex justify-center">
+                    <div className={cn('px-8 py-4 rounded-xl text-center border-2',
+                      iaResult.score >= 80 ? 'bg-emerald-50 border-emerald-200' :
+                      iaResult.score >= 60 ? 'bg-yellow-50 border-yellow-200' : 'bg-red-50 border-red-200')}>
+                      <p className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-1">Score de Cumplimiento</p>
+                      <p className={cn('text-5xl font-black',
+                        iaResult.score >= 80 ? 'text-emerald-700' :
+                        iaResult.score >= 60 ? 'text-yellow-700' : 'text-red-700')}>{iaResult.score}<span className="text-2xl">/100</span></p>
+                    </div>
+                  </div>
+                  {iaResult.observations.length > 0 && (
+                    <div className="space-y-3">
+                      <h4 className="text-sm font-bold text-slate-700 flex items-center gap-2"><Info size={16} className="text-blue-600" />Observaciones ({iaResult.observations.length})</h4>
+                      {iaResult.observations.map(obs => (
+                        <div key={obs.id} className={cn('p-4 rounded-lg border', severityColor(obs.severity))}>
+                          <div className="flex justify-between items-start mb-1">
+                            <span className="text-xs font-bold uppercase tracking-wider">{obs.category}</span>
+                            <Badge className={cn('text-[10px]', obs.severity === 'ERROR' ? 'bg-red-200 text-red-800' : obs.severity === 'WARNING' ? 'bg-yellow-200 text-yellow-800' : 'bg-blue-200 text-blue-800')}>{obs.severity}</Badge>
+                          </div>
+                          <p className="text-sm">{obs.message}</p>
+                          {obs.ruleReference && <p className="text-[11px] font-mono mt-1 opacity-70">Ref: {obs.ruleReference}</p>}
+                          {obs.suggestion && <p className="text-xs mt-2 pt-2 border-t border-current/10 italic">Sugerencia: {obs.suggestion}</p>}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </>
+              ) : (
+                <div className="text-center py-12 space-y-3">
+                  <div className="w-20 h-20 bg-slate-100 rounded-full flex items-center justify-center mx-auto">
+                    <ShieldCheck size={40} className="text-slate-400" />
+                  </div>
+                  <h3 className="text-xl font-bold text-slate-900 dark:text-white">Sin análisis previo</h3>
+                  <p className="text-sm text-slate-500">Configura <code className="bg-slate-100 px-1 rounded">VITE_BEDROCK_LAMBDA_URL</code> para activar el análisis automático.</p>
+                </div>
+              )}
+
+              <div className="flex items-center gap-3 p-4 bg-slate-50 dark:bg-slate-800 rounded-lg border">
+                <input type="checkbox" id="confirm" checked={confirmed} onChange={e => setConfirmed(e.target.checked)} className="w-4 h-4 rounded border-slate-300 text-[#1e3a5f] focus:ring-[#1e3a5f]" />
+                <label htmlFor="confirm" className="text-xs text-slate-600 dark:text-slate-400 cursor-pointer">
+                  Confirmo que esta es la versión final de la pieza y he revisado las observaciones.
+                </label>
+              </div>
+            </div>
+          )}
+        </CardContent>
+
+        <CardFooter className="bg-slate-50 dark:bg-slate-800 p-6 flex justify-between border-t rounded-b-lg">
+          <Button variant="outline" onClick={handleBack} disabled={step === 1 || analyzing || submitting} className="gap-2">
+            <ChevronLeft size={18} /> Anterior
+          </Button>
+          <Button onClick={handleNext} disabled={analyzing || submitting} className="gap-2">
+            {submitting  ? <><Loader2 size={16} className="animate-spin" /> Enviando...</> :
+             analyzing   ? <><Loader2 size={16} className="animate-spin" /> Analizando...</> :
+             step === 4  ? 'Enviar al Comité' :
+                           <>Siguiente <ChevronRight size={18} /></>}
+          </Button>
+        </CardFooter>
+      </Card>
+      </>)}
+    </div>
+  );
+};
+
+export default NuevaSolicitudPage;
