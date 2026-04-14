@@ -71,7 +71,7 @@ const AppRoutes: React.FC = () => (
 
 export default function App() {
   return (
-    <BrowserRouter>
+    <BrowserRouter basename="/comite-publicidad">
       <ThemeProvider>
         <AuthProvider>
           <MaestrosProvider>
