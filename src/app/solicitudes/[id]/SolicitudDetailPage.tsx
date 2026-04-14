@@ -327,7 +327,7 @@ const SolicitudDetailPage: React.FC = () => {
               {uploadingVersion ? 'Subiendo...' : solicitud.status === 'APROBADA_OBSERVACIONES' ? 'Subir Pieza Final' : 'Subir Corrección'}
             </Button>
           )}
-          {user?.role === 'SOLICITANTE' && (solicitud.status === 'APROBADA') && (
+          {(user?.role === 'SOLICITANTE' || user?.role === 'ADMIN') && (solicitud.status === 'APROBADA') && (
             <Button
               className="gap-2 bg-violet-600 hover:bg-violet-700 text-white"
               onClick={async () => {

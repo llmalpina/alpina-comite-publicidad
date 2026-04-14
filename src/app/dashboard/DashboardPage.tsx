@@ -41,7 +41,7 @@ function getDateThreshold(range: DateRange): Date {
 const DashboardPage: React.FC = () => {
   const { user } = useAuth();
   const { solicitudes, loading } = useSolicitudes();
-  const { canSubmitNow } = useConfig();
+  const { canSubmitNow, hasPermission } = useConfig();
   const scheduleCheck = canSubmitNow(user?.role || 'SOLICITANTE');
   const [dateRange, setDateRange] = useState<DateRange>('mes');
   const [brandFilter, setBrandFilter] = useState<string>('');
@@ -150,7 +150,7 @@ const DashboardPage: React.FC = () => {
           <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Dashboard</h1>
           <p className="text-slate-500 dark:text-slate-400 text-sm">Hola {user?.name} — resumen de actividad del comité</p>
         </div>
-        {user?.role === 'SOLICITANTE' && (
+        {hasPermission(user?.role || '', 'crear_solicitud') && (
           scheduleCheck.allowed ? (
             <Link to="/solicitudes/nueva"><Button className="gap-2"><PlusCircle size={18} />Nueva Solicitud</Button></Link>
           ) : (
