@@ -7,7 +7,7 @@ import { Button } from './Button';
 import { cn } from '../../lib/utils';
 import type { AnnotationTool } from '../../types';
 
-pdfjs.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.mjs';
+pdfjs.GlobalWorkerOptions.workerSrc = import.meta.env.BASE_URL + 'pdf.worker.min.mjs';
 
 export interface PdfAnnotationOverlay {
   id: string;

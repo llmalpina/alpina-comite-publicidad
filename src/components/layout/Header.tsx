@@ -54,7 +54,7 @@ const Header: React.FC<HeaderProps> = ({ onMenuToggle }) => {
           )}
         </div>
 
-        <button onClick={() => { logout(); window.location.href = '/login'; }} className="flex items-center gap-1.5 text-xs text-brand-100 hover:text-red-300 border border-brand-600 dark:border-slate-700 hover:border-red-400 px-3 py-1.5 rounded-lg transition-colors" title="Cerrar sesión">
+        <button onClick={() => { logout(); window.location.href = '/comite-publicidad/login'; }} className="flex items-center gap-1.5 text-xs text-brand-100 hover:text-red-300 border border-brand-600 dark:border-slate-700 hover:border-red-400 px-3 py-1.5 rounded-lg transition-colors" title="Cerrar sesión">
           <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" /></svg>
           <span className="hidden sm:block">Salir</span>
         </button>
