@@ -69,7 +69,18 @@ const MaestrosPage: React.FC = () => {
   const { config, updatePromptIA } = useMaestros();
   const { notify } = useNotifications();
   const [prompt, setPrompt] = useState(config.promptIA);
+  const [iaModel, setIaModel] = useState('us.anthropic.claude-sonnet-4-6');
   const [activeTab, setActiveTab] = useState<TipoMaestro | 'prompt'>('marcas');
+
+  // Cargar modelo desde DynamoDB
+  React.useEffect(() => {
+    fetch(`${(import.meta as any).env?.VITE_API_URL}/maestros/config-ia-model`)
+      .then(r => r.json())
+      .then(items => {
+        const s = items.find((i: any) => i.id === 'singleton');
+        if (s?.value) setIaModel(s.value);
+      }).catch(() => {});
+  }, []);
 
   const handleSavePrompt = () => {
     updatePromptIA(prompt);
@@ -129,6 +140,29 @@ const MaestrosPage: React.FC = () => {
             <p className="text-xs text-slate-500 dark:text-slate-400">
               Este prompt se envía a Amazon Bedrock junto con el PDF para el análisis automático. Puedes ajustarlo según las necesidades del comité.
             </p>
+            {/* Selector de modelo */}
+            <div className="space-y-1">
+              <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Modelo de IA</label>
+              <div className="flex gap-2">
+                <select value={iaModel} onChange={e => setIaModel(e.target.value)}
+                  className="flex h-10 flex-1 rounded-md border border-input bg-background px-3 py-2 text-sm">
+                  <option value="us.anthropic.claude-sonnet-4-6">Claude Sonnet 4.6 (recomendado)</option>
+                  <option value="us.anthropic.claude-sonnet-4-5-20250929-v1:0">Claude Sonnet 4.5</option>
+                  <option value="us.anthropic.claude-sonnet-4-20250514-v1:0">Claude Sonnet 4</option>
+                  <option value="us.anthropic.claude-haiku-4-5-20251001-v1:0">Claude Haiku 4.5 (más rápido y económico)</option>
+                  <option value="us.anthropic.claude-3-7-sonnet-20250219-v1:0">Claude 3.7 Sonnet</option>
+                  <option value="us.anthropic.claude-3-5-haiku-20241022-v1:0">Claude 3.5 Haiku</option>
+                </select>
+                <Button variant="outline" onClick={async () => {
+                  try {
+                    const { maestrosApi } = await import('../../../lib/api');
+                    await maestrosApi.update('config-ia-model', 'singleton', { id: 'singleton', tipo: 'config-ia-model', value: iaModel });
+                    notify('Modelo guardado', 'success');
+                  } catch { notify('Error al guardar modelo', 'error'); }
+                }} className="gap-1 shrink-0"><Save size={14} /> Guardar</Button>
+              </div>
+              <p className="text-[11px] text-slate-400">Sonnet es más preciso, Haiku es más rápido y económico.</p>
+            </div>
             <textarea
               className="w-full min-h-[280px] p-4 text-sm border rounded-lg focus:ring-2 focus:ring-[#1e3a5f] outline-none font-mono bg-slate-50 dark:bg-slate-800 dark:border-slate-700 dark:text-slate-200"
               value={prompt}
