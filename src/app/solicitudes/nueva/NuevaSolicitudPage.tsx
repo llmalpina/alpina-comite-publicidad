@@ -31,6 +31,7 @@ const NuevaSolicitudPage: React.FC = () => {
 
   const [step, setStep] = useState(1);
   const [files, setFiles] = useState<File[]>([]);
+  const [uploadedS3Keys, setUploadedS3Keys] = useState<string[]>([]);
   const [analyzing, setAnalyzing] = useState(false);
   const [iaResult, setIaResult] = useState<BedrockResult | null>(null);
   const [iaError, setIaError] = useState<string | null>(null);
@@ -85,7 +86,7 @@ const NuevaSolicitudPage: React.FC = () => {
     setAnalyzing(true);
     setIaError(null);
     try {
-      const result = await analizarConBedrock(files[0], { brand: brand.join(', '), product, channel, contentType, description }, maestros.promptIA);
+      const result = await analizarConBedrock(files[0], { brand: brand.join(', '), product, channel, contentType, description }, maestros.promptIA, uploadedS3Keys[0]);
       setIaResult(result);
     } catch (e: any) {
       setIaError(e.message || 'Error al analizar');
@@ -100,6 +101,24 @@ const NuevaSolicitudPage: React.FC = () => {
     }
     if (step === 2 && files.length === 0) {
       notify('Debes subir al menos un archivo PDF', 'error'); return;
+    }
+    // Al pasar del paso 2 al 3, subir PDFs a S3 si no se han subido
+    if (step === 2 && uploadedS3Keys.length === 0) {
+      const PRESIGN_URL = (import.meta as any).env?.VITE_PRESIGN_URL as string;
+      if (PRESIGN_URL) {
+        try {
+          const keys: string[] = [];
+          for (const f of files) {
+            const presignRes = await fetch(PRESIGN_URL, {
+              method: 'POST', headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ action: 'upload', solicitudId: `temp-${Date.now()}`, fileName: f.name, version: 1 }),
+            });
+            const { url, key } = await presignRes.json();
+            if (url) { await fetch(url, { method: 'PUT', headers: { 'Content-Type': 'application/pdf' }, body: f }); keys.push(key); }
+          }
+          setUploadedS3Keys(keys);
+        } catch { /* continuar sin s3Key */ }
+      }
     }
     if (step === 3) { setStep(4); await runBedrock(); return; }
     if (step === 4) { await handleSubmit(); return; }
@@ -121,13 +140,12 @@ const NuevaSolicitudPage: React.FC = () => {
       const now = new Date().toISOString();
       const PRESIGN_URL = (import.meta as any).env?.VITE_PRESIGN_URL as string;
 
-      // 1. Subir PDFs a S3 via presigned URL
+      // 1. Usar s3Keys ya subidos en paso 2, o subir si no se subieron
       const uploadedFiles = await Promise.all(files.map(async (f, i) => {
-        let s3Key = '';
-        let s3Url = '';
-        if (PRESIGN_URL) {
+        let s3Key = uploadedS3Keys[i] || '';
+        let s3Url = s3Key ? `https://alpina-comitepublicidad-docs-prod.s3.amazonaws.com/${s3Key}` : '';
+        if (!s3Key && PRESIGN_URL) {
           try {
-            // Pedimos presigned URL (usamos un ID temporal, se actualiza después)
             const presignRes = await fetch(PRESIGN_URL, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },

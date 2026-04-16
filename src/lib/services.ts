@@ -84,21 +84,27 @@ export async function analizarConBedrock(
   const headers: Record<string, string> = { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) };
   const solicitudId = `ia-${Date.now()}`;
 
-  // Preparar PDF en base64
-  const arrayBuffer = await file.arrayBuffer();
-  const bytes = new Uint8Array(arrayBuffer);
-  let binary = '';
-  bytes.forEach(b => { binary += String.fromCharCode(b); });
-  const pdfBase64 = btoa(binary);
+  // Si tenemos s3Key, no necesitamos enviar el PDF en base64
+  let bodyPayload: any = {
+    action: 'start', solicitudId,
+    brand: solicitudInfo.brand, product: solicitudInfo.product,
+    contentType: solicitudInfo.contentType, channel: solicitudInfo.channel,
+  };
+
+  if (s3Key) {
+    bodyPayload.s3Key = s3Key;
+  } else {
+    const arrayBuffer = await file.arrayBuffer();
+    const bytes = new Uint8Array(arrayBuffer);
+    let binary = '';
+    bytes.forEach(b => { binary += String.fromCharCode(b); });
+    bodyPayload.pdfBase64 = btoa(binary);
+  }
 
   // 1. Iniciar análisis async
   const startRes = await fetch(BEDROCK_URL, {
     method: 'POST', headers,
-    body: JSON.stringify({
-      action: 'start', solicitudId, pdfBase64,
-      brand: solicitudInfo.brand, product: solicitudInfo.product,
-      contentType: solicitudInfo.contentType, channel: solicitudInfo.channel,
-    }),
+    body: JSON.stringify(bodyPayload),
   });
   if (!startRes.ok) throw new Error(`Bedrock error: ${startRes.status}`);
 
