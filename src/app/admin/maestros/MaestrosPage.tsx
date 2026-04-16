@@ -72,9 +72,10 @@ const MaestrosPage: React.FC = () => {
   const [iaModel, setIaModel] = useState('us.anthropic.claude-sonnet-4-6');
   const [iaEnabled, setIaEnabled] = useState(true);
   const [customModel, setCustomModel] = useState('');
+  const [iaByContentType, setIaByContentType] = useState<Record<string, boolean>>({});
   const [activeTab, setActiveTab] = useState<TipoMaestro | 'prompt'>('marcas');
 
-  // Cargar modelo y estado desde DynamoDB
+  // Cargar modelo, estado y config por tipo desde DynamoDB
   React.useEffect(() => {
     fetch(`${(import.meta as any).env?.VITE_API_URL}/maestros/config-ia-model`)
       .then(r => r.json())
@@ -82,6 +83,7 @@ const MaestrosPage: React.FC = () => {
         const s = items.find((i: any) => i.id === 'singleton');
         if (s?.value) setIaModel(s.value);
         if (s?.enabled !== undefined) setIaEnabled(s.enabled);
+        if (s?.byContentType) setIaByContentType(s.byContentType);
       }).catch(() => {});
   }, []);
 
@@ -196,6 +198,34 @@ const MaestrosPage: React.FC = () => {
                 />
               )}
               <p className="text-[11px] text-slate-400">Sonnet es más preciso, Haiku es más rápido y económico. Si sale un modelo nuevo, selecciona "Otro modelo" y escribe el ID del inference profile.</p>
+            </div>
+            {/* IA por tipo de contenido */}
+            <div className="space-y-2">
+              <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Análisis IA por tipo de contenido</label>
+              <p className="text-[11px] text-slate-400 mb-2">Activa o desactiva el análisis IA para cada tipo de pieza.</p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                {config.tiposContenido.filter(t => t.activo).map(tipo => {
+                  const enabled = iaByContentType[tipo.value] !== false;
+                  return (
+                    <div key={tipo.id} className="flex items-center justify-between p-3 bg-slate-50 dark:bg-slate-800 rounded-lg border">
+                      <span className="text-xs font-semibold text-slate-700 dark:text-slate-300">{tipo.label}</span>
+                      <button
+                        onClick={() => setIaByContentType(prev => ({ ...prev, [tipo.value]: !enabled }))}
+                        className={cn('relative w-10 h-5 rounded-full transition-colors shrink-0', enabled ? 'bg-emerald-500' : 'bg-slate-200 dark:bg-slate-600')}
+                      >
+                        <span className={cn('absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform', enabled && 'translate-x-5')} />
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+              <Button variant="outline" size="sm" onClick={async () => {
+                try {
+                  const { maestrosApi } = await import('../../../lib/api');
+                  await maestrosApi.update('config-ia-model', 'singleton', { id: 'singleton', tipo: 'config-ia-model', value: iaModel === 'custom' ? customModel : iaModel, enabled: iaEnabled, byContentType: iaByContentType });
+                  notify('Configuración guardada', 'success');
+                } catch { notify('Error', 'error'); }
+              }} className="gap-1 mt-2"><Save size={14} /> Guardar configuración por tipo</Button>
             </div>
             <textarea
               className="w-full min-h-[280px] p-4 text-sm border rounded-lg focus:ring-2 focus:ring-[#1e3a5f] outline-none font-mono bg-slate-50 dark:bg-slate-800 dark:border-slate-700 dark:text-slate-200"

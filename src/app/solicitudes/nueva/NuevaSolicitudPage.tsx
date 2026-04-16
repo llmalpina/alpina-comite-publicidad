@@ -72,7 +72,13 @@ const NuevaSolicitudPage: React.FC = () => {
         if (cfg?.enabled === false) {
           setIaResult(null);
           setAnalyzing(false);
-          return; // IA desactivada, skip
+          return;
+        }
+        // Verificar si el tipo de contenido tiene IA habilitada
+        if (cfg?.byContentType && cfg.byContentType[contentType] === false) {
+          setIaResult(null);
+          setAnalyzing(false);
+          return;
         }
       }
     } catch { /* continuar con análisis */ }
@@ -365,38 +371,38 @@ const NuevaSolicitudPage: React.FC = () => {
                 </div>
               ) : iaResult ? (
                 <>
-                  <div className="text-center space-y-2">
-                    <div className="w-20 h-20 bg-emerald-50 text-emerald-600 rounded-full flex items-center justify-center mx-auto mb-4 border-4 border-emerald-100">
-                      <ShieldCheck size={40} />
+                  <div className="flex items-center gap-4 p-4 bg-slate-50 dark:bg-slate-800 rounded-xl">
+                    <div className={cn('w-14 h-14 rounded-xl flex items-center justify-center shrink-0',
+                      iaResult.score >= 80 ? 'bg-emerald-100 text-emerald-600' :
+                      iaResult.score >= 60 ? 'bg-amber-100 text-amber-600' : 'bg-orange-100 text-orange-600')}>
+                      <span className="text-2xl font-black">{iaResult.score}</span>
                     </div>
-                    <h3 className="text-xl font-bold text-slate-900 dark:text-white">Análisis completado</h3>
-                  </div>
-                  <div className="flex justify-center">
-                    <div className={cn('px-8 py-4 rounded-xl text-center border-2',
-                      iaResult.score >= 80 ? 'bg-emerald-50 border-emerald-200' :
-                      iaResult.score >= 60 ? 'bg-yellow-50 border-yellow-200' : 'bg-red-50 border-red-200')}>
-                      <p className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-1">Score de Cumplimiento</p>
-                      <p className={cn('text-5xl font-black',
-                        iaResult.score >= 80 ? 'text-emerald-700' :
-                        iaResult.score >= 60 ? 'text-yellow-700' : 'text-red-700')}>{iaResult.score}<span className="text-2xl">/100</span></p>
+                    <div>
+                      <p className="text-sm font-semibold text-slate-800 dark:text-slate-200">Pre-validación completada</p>
+                      <p className="text-xs text-slate-500">
+                        {iaResult.observations.length === 0 ? 'No se encontraron observaciones. Tu pieza se ve bien.' :
+                         `Se encontraron ${iaResult.observations.length} sugerencia${iaResult.observations.length > 1 ? 's' : ''} para revisar.`}
+                      </p>
                     </div>
                   </div>
                   {iaResult.observations.length > 0 && (
-                    <div className="space-y-3">
-                      <h4 className="text-sm font-bold text-slate-700 flex items-center gap-2"><Info size={16} className="text-blue-600" />Observaciones ({iaResult.observations.length})</h4>
+                    <div className="space-y-2 max-h-[300px] overflow-y-auto">
                       {iaResult.observations.map(obs => (
-                        <div key={obs.id} className={cn('p-4 rounded-lg border', severityColor(obs.severity))}>
-                          <div className="flex justify-between items-start mb-1">
-                            <span className="text-xs font-bold uppercase tracking-wider">{obs.category}</span>
-                            <Badge className={cn('text-[10px]', obs.severity === 'ERROR' ? 'bg-red-200 text-red-800' : obs.severity === 'WARNING' ? 'bg-yellow-200 text-yellow-800' : 'bg-blue-200 text-blue-800')}>{obs.severity}</Badge>
+                        <div key={obs.id} className="flex gap-3 p-3 bg-amber-50 dark:bg-amber-900/10 border border-amber-100 dark:border-amber-800 rounded-lg">
+                          <div className="w-1.5 rounded-full shrink-0 bg-amber-400" />
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-2 mb-0.5">
+                              <span className="text-[10px] font-bold text-amber-700 uppercase">{obs.category}</span>
+                              <span className="text-[10px] text-amber-500">Sugerencia</span>
+                            </div>
+                            <p className="text-xs text-slate-700 dark:text-slate-300 leading-relaxed">{obs.message}</p>
+                            {obs.suggestion && <p className="text-[11px] text-amber-600 mt-1 italic">{obs.suggestion}</p>}
                           </div>
-                          <p className="text-sm">{obs.message}</p>
-                          {obs.ruleReference && <p className="text-[11px] font-mono mt-1 opacity-70">Ref: {obs.ruleReference}</p>}
-                          {obs.suggestion && <p className="text-xs mt-2 pt-2 border-t border-current/10 italic">Sugerencia: {obs.suggestion}</p>}
                         </div>
                       ))}
                     </div>
                   )}
+                  <p className="text-[11px] text-slate-400 text-center">Este análisis es una sugerencia automática. La decisión final la toma el comité.</p>
                 </>
               ) : (
                 <div className="text-center py-12 space-y-3">
