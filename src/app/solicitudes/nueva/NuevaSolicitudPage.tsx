@@ -37,7 +37,7 @@ const NuevaSolicitudPage: React.FC = () => {
   const [submitting, setSubmitting] = useState(false);
   const [confirmed, setConfirmed] = useState(false);
 
-  const [brand, setBrand] = useState('');
+  const [brand, setBrand] = useState<string[]>([]);
   const [product, setProduct] = useState('');
   const [contentType, setContentType] = useState('');
   const [channel, setChannel] = useState('');
@@ -65,7 +65,7 @@ const NuevaSolicitudPage: React.FC = () => {
     setAnalyzing(true);
     setIaError(null);
     try {
-      const result = await analizarConBedrock(files[0], { brand, product, channel, contentType, description }, maestros.promptIA);
+      const result = await analizarConBedrock(files[0], { brand: brand.join(', '), product, channel, contentType, description }, maestros.promptIA);
       setIaResult(result);
     } catch (e: any) {
       setIaError(e.message || 'Error al analizar');
@@ -75,7 +75,7 @@ const NuevaSolicitudPage: React.FC = () => {
   };
 
   const handleNext = async () => {
-    if (step === 1 && (!brand || !product || !contentType || !channel)) {
+    if (step === 1 && (!brand.length || !product || !contentType || !channel)) {
       notify('Completa todos los campos obligatorios', 'error'); return;
     }
     if (step === 2 && files.length === 0) {
@@ -129,8 +129,8 @@ const NuevaSolicitudPage: React.FC = () => {
       }));
 
       const solicitudData = {
-        title: `${brand} — ${product}`,
-        description, brand, product, contentType, channel,
+        title: `${brand.join(', ')} — ${product}`,
+        description, brand: brand.join(', '), product, contentType, channel,
         deadline: deadline || new Date(Date.now() + 7 * 86400000).toISOString(),
         iaResult: iaResult ?? undefined,
         files: uploadedFiles,
@@ -161,7 +161,7 @@ const NuevaSolicitudPage: React.FC = () => {
             cc: extraCc,
             data: {
               id: solicitud.id, consecutive: solicitud.consecutive, title: solicitud.title,
-              brand, area: user?.area || '', solicitanteName: user?.name || '',
+              brand: brand.join(', '), area: user?.area || '', solicitanteName: user?.name || '',
               deadline: solicitudData.deadline,
             },
           }),
@@ -238,11 +238,25 @@ const NuevaSolicitudPage: React.FC = () => {
             <div className="space-y-6 animate-in fade-in duration-300">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-2">
-                  <label className="text-sm font-semibold text-slate-700 dark:text-slate-300">Marca *</label>
-                  <select value={brand} onChange={e => setBrand(e.target.value)} className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
-                    <option value="">Selecciona una marca</option>
-                    {marcasActivas.map(m => <option key={m.id} value={m.value}>{m.label}</option>)}
-                  </select>
+                  <label className="text-sm font-semibold text-slate-700 dark:text-slate-300">Marca(s) *</label>
+                  <div className="flex flex-wrap gap-2 p-2 border rounded-md min-h-[40px] bg-background">
+                    {brand.map(b => (
+                      <span key={b} className="flex items-center gap-1 bg-[#1e3a5f] text-white text-xs font-semibold px-2.5 py-1 rounded-full">
+                        {b}
+                        <button type="button" onClick={() => setBrand(prev => prev.filter(x => x !== b))} className="hover:text-red-300">
+                          <X size={12} />
+                        </button>
+                      </span>
+                    ))}
+                    <select
+                      value=""
+                      onChange={e => { if (e.target.value && !brand.includes(e.target.value)) setBrand(prev => [...prev, e.target.value]); }}
+                      className="flex-1 min-w-[120px] h-8 bg-transparent text-sm outline-none border-none"
+                    >
+                      <option value="">{brand.length === 0 ? 'Selecciona marca(s)' : 'Agregar otra...'}</option>
+                      {marcasActivas.filter(m => !brand.includes(m.value)).map(m => <option key={m.id} value={m.value}>{m.label}</option>)}
+                    </select>
+                  </div>
                 </div>
                 <div className="space-y-2">
                   <label className="text-sm font-semibold text-slate-700 dark:text-slate-300">Producto *</label>
