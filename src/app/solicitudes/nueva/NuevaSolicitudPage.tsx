@@ -62,6 +62,20 @@ const NuevaSolicitudPage: React.FC = () => {
 
   const runBedrock = async () => {
     if (!files[0]) return;
+    // Verificar si IA está habilitada
+    try {
+      const apiUrl = (import.meta as any).env?.VITE_API_URL;
+      if (apiUrl) {
+        const configRes = await fetch(`${apiUrl}/maestros/config-ia-model`);
+        const items = await configRes.json();
+        const cfg = items.find((i: any) => i.id === 'singleton');
+        if (cfg?.enabled === false) {
+          setIaResult(null);
+          setAnalyzing(false);
+          return; // IA desactivada, skip
+        }
+      }
+    } catch { /* continuar con análisis */ }
     setAnalyzing(true);
     setIaError(null);
     try {
