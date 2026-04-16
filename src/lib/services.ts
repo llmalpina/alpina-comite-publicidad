@@ -81,30 +81,43 @@ export async function analizarConBedrock(
   }
 
   const token = localStorage.getItem('alpina_id_token');
+  const headers: Record<string, string> = { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) };
+  const solicitudId = `ia-${Date.now()}`;
 
-  // Si tenemos s3Key, enviamos eso (más eficiente). Si no, enviamos el PDF en base64.
-  let body: any;
-  if (s3Key) {
-    body = { s3Key, brand: solicitudInfo.brand, product: solicitudInfo.product, contentType: solicitudInfo.contentType, channel: solicitudInfo.channel };
-  } else {
-    const arrayBuffer = await file.arrayBuffer();
-    const bytes = new Uint8Array(arrayBuffer);
-    let binary = '';
-    bytes.forEach(b => { binary += String.fromCharCode(b); });
-    body = { pdfBase64: btoa(binary), brand: solicitudInfo.brand, product: solicitudInfo.product, contentType: solicitudInfo.contentType, channel: solicitudInfo.channel };
-  }
+  // Preparar PDF en base64
+  const arrayBuffer = await file.arrayBuffer();
+  const bytes = new Uint8Array(arrayBuffer);
+  let binary = '';
+  bytes.forEach(b => { binary += String.fromCharCode(b); });
+  const pdfBase64 = btoa(binary);
 
-  const res = await fetch(BEDROCK_URL, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-    },
-    body: JSON.stringify(body),
+  // 1. Iniciar análisis async
+  const startRes = await fetch(BEDROCK_URL, {
+    method: 'POST', headers,
+    body: JSON.stringify({
+      action: 'start', solicitudId, pdfBase64,
+      brand: solicitudInfo.brand, product: solicitudInfo.product,
+      contentType: solicitudInfo.contentType, channel: solicitudInfo.channel,
+    }),
   });
+  if (!startRes.ok) throw new Error(`Bedrock error: ${startRes.status}`);
 
-  if (!res.ok) throw new Error(`Bedrock error: ${res.status}`);
-  return res.json();
+  // 2. Polling cada 3 segundos hasta que esté listo (max 2 minutos)
+  const maxAttempts = 40;
+  for (let i = 0; i < maxAttempts; i++) {
+    await new Promise(r => setTimeout(r, 3000));
+    try {
+      const checkRes = await fetch(BEDROCK_URL, {
+        method: 'POST', headers,
+        body: JSON.stringify({ action: 'check', solicitudId }),
+      });
+      if (checkRes.ok) {
+        const data = await checkRes.json();
+        if (data.status === 'done' && data.result) return data.result;
+      }
+    } catch { /* retry */ }
+  }
+  throw new Error('Análisis IA tardó demasiado. Intenta de nuevo.');
 }
 
 // ─── Motor de reglas de notificación ─────────────────────────────────────────
