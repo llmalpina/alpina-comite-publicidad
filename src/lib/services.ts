@@ -72,27 +72,35 @@ export interface BedrockResult {
 export async function analizarConBedrock(
   file: File,
   solicitudInfo: { brand: string; product: string; channel: string; contentType: string; description: string },
-  promptIA: string
+  promptIA: string,
+  s3Key?: string
 ): Promise<BedrockResult | null> {
   if (!BEDROCK_URL) {
     console.info('[Bedrock] Lambda URL no configurada — análisis omitido');
     return null;
   }
 
-  const arrayBuffer = await file.arrayBuffer();
-  const bytes = new Uint8Array(arrayBuffer);
-  let binary = '';
-  bytes.forEach(b => { binary += String.fromCharCode(b); });
-  const pdfBase64 = btoa(binary);
-
   const token = localStorage.getItem('alpina_id_token');
+
+  // Si tenemos s3Key, enviamos eso (más eficiente). Si no, enviamos el PDF en base64.
+  let body: any;
+  if (s3Key) {
+    body = { s3Key, brand: solicitudInfo.brand, product: solicitudInfo.product, contentType: solicitudInfo.contentType, channel: solicitudInfo.channel };
+  } else {
+    const arrayBuffer = await file.arrayBuffer();
+    const bytes = new Uint8Array(arrayBuffer);
+    let binary = '';
+    bytes.forEach(b => { binary += String.fromCharCode(b); });
+    body = { pdfBase64: btoa(binary), brand: solicitudInfo.brand, product: solicitudInfo.product, contentType: solicitudInfo.contentType, channel: solicitudInfo.channel };
+  }
+
   const res = await fetch(BEDROCK_URL, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
     },
-    body: JSON.stringify({ pdfBase64, prompt: promptIA, solicitudInfo }),
+    body: JSON.stringify(body),
   });
 
   if (!res.ok) throw new Error(`Bedrock error: ${res.status}`);
