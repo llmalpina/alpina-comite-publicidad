@@ -95,6 +95,8 @@ const NuevaSolicitudPage: React.FC = () => {
     }
   };
 
+  const [uploading, setUploading] = useState(false);
+
   const handleNext = async () => {
     if (step === 1 && (!brand.length || !product || !contentType || !channel)) {
       notify('Completa todos los campos obligatorios', 'error'); return;
@@ -102,8 +104,9 @@ const NuevaSolicitudPage: React.FC = () => {
     if (step === 2 && files.length === 0) {
       notify('Debes subir al menos un archivo PDF', 'error'); return;
     }
-    // Al pasar del paso 2 al 3, subir PDFs a S3 si no se han subido
+    // Al pasar del paso 2 al 3: subir PDF a S3 + lanzar IA en paralelo
     if (step === 2 && uploadedS3Keys.length === 0) {
+      setUploading(true);
       const PRESIGN_URL = (import.meta as any).env?.VITE_PRESIGN_URL as string;
       if (PRESIGN_URL) {
         try {
@@ -117,10 +120,24 @@ const NuevaSolicitudPage: React.FC = () => {
             if (url) { await fetch(url, { method: 'PUT', headers: { 'Content-Type': 'application/pdf' }, body: f }); keys.push(key); }
           }
           setUploadedS3Keys(keys);
-        } catch { /* continuar sin s3Key */ }
+          setUploading(false);
+          // Lanzar IA en background (no await — se ejecuta mientras el usuario ve el paso 3)
+          if (keys[0]) {
+            setAnalyzing(true);
+            setIaError(null);
+            analizarConBedrock(files[0], { brand: brand.join(', '), product, channel, contentType, description }, maestros.promptIA, keys[0])
+              .then(result => setIaResult(result))
+              .catch(e => setIaError(e.message || 'Error al analizar'))
+              .finally(() => setAnalyzing(false));
+          }
+        } catch {
+          setUploading(false);
+        }
+      } else {
+        setUploading(false);
       }
     }
-    if (step === 3) { setStep(4); await runBedrock(); return; }
+    if (step === 3) { setStep(4); return; }
     if (step === 4) { await handleSubmit(); return; }
     setStep(s => s + 1);
   };
@@ -446,8 +463,9 @@ const NuevaSolicitudPage: React.FC = () => {
           <Button variant="outline" onClick={handleBack} disabled={step === 1 || analyzing || submitting} className="gap-2">
             <ChevronLeft size={18} /> Anterior
           </Button>
-          <Button onClick={handleNext} disabled={analyzing || submitting} className="gap-2">
-            {submitting  ? <><Loader2 size={16} className="animate-spin" /> Enviando...</> :
+          <Button onClick={handleNext} disabled={analyzing || submitting || uploading} className="gap-2">
+            {uploading   ? <><Loader2 size={16} className="animate-spin" /> Subiendo PDF...</> :
+             submitting  ? <><Loader2 size={16} className="animate-spin" /> Enviando...</> :
              analyzing   ? <><Loader2 size={16} className="animate-spin" /> Analizando...</> :
              step === 4  ? 'Enviar al Comité' :
                            <>Siguiente <ChevronRight size={18} /></>}
