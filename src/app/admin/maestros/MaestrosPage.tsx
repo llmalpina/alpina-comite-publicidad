@@ -18,7 +18,7 @@ const SECCIONES: { key: TipoMaestro; label: string }[] = [
 ];
 
 const ListaMaestro: React.FC<{ tipo: TipoMaestro; items: MaestroItem[] }> = ({ tipo, items }) => {
-  const { addItem, removeItem, toggleItem } = useMaestros();
+  const { addItem, removeItem, toggleItem, updateTiposContenido } = useMaestros();
   const { notify } = useNotifications();
   const [nuevo, setNuevo] = useState('');
 
@@ -29,35 +29,57 @@ const ListaMaestro: React.FC<{ tipo: TipoMaestro; items: MaestroItem[] }> = ({ t
     notify('Elemento agregado', 'success');
   };
 
+  const updateItemField = (id: string, field: string, value: number) => {
+    if (tipo !== 'tiposContenido') return;
+    const updated = items.map(i => i.id === id ? { ...i, [field]: value } : i);
+    updateTiposContenido(updated);
+  };
+
   return (
     <div className="space-y-3">
       <div className="flex gap-2">
-        <Input
-          placeholder="Nuevo elemento..."
-          value={nuevo}
-          onChange={e => setNuevo(e.target.value)}
-          onKeyDown={e => e.key === 'Enter' && handleAdd()}
-          className="flex-1"
-        />
-        <Button size="sm" onClick={handleAdd} className="gap-1 shrink-0">
-          <Plus size={16} /> Agregar
-        </Button>
+        <Input placeholder="Nuevo elemento..." value={nuevo} onChange={e => setNuevo(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleAdd()} className="flex-1" />
+        <Button size="sm" onClick={handleAdd} className="gap-1 shrink-0"><Plus size={16} /> Agregar</Button>
       </div>
-      <div className="space-y-2 max-h-64 overflow-y-auto pr-1">
+      {tipo === 'tiposContenido' && (
+        <p className="text-[11px] text-slate-400">Configura los minutos de revisión y contenidos esperados por semana para cada tipo.</p>
+      )}
+      <div className="space-y-2 max-h-[400px] overflow-y-auto pr-1">
         {items.map(item => (
           <div key={item.id} className={cn(
-            'flex items-center justify-between p-3 rounded-lg border text-sm transition-colors',
+            'p-3 rounded-lg border text-sm transition-colors',
             item.activo ? 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700' : 'bg-slate-50 dark:bg-slate-900 border-slate-100 dark:border-slate-800 opacity-50'
           )}>
-            <span className={cn('font-medium', !item.activo && 'line-through text-slate-400')}>{item.label}</span>
-            <div className="flex items-center gap-1">
-              <button onClick={() => toggleItem(tipo, item.id)} className="p-1.5 rounded hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-500 transition-colors" title={item.activo ? 'Desactivar' : 'Activar'}>
-                {item.activo ? <ToggleRight size={18} className="text-emerald-500" /> : <ToggleLeft size={18} />}
-              </button>
-              <button onClick={() => { removeItem(tipo, item.id); notify('Elemento eliminado', 'info'); }} className="p-1.5 rounded hover:bg-red-50 dark:hover:bg-red-900/20 text-red-400 transition-colors">
-                <Trash2 size={16} />
-              </button>
+            <div className="flex items-center justify-between">
+              <span className={cn('font-medium', !item.activo && 'line-through text-slate-400')}>{item.label}</span>
+              <div className="flex items-center gap-1">
+                <button onClick={() => toggleItem(tipo, item.id)} className="p-1.5 rounded hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-500 transition-colors">
+                  {item.activo ? <ToggleRight size={18} className="text-emerald-500" /> : <ToggleLeft size={18} />}
+                </button>
+                <button onClick={() => { removeItem(tipo, item.id); notify('Elemento eliminado', 'info'); }} className="p-1.5 rounded hover:bg-red-50 text-red-400 transition-colors">
+                  <Trash2 size={16} />
+                </button>
+              </div>
             </div>
+            {tipo === 'tiposContenido' && item.activo && (
+              <div className="flex gap-4 mt-2 pt-2 border-t border-slate-100 dark:border-slate-700">
+                <div className="flex items-center gap-2">
+                  <label className="text-[10px] text-slate-500 font-semibold uppercase">Min/pieza:</label>
+                  <input type="number" min={1} max={300} value={(item as any).minutos || 40}
+                    onChange={e => updateItemField(item.id, 'minutos', parseInt(e.target.value) || 40)}
+                    className="w-16 h-7 text-xs text-center border rounded bg-slate-50 dark:bg-slate-900" />
+                </div>
+                <div className="flex items-center gap-2">
+                  <label className="text-[10px] text-slate-500 font-semibold uppercase">Piezas/sem:</label>
+                  <input type="number" min={0} max={200} value={(item as any).contenidosSemana || 0}
+                    onChange={e => updateItemField(item.id, 'contenidosSemana', parseInt(e.target.value) || 0)}
+                    className="w-16 h-7 text-xs text-center border rounded bg-slate-50 dark:bg-slate-900" />
+                </div>
+                <span className="text-[10px] text-slate-400 self-center">
+                  = {Math.round(((item as any).minutos || 40) * ((item as any).contenidosSemana || 0) / 60 * 10) / 10}h/sem
+                </span>
+              </div>
+            )}
           </div>
         ))}
       </div>

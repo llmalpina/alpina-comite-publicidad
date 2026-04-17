@@ -3,13 +3,17 @@ import { ContentType, RequestStatus, UserRole } from '../types';
 export const BRANDS = ['Alpina', 'Bon Yurt', 'Alpin', 'Finesse', 'Yox', 'Avena Alpina', 'Arequipe Alpina', 'Baby Gü', 'Regeneris'];
 
 export const CONTENT_TYPES: { label: string; value: ContentType }[] = [
-  { label: 'Imagen Estática', value: 'IMAGEN_ESTATICA' },
-  { label: 'Video', value: 'VIDEO' },
-  { label: 'Post Redes Sociales', value: 'POST_REDES' },
-  { label: 'Material POP', value: 'MATERIAL_POP' },
-  { label: 'Prensa', value: 'PRENSA' },
-  { label: 'Televisión', value: 'TV' },
-  { label: 'Otro', value: 'OTRO' },
+  { label: 'Parrilla digital, TikTok y marca', value: 'PARRILLA_DIGITAL' },
+  { label: 'Parrilla de marcas / cuadro de materiales', value: 'PARRILLA_MARCAS' },
+  { label: 'Guiones para creadores de contenido', value: 'GUIONES_CREADORES' },
+  { label: 'Malla OOH (Out-of-Home)', value: 'MALLA_OOH' },
+  { label: 'Paquete de artes de una marca', value: 'PAQUETE_ARTES' },
+  { label: 'Guiones y storyboards de comerciales TV', value: 'GUIONES_TV' },
+  { label: 'Matriz de copys y cuadros de texto', value: 'MATRIZ_COPYS' },
+  { label: 'Q&A de campañas', value: 'QA_CAMPANAS' },
+  { label: 'Landing, web, email marketing', value: 'LANDING_WEB_EMAIL' },
+  { label: 'Paquete POP punto de venta', value: 'PAQUETE_POP' },
+  { label: 'Comunicados de prensa y publirreportajes', value: 'COMUNICADOS_PRENSA' },
 ];
 
 export const CHANNELS = ['Instagram', 'Facebook', 'TikTok', 'YouTube', 'Punto de Venta', 'Televisión', 'Radio', 'Valla / Exterior', 'E-commerce'];

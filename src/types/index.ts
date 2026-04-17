@@ -12,13 +12,17 @@ export type RequestStatus =
   | 'PUBLICADA';
 
 export type ContentType = 
-  | 'IMAGEN_ESTATICA' 
-  | 'VIDEO' 
-  | 'POST_REDES' 
-  | 'MATERIAL_POP' 
-  | 'PRENSA' 
-  | 'TV' 
-  | 'OTRO';
+  | 'PARRILLA_DIGITAL'
+  | 'PARRILLA_MARCAS'
+  | 'GUIONES_CREADORES'
+  | 'MALLA_OOH'
+  | 'PAQUETE_ARTES'
+  | 'GUIONES_TV'
+  | 'MATRIZ_COPYS'
+  | 'QA_CAMPANAS'
+  | 'LANDING_WEB_EMAIL'
+  | 'PAQUETE_POP'
+  | 'COMUNICADOS_PRENSA';
 
 export interface User {
   id: string;
@@ -150,6 +154,10 @@ export interface MaestroItem {
   label: string;
   value: string;
   activo: boolean;
+  /** Minutos de revisión por pieza (solo para tiposContenido) */
+  minutos?: number;
+  /** Contenidos aproximados por semana (solo para tiposContenido) */
+  contenidosSemana?: number;
 }
 
 export interface MaestrosConfig {
