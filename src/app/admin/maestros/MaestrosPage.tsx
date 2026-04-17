@@ -77,7 +77,10 @@ const MaestrosPage: React.FC = () => {
 
   // Cargar modelo, estado y config por tipo desde DynamoDB
   React.useEffect(() => {
-    fetch(`${(import.meta as any).env?.VITE_API_URL}/maestros/config-ia-model`)
+    const token = localStorage.getItem('alpina_id_token');
+    fetch(`${(import.meta as any).env?.VITE_API_URL}/maestros/config-ia-model`, {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    })
       .then(r => r.json())
       .then(items => {
         const s = items.find((i: any) => i.id === 'singleton');

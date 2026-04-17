@@ -67,7 +67,9 @@ const NuevaSolicitudPage: React.FC = () => {
     try {
       const apiUrl = (import.meta as any).env?.VITE_API_URL;
       if (apiUrl) {
-        const configRes = await fetch(`${apiUrl}/maestros/config-ia-model`);
+        const configRes = await fetch(`${apiUrl}/maestros/config-ia-model`, {
+          headers: { ...(localStorage.getItem('alpina_id_token') ? { Authorization: `Bearer ${localStorage.getItem('alpina_id_token')}` } : {}) },
+        });
         const items = await configRes.json();
         const cfg = items.find((i: any) => i.id === 'singleton');
         if (cfg?.enabled === false) {
@@ -121,8 +123,24 @@ const NuevaSolicitudPage: React.FC = () => {
           }
           setUploadedS3Keys(keys);
           setUploading(false);
-          // Lanzar IA en background (no await — se ejecuta mientras el usuario ve el paso 3)
-          if (keys[0]) {
+          // Verificar si IA está habilitada para este tipo de contenido
+          let shouldAnalyze = true;
+          try {
+            const apiUrl = (import.meta as any).env?.VITE_API_URL;
+            if (apiUrl) {
+              const cfgRes = await fetch(`${apiUrl}/maestros/config-ia-model`, {
+                headers: { ...(localStorage.getItem('alpina_id_token') ? { Authorization: `Bearer ${localStorage.getItem('alpina_id_token')}` } : {}) },
+              });
+              if (cfgRes.ok) {
+                const items = await cfgRes.json();
+                const cfg = items.find((i: any) => i.id === 'singleton');
+                if (cfg?.enabled === false) shouldAnalyze = false;
+                if (cfg?.byContentType && cfg.byContentType[contentType] === false) shouldAnalyze = false;
+              }
+            }
+          } catch { /* continuar */ }
+          // Lanzar IA en background si está habilitada
+          if (shouldAnalyze && keys[0]) {
             setAnalyzing(true);
             setIaError(null);
             analizarConBedrock(files[0], { brand: brand.join(', '), product, channel, contentType, description }, maestros.promptIA, keys[0])
