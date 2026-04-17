@@ -193,15 +193,15 @@ const DashboardPage: React.FC = () => {
       ) : (
         <>
           {/* KPIs */}
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3">
             {stats.map((stat, i) => (
               <Card key={i} className={cn('border', stat.border)}>
-                <CardContent className="p-4">
-                  <div className="flex items-center gap-3">
-                    <div className={cn('p-2 rounded-lg', stat.bg)}><stat.icon size={18} className={stat.color} /></div>
-                    <div>
-                      <p className="text-2xl font-bold text-slate-900 dark:text-white">{stat.value}</p>
-                      <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">{stat.label}</p>
+                <CardContent className="p-3 sm:p-4">
+                  <div className="flex items-center gap-2 sm:gap-3">
+                    <div className={cn('p-1.5 sm:p-2 rounded-lg shrink-0', stat.bg)}><stat.icon size={16} className={stat.color} /></div>
+                    <div className="min-w-0">
+                      <p className="text-lg sm:text-2xl font-bold text-slate-900 dark:text-white truncate">{stat.value}</p>
+                      <p className="text-[9px] sm:text-[10px] font-semibold text-slate-500 uppercase tracking-wider truncate">{stat.label}</p>
                     </div>
                   </div>
                 </CardContent>

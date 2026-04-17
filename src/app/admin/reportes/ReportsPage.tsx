@@ -116,7 +116,7 @@ const ReportsPage: React.FC = () => {
       </div>
 
       {/* KPIs */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3">
         {[
           { label: 'Total piezas', value: total, icon: FileText, color: 'text-[#1e3a5f]', bg: 'bg-blue-50' },
           { label: 'Horas consumidas', value: `${horasConsumidas}h`, icon: Clock, color: 'text-violet-600', bg: 'bg-violet-50' },
@@ -126,12 +126,12 @@ const ReportsPage: React.FC = () => {
           { label: 'Publicadas', value: publicadas, icon: Filter, color: 'text-violet-600', bg: 'bg-violet-50' },
         ].map((s, i) => (
           <Card key={i}>
-            <CardContent className="p-4">
-              <div className="flex items-center gap-3">
-                <div className={cn('p-2 rounded-lg', s.bg)}><s.icon size={18} className={s.color} /></div>
-                <div>
-                  <p className="text-xl font-bold text-slate-900 dark:text-white">{s.value}</p>
-                  <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">{s.label}</p>
+            <CardContent className="p-3 sm:p-4">
+              <div className="flex items-center gap-2 sm:gap-3">
+                <div className={cn('p-1.5 sm:p-2 rounded-lg shrink-0', s.bg)}><s.icon size={16} className={s.color} /></div>
+                <div className="min-w-0">
+                  <p className="text-lg sm:text-xl font-bold text-slate-900 dark:text-white truncate">{s.value}</p>
+                  <p className="text-[9px] sm:text-[10px] font-semibold text-slate-500 uppercase tracking-wider truncate">{s.label}</p>
                 </div>
               </div>
             </CardContent>
@@ -229,7 +229,8 @@ const ReportsPage: React.FC = () => {
           <CardTitle className="text-sm font-bold flex items-center gap-2"><Clock size={16} /> Detalle de horas por tipo de contenido</CardTitle>
         </CardHeader>
         <CardContent>
-          <table className="w-full text-sm">
+          <div className="overflow-x-auto">
+          <table className="w-full text-sm min-w-[500px]">
             <thead>
               <tr className="border-b text-left">
                 <th className="pb-2 text-xs font-bold text-slate-500 uppercase">Tipo de solicitud</th>
@@ -264,6 +265,7 @@ const ReportsPage: React.FC = () => {
               </tr>
             </tbody>
           </table>
+          </div>
         </CardContent>
       </Card>
     </div>
