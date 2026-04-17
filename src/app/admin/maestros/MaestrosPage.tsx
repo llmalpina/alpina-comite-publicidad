@@ -152,56 +152,33 @@ const MaestrosPage: React.FC = () => {
                 <p className="text-xs text-slate-500 mt-0.5">Cuando está activo, cada pieza nueva se analiza con IA antes de enviarla al comité.</p>
               </div>
               <button
-                onClick={async () => {
-                  const next = !iaEnabled;
-                  setIaEnabled(next);
-                  try {
-                    const { maestrosApi } = await import('../../../lib/api');
-                    await maestrosApi.update('config-ia-model', 'singleton', { id: 'singleton', tipo: 'config-ia-model', value: iaModel, enabled: next });
-                    notify(next ? 'IA activada' : 'IA desactivada', 'success');
-                  } catch { notify('Error', 'error'); }
-                }}
+                onClick={() => setIaEnabled(prev => !prev)}
                 className={cn('relative w-12 h-6 rounded-full transition-colors shrink-0', iaEnabled ? 'bg-emerald-500' : 'bg-slate-200 dark:bg-slate-600')}
               >
                 <span className={cn('absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform', iaEnabled && 'translate-x-6')} />
               </button>
             </div>
 
-            <p className="text-xs text-slate-500 dark:text-slate-400">
-              Este prompt se envía a Amazon Bedrock junto con el PDF para el análisis automático. Puedes ajustarlo según las necesidades del comité.
-            </p>
             {/* Selector de modelo */}
             <div className="space-y-2">
               <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Modelo de IA</label>
-              <div className="flex gap-2">
-                <select value={iaModel} onChange={e => { setIaModel(e.target.value); setCustomModel(''); }}
-                  className="flex h-10 flex-1 rounded-md border border-input bg-background px-3 py-2 text-sm">
-                  <option value="us.anthropic.claude-sonnet-4-6">Claude Sonnet 4.6 (recomendado)</option>
-                  <option value="us.anthropic.claude-sonnet-4-5-20250929-v1:0">Claude Sonnet 4.5</option>
-                  <option value="us.anthropic.claude-sonnet-4-20250514-v1:0">Claude Sonnet 4</option>
-                  <option value="us.anthropic.claude-haiku-4-5-20251001-v1:0">Claude Haiku 4.5 (rápido)</option>
-                  <option value="us.anthropic.claude-3-7-sonnet-20250219-v1:0">Claude 3.7 Sonnet</option>
-                  <option value="custom">Otro modelo (escribir ID)</option>
-                </select>
-                <Button variant="outline" onClick={async () => {
-                  const modelToSave = iaModel === 'custom' ? customModel : iaModel;
-                  if (!modelToSave) { notify('Escribe el ID del modelo', 'error'); return; }
-                  try {
-                    const { maestrosApi } = await import('../../../lib/api');
-                    await maestrosApi.update('config-ia-model', 'singleton', { id: 'singleton', tipo: 'config-ia-model', value: modelToSave, enabled: iaEnabled });
-                    notify('Modelo guardado', 'success');
-                  } catch { notify('Error al guardar modelo', 'error'); }
-                }} className="gap-1 shrink-0"><Save size={14} /> Guardar</Button>
-              </div>
+              <select value={iaModel} onChange={e => { setIaModel(e.target.value); setCustomModel(''); }}
+                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm">
+                <option value="us.anthropic.claude-sonnet-4-6">Claude Sonnet 4.6 (recomendado)</option>
+                <option value="us.anthropic.claude-sonnet-4-5-20250929-v1:0">Claude Sonnet 4.5</option>
+                <option value="us.anthropic.claude-sonnet-4-20250514-v1:0">Claude Sonnet 4</option>
+                <option value="us.anthropic.claude-haiku-4-5-20251001-v1:0">Claude Haiku 4.5 (rápido)</option>
+                <option value="us.anthropic.claude-3-7-sonnet-20250219-v1:0">Claude 3.7 Sonnet</option>
+                <option value="custom">Otro modelo (escribir ID)</option>
+              </select>
               {iaModel === 'custom' && (
-                <input
-                  type="text" value={customModel} onChange={e => setCustomModel(e.target.value)}
+                <input type="text" value={customModel} onChange={e => setCustomModel(e.target.value)}
                   placeholder="us.anthropic.claude-xxx-v1:0"
-                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm font-mono"
-                />
+                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm font-mono" />
               )}
-              <p className="text-[11px] text-slate-400">Sonnet es más preciso, Haiku es más rápido y económico. Si sale un modelo nuevo, selecciona "Otro modelo" y escribe el ID del inference profile.</p>
+              <p className="text-[11px] text-slate-400">Sonnet es más preciso, Haiku es más rápido y económico.</p>
             </div>
+
             {/* IA por tipo de contenido */}
             <div className="space-y-2">
               <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Análisis IA por tipo de contenido</label>
@@ -222,21 +199,30 @@ const MaestrosPage: React.FC = () => {
                   );
                 })}
               </div>
-              <Button variant="outline" size="sm" onClick={async () => {
-                try {
-                  const { maestrosApi } = await import('../../../lib/api');
-                  await maestrosApi.update('config-ia-model', 'singleton', { id: 'singleton', tipo: 'config-ia-model', value: iaModel === 'custom' ? customModel : iaModel, enabled: iaEnabled, byContentType: iaByContentType });
-                  notify('Configuración guardada', 'success');
-                } catch { notify('Error', 'error'); }
-              }} className="gap-1 mt-2"><Save size={14} /> Guardar configuración por tipo</Button>
             </div>
-            <textarea
-              className="w-full min-h-[280px] p-4 text-sm border rounded-lg focus:ring-2 focus:ring-[#1e3a5f] outline-none font-mono bg-slate-50 dark:bg-slate-800 dark:border-slate-700 dark:text-slate-200"
-              value={prompt}
-              onChange={e => setPrompt(e.target.value)}
-            />
-            <Button onClick={handleSavePrompt} className="gap-2">
-              <Save size={16} /> Guardar Prompt
+
+            {/* Prompt */}
+            <div className="space-y-2">
+              <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Prompt de análisis</label>
+              <textarea
+                className="w-full min-h-[280px] p-4 text-sm border rounded-lg focus:ring-2 focus:ring-[#1e3a5f] outline-none font-mono bg-slate-50 dark:bg-slate-800 dark:border-slate-700 dark:text-slate-200"
+                value={prompt}
+                onChange={e => setPrompt(e.target.value)}
+              />
+            </div>
+
+            {/* Un solo botón para guardar TODO */}
+            <Button onClick={async () => {
+              try {
+                const { maestrosApi } = await import('../../../lib/api');
+                const modelToSave = iaModel === 'custom' ? customModel : iaModel;
+                if (!modelToSave) { notify('Selecciona un modelo', 'error'); return; }
+                await maestrosApi.update('config-ia-model', 'singleton', { id: 'singleton', tipo: 'config-ia-model', value: modelToSave, enabled: iaEnabled, byContentType: iaByContentType });
+                updatePromptIA(prompt);
+                notify('Configuración de IA guardada', 'success');
+              } catch { notify('Error al guardar', 'error'); }
+            }} className="gap-2 w-full">
+              <Save size={16} /> Guardar toda la configuración de IA
             </Button>
           </CardContent>
         </Card>
