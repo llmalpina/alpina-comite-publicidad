@@ -355,8 +355,13 @@ const InformeSemanal: React.FC<{ solicitudes: any[] }> = ({ solicitudes }) => {
       const piezasConComentarios = await Promise.all(piezasInforme.map(async (s) => {
         let highlightedComments: any[] = [];
         try {
-          const comments = await comentariosApi.list(s.id);
-          highlightedComments = (comments || []).filter((c: any) => c.highlighted);
+          const [comments, annotations] = await Promise.all([
+            comentariosApi.list(s.id).catch(() => []),
+            fetch(`${(import.meta as any).env?.VITE_API_URL}/solicitudes/${s.id}/anotaciones`, {
+              headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+            }).then(r => r.json()).catch(() => []),
+          ]);
+          highlightedComments = [...(comments || []), ...(annotations || [])].filter((c: any) => c.highlighted);
         } catch {}
         return { id: s.id, title: s.title, consecutive: s.consecutive, brand: s.brand, status: s.status, priority: s.priority, description: s.description, highlightedComments };
       }));
