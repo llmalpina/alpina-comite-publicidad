@@ -617,6 +617,100 @@ const TabHorario: React.FC = () => {
           )}
         </CardContent>
       </Card>
+
+      {/* Informe semanal del comité */}
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-base flex items-center gap-2"><Bell size={16} />Informe semanal del comité</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex items-center justify-between p-4 bg-slate-50 dark:bg-slate-800 rounded-lg">
+            <div>
+              <p className="text-sm font-semibold text-slate-800 dark:text-slate-200">Enviar informe automático</p>
+              <p className="text-xs text-slate-500 mt-0.5">Envía un resumen de las piezas revisadas con prioridad y comentarios destacados.</p>
+            </div>
+            <button
+              onClick={() => setLocal(prev => ({ ...prev, reportEnabled: !prev.reportEnabled }))}
+              className={cn('relative w-12 h-6 rounded-full transition-colors shrink-0', local.reportEnabled ? 'bg-emerald-500' : 'bg-slate-200 dark:bg-slate-600')}
+            >
+              <span className={cn('absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform', local.reportEnabled && 'translate-x-6')} />
+            </button>
+          </div>
+
+          {local.reportEnabled && (
+            <div className="space-y-4">
+              <div className="grid grid-cols-3 gap-4">
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Día</label>
+                  <select value={local.reportDay} onChange={e => setLocal(prev => ({ ...prev, reportDay: parseInt(e.target.value) }))}
+                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm">
+                    {DAY_LABELS.map((label, i) => <option key={i} value={i}>{label}</option>)}
+                  </select>
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Hora</label>
+                  <div className="flex items-center gap-1">
+                    <Input type="number" min={0} max={23} value={local.reportHour} onChange={e => setLocal(prev => ({ ...prev, reportHour: parseInt(e.target.value) || 0 }))} className="w-16 text-center" />
+                    <span className="font-bold text-slate-400">:</span>
+                    <Input type="number" min={0} max={59} step={15} value={String(local.reportMinute).padStart(2, '0')} onChange={e => setLocal(prev => ({ ...prev, reportMinute: parseInt(e.target.value) || 0 }))} className="w-16 text-center" />
+                  </div>
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Top piezas</label>
+                  <Input type="number" min={1} max={50} value={local.reportTopN} onChange={e => setLocal(prev => ({ ...prev, reportTopN: parseInt(e.target.value) || 10 }))} className="w-20 text-center" />
+                </div>
+              </div>
+              <p className="text-[11px] text-slate-400">
+                Informe: cada <strong>{DAY_LABELS[local.reportDay]}</strong> a las {String(local.reportHour).padStart(2, '0')}:{String(local.reportMinute).padStart(2, '0')} — Top {local.reportTopN} piezas por prioridad
+              </p>
+            </div>
+          )}
+
+          {/* Botón envío manual */}
+          <div className="flex items-center justify-between pt-2 border-t">
+            <p className="text-xs text-slate-500">Enviar informe manualmente ahora</p>
+            <Button variant="outline" size="sm" onClick={async () => {
+              try {
+                const SES_URL = (import.meta as any).env?.VITE_SES_LAMBDA_URL as string;
+                const API_URL = (import.meta as any).env?.VITE_API_URL as string;
+                if (!SES_URL || !API_URL) { notify('URLs no configuradas', 'error'); return; }
+                const token = localStorage.getItem('alpina_id_token');
+                // Obtener solicitudes revisadas esta semana
+                const solRes = await fetch(`${API_URL}/solicitudes`, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
+                const solicitudes = await solRes.json();
+                const now = new Date();
+                const weekStart = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 7);
+                const reviewed = solicitudes
+                  .filter((s: any) => ['APROBADA', 'APROBADA_OBSERVACIONES', 'RECHAZADA'].includes(s.status) && new Date(s.updatedAt || s.createdAt) >= weekStart)
+                  .sort((a: any, b: any) => {
+                    const prio = { red: 0, yellow: 1, green: 2 };
+                    return (prio[a.priority as keyof typeof prio] ?? 3) - (prio[b.priority as keyof typeof prio] ?? 3);
+                  })
+                  .slice(0, local.reportTopN);
+                // Obtener comentarios destacados
+                const piezas = await Promise.all(reviewed.map(async (s: any) => {
+                  let highlightedComments: any[] = [];
+                  try {
+                    const commRes = await fetch(`${API_URL}/solicitudes/${s.id}/comentarios`, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
+                    const comments = await commRes.json();
+                    highlightedComments = (comments || []).filter((c: any) => c.highlighted);
+                  } catch {}
+                  return { id: s.id, title: s.title, consecutive: s.consecutive, brand: s.brand, status: s.status, priority: s.priority, description: s.description, highlightedComments };
+                }));
+                // Enviar correo
+                await fetch(SES_URL, {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+                  body: JSON.stringify({ template: 'informe_semanal', to: ['nicolas.carreno@alpina.com'], cc: [], data: { piezas } }),
+                });
+                notify('Informe enviado', 'success');
+              } catch (e: any) { notify(e.message || 'Error al enviar', 'error'); }
+            }} className="gap-2 shrink-0">
+              <Mail size={14} /> Enviar informe ahora
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 };
