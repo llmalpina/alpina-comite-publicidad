@@ -730,7 +730,7 @@ const RevisionDetailPage: React.FC = () => {
                     <p className="text-[10px] font-bold text-yellow-700 uppercase tracking-wider">Versión actual (v{solicitud.currentVersion})</p>
                   )}
                   {solicitud.annotations.filter(a => !a.resolved && (a.version || 1) === solicitud.currentVersion).map(ann => (
-                    <div key={ann.id} className="p-3 bg-yellow-50 border border-yellow-200 rounded-lg space-y-1">
+                    <div key={ann.id} className={cn('p-3 border rounded-lg space-y-1', (ann as any).highlighted ? 'bg-yellow-100 border-yellow-300' : 'bg-yellow-50 border-yellow-200')}>
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
                           <Pin size={12} className="text-yellow-600" />
@@ -739,6 +739,16 @@ const RevisionDetailPage: React.FC = () => {
                         </div>
                         <div className="flex items-center gap-1">
                           <span className="text-[10px] text-yellow-600">Pág. {ann.page}</span>
+                          {canAnnotate && (
+                            <button onClick={() => {
+                              setSolicitud(prev => {
+                                if (!prev) return prev;
+                                return { ...prev, annotations: prev.annotations.map(a => a.id === ann.id ? { ...a, highlighted: !(a as any).highlighted } : a) as any };
+                              });
+                            }} className={cn('p-1 rounded transition-colors', (ann as any).highlighted ? 'text-yellow-500' : 'text-slate-300 hover:text-yellow-400')} title="Destacar para informe">
+                              <svg width="14" height="14" viewBox="0 0 24 24" fill={(ann as any).highlighted ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" /></svg>
+                            </button>
+                          )}
                           {canAnnotate && (
                             <button onClick={() => handleResolveAnnotation(ann.id)} className="p-1 hover:bg-emerald-100 text-emerald-500 rounded transition-colors" title="Marcar como resuelta">
                               <CheckCircle2 size={14} />
