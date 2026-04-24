@@ -671,12 +671,12 @@ const TabHorario: React.FC = () => {
             <p className="text-xs text-slate-500">Enviar informe manualmente ahora</p>
             <Button variant="outline" size="sm" onClick={async () => {
               try {
-                const SES_URL = (import.meta as any).env?.VITE_SES_LAMBDA_URL as string;
-                const API_URL = (import.meta as any).env?.VITE_API_URL as string;
-                if (!SES_URL || !API_URL) { notify('URLs no configuradas', 'error'); return; }
+                const apiUrl = (import.meta as any).env?.VITE_API_URL as string;
+                const sesUrl = (import.meta as any).env?.VITE_SES_LAMBDA_URL as string;
+                if (!sesUrl || !apiUrl) { notify('URLs no configuradas', 'error'); return; }
                 const token = localStorage.getItem('alpina_id_token');
                 // Obtener solicitudes revisadas esta semana
-                const solRes = await fetch(`${API_URL}/solicitudes`, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
+                const solRes = await fetch(`${apiUrl}/solicitudes`, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
                 const solicitudes = await solRes.json();
                 const now = new Date();
                 const weekStart = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 7);
@@ -691,14 +691,14 @@ const TabHorario: React.FC = () => {
                 const piezas = await Promise.all(reviewed.map(async (s: any) => {
                   let highlightedComments: any[] = [];
                   try {
-                    const commRes = await fetch(`${API_URL}/solicitudes/${s.id}/comentarios`, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
+                    const commRes = await fetch(`${apiUrl}/solicitudes/${s.id}/comentarios`, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
                     const comments = await commRes.json();
                     highlightedComments = (comments || []).filter((c: any) => c.highlighted);
                   } catch {}
                   return { id: s.id, title: s.title, consecutive: s.consecutive, brand: s.brand, status: s.status, priority: s.priority, description: s.description, highlightedComments };
                 }));
                 // Enviar correo
-                await fetch(SES_URL, {
+                await fetch(sesUrl, {
                   method: 'POST',
                   headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
                   body: JSON.stringify({ template: 'informe_semanal', to: ['nicolas.carreno@alpina.com'], cc: [], data: { piezas } }),
