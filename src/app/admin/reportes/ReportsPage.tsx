@@ -6,6 +6,7 @@ import { Calendar, Clock, FileText, CheckCircle2, XCircle, TrendingUp, Filter, S
 import { useSolicitudes } from '../../../hooks/useSolicitudes';
 import { useMaestros } from '../../../contexts/MaestrosContext';
 import { useNotifications } from '../../../contexts/NotificationContext';
+import { useConfig } from '../../../contexts/ConfigContext';
 import { cn, formatDate } from '../../../lib/utils';
 import { Input } from '../../../components/ui/Input';
 import { comentariosApi } from '../../../lib/api';
@@ -281,6 +282,12 @@ const ReportsPage: React.FC = () => {
 // ─── Componente Informe Semanal ───────────────────────────────────────────────
 const InformeSemanal: React.FC<{ solicitudes: any[] }> = ({ solicitudes }) => {
   const { notify } = useNotifications();
+  const { emailConfig } = useConfig();
+  // Obtener destinatarios de la regla de informe
+  const informeRule = emailConfig.rules.find(r => r.event === 'informe_semanal' || r.label?.toLowerCase().includes('informe'));
+  const defaultEmails = informeRule?.toEmails?.length ? informeRule.toEmails : ['nicolas.carreno@alpina.com'];
+  const defaultCc = informeRule?.cc || [];
+
   const [fechaInicio, setFechaInicio] = useState(() => {
     const d = new Date(); d.setDate(d.getDate() - 7);
     return d.toISOString().split('T')[0];
@@ -288,19 +295,51 @@ const InformeSemanal: React.FC<{ solicitudes: any[] }> = ({ solicitudes }) => {
   const [fechaFin, setFechaFin] = useState(() => new Date().toISOString().split('T')[0]);
   const [sending, setSending] = useState(false);
   const [topN, setTopN] = useState(10);
+  const [emailTo, setEmailTo] = useState(defaultEmails.join(', '));
+  const [comentariosDestacados, setComentariosDestacados] = useState<Record<string, any[]>>({});
 
   const piezasInforme = useMemo(() => {
     const start = new Date(fechaInicio);
     const end = new Date(fechaFin + 'T23:59:59');
     return solicitudes
       .filter(s => ['APROBADA', 'APROBADA_OBSERVACIONES', 'RECHAZADA', 'EN_REVISION'].includes(s.status))
-      .filter(s => { const d = new Date(s.updatedAt || s.createdAt); return d >= start && d <= end; })
+      .filter(s => {
+        // Usa la fecha de revisión del comité (la más reciente entre ARA y Legal)
+        const araDate = (s as any).approvalARA?.at;
+        const legalDate = (s as any).approvalLegal?.at;
+        const reviewDate = araDate && legalDate
+          ? (araDate > legalDate ? araDate : legalDate)
+          : araDate || legalDate || s.updatedAt || s.createdAt;
+        const d = new Date(reviewDate);
+        return d >= start && d <= end;
+      })
       .sort((a, b) => {
         const prio: Record<string, number> = { red: 0, yellow: 1, green: 2 };
         return (prio[a.priority] ?? 3) - (prio[b.priority] ?? 3);
       })
       .slice(0, topN);
   }, [solicitudes, fechaInicio, fechaFin, topN]);
+
+  // Cargar comentarios y anotaciones destacadas para el preview
+  React.useEffect(() => {
+    const loadHighlighted = async () => {
+      const result: Record<string, any[]> = {};
+      for (const s of piezasInforme) {
+        try {
+          const [comments, annotations] = await Promise.all([
+            comentariosApi.list(s.id).catch(() => []),
+            fetch(`${(import.meta as any).env?.VITE_API_URL}/solicitudes/${s.id}/anotaciones`, {
+              headers: { ...(localStorage.getItem('alpina_id_token') ? { Authorization: `Bearer ${localStorage.getItem('alpina_id_token')}` } : {}) },
+            }).then(r => r.json()).catch(() => []),
+          ]);
+          const highlighted = [...(comments || []), ...(annotations || [])].filter((c: any) => c.highlighted);
+          if (highlighted.length > 0) result[s.id] = highlighted;
+        } catch {}
+      }
+      setComentariosDestacados(result);
+    };
+    if (piezasInforme.length > 0) loadHighlighted();
+  }, [piezasInforme]);
 
   const prioColors: Record<string, string> = { red: 'bg-red-500', yellow: 'bg-yellow-400', green: 'bg-emerald-500' };
   const prioLabels: Record<string, string> = { red: 'Urgente', yellow: 'Media', green: 'Normal' };
@@ -324,7 +363,7 @@ const InformeSemanal: React.FC<{ solicitudes: any[] }> = ({ solicitudes }) => {
       await fetch(sesUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
-        body: JSON.stringify({ template: 'informe_semanal', to: ['nicolas.carreno@alpina.com'], cc: [], data: { piezas: piezasConComentarios } }),
+        body: JSON.stringify({ template: 'informe_semanal', to: emailTo.split(',').map(e => e.trim()).filter(Boolean), cc: defaultCc, data: { piezas: piezasConComentarios } }),
       });
       notify('Informe enviado por correo', 'success');
     } catch (e: any) { notify(e.message || 'Error al enviar', 'error'); }
@@ -340,6 +379,7 @@ const InformeSemanal: React.FC<{ solicitudes: any[] }> = ({ solicitudes }) => {
           <span className="text-xs text-slate-400">a</span>
           <Input type="date" value={fechaFin} onChange={e => setFechaFin(e.target.value)} className="h-8 text-xs w-36" />
           <Input type="number" min={1} max={50} value={topN} onChange={e => setTopN(parseInt(e.target.value) || 10)} className="h-8 text-xs w-16" title="Top N" />
+          <Input type="text" value={emailTo} onChange={e => setEmailTo(e.target.value)} className="h-8 text-xs w-48" placeholder="correo@alpina.com" title="Destinatarios (separados por coma)" />
           <Button size="sm" onClick={handleSend} disabled={sending || piezasInforme.length === 0} className="gap-1 shrink-0">
             {sending ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />}
             {sending ? 'Enviando...' : 'Enviar informe'}
@@ -368,6 +408,22 @@ const InformeSemanal: React.FC<{ solicitudes: any[] }> = ({ solicitudes }) => {
                 <p className="text-sm font-bold text-slate-800">{s.title}</p>
                 <p className="text-[10px] text-slate-500">{s.consecutive} · {s.brand} · {formatDate(s.updatedAt || s.createdAt)}</p>
                 {s.description && <p className="text-xs text-slate-600 mt-1 italic">"{s.description}"</p>}
+                {/* Comentarios/anotaciones destacadas */}
+                {comentariosDestacados[s.id]?.length > 0 && (
+                  <div className="mt-2 pt-2 border-t border-current/10 space-y-1">
+                    <p className="text-[10px] font-bold text-slate-500 uppercase">Comentarios destacados:</p>
+                    {comentariosDestacados[s.id].map((c: any, j: number) => (
+                      <div key={j} className="flex gap-2 text-xs">
+                        <span className="text-yellow-500">★</span>
+                        <div>
+                          <span className="font-semibold text-slate-700">{c.userName}</span>
+                          <span className="text-slate-400 ml-1">{c.area}</span>
+                          <p className="text-slate-600">{c.text}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             ))}
           </div>

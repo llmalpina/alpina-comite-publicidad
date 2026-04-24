@@ -163,6 +163,7 @@ const EVENT_LABELS: Record<NotificationEvent, string> = {
   comentario_agregado:         'Comentario del comité',
   nueva_version_subida:        'Nueva versión subida',
   recordatorio_pendientes:     'Recordatorio semanal',
+  informe_semanal:             'Informe semanal gerencia',
   usuario_creado:              'Usuario creado',
 };
 

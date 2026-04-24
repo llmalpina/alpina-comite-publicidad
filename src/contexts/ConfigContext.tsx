@@ -91,6 +91,7 @@ export type NotificationEvent =
   | 'comentario_agregado'
   | 'nueva_version_subida'
   | 'recordatorio_pendientes'
+  | 'informe_semanal'
   | 'usuario_creado';
 
 interface ConfigContextType {
@@ -227,10 +228,19 @@ const DEFAULT_EMAIL: EmailConfig = {
       id: 'rule-8', system: true, enabled: true,
       event: 'recordatorio_pendientes',
       label: 'Recordatorio semanal de piezas pendientes',
-      description: 'Envía un correo a los solicitantes con piezas pendientes de subir o publicar. Se configura el día y hora en la pestaña Horario.',
+      description: 'Envía un correo a los solicitantes con piezas pendientes de subir o publicar.',
       toRoles: ['SOLICITANTE'],
       toEmails: [],
       cc: ['nicolas.carreno@alpina.com'],
+    },
+    {
+      id: 'rule-9', system: true, enabled: true,
+      event: 'informe_semanal',
+      label: 'Informe semanal para gerencia',
+      description: 'Envía un resumen de las piezas revisadas con prioridad y comentarios destacados. Configura los destinatarios aquí.',
+      toRoles: [],
+      toEmails: ['nicolas.carreno@alpina.com'],
+      cc: [],
     },
   ],
 };
