@@ -341,6 +341,20 @@ const InformeSemanal: React.FC<{ solicitudes: any[] }> = ({ solicitudes }) => {
     if (piezasInforme.length > 0) loadHighlighted();
   }, [piezasInforme]);
 
+  // Total real de piezas revisadas (sin límite de topN)
+  const totalRevisadas = useMemo(() => {
+    const start = new Date(fechaInicio);
+    const end = new Date(fechaFin + 'T23:59:59');
+    return solicitudes
+      .filter(s => ['APROBADA', 'APROBADA_OBSERVACIONES', 'RECHAZADA', 'EN_REVISION'].includes(s.status))
+      .filter(s => {
+        const araDate = (s as any).approvalARA?.at;
+        const legalDate = (s as any).approvalLegal?.at;
+        const reviewDate = araDate && legalDate ? (araDate > legalDate ? araDate : legalDate) : araDate || legalDate || s.updatedAt || s.createdAt;
+        return new Date(reviewDate) >= start && new Date(reviewDate) <= end;
+      }).length;
+  }, [solicitudes, fechaInicio, fechaFin]);
+
   const prioColors: Record<string, string> = { red: 'bg-red-500', yellow: 'bg-yellow-400', green: 'bg-emerald-500' };
   const prioLabels: Record<string, string> = { red: 'Urgente', yellow: 'Media', green: 'Normal' };
   const statusLabels: Record<string, string> = { APROBADA: 'Sin comentarios', APROBADA_OBSERVACIONES: 'Con comentarios', RECHAZADA: 'Rechazada', EN_REVISION: 'En revisión' };
@@ -351,24 +365,16 @@ const InformeSemanal: React.FC<{ solicitudes: any[] }> = ({ solicitudes }) => {
       const sesUrl = (import.meta as any).env?.VITE_SES_LAMBDA_URL as string;
       const apiUrl = (import.meta as any).env?.VITE_API_URL as string;
       const token = localStorage.getItem('alpina_id_token');
-      // Obtener comentarios destacados para cada pieza
-      const piezasConComentarios = await Promise.all(piezasInforme.map(async (s) => {
-        let highlightedComments: any[] = [];
-        try {
-          const [comments, annotations] = await Promise.all([
-            comentariosApi.list(s.id).catch(() => []),
-            fetch(`${(import.meta as any).env?.VITE_API_URL}/solicitudes/${s.id}/anotaciones`, {
-              headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}) },
-            }).then(r => r.json()).catch(() => []),
-          ]);
-          highlightedComments = [...(comments || []), ...(annotations || [])].filter((c: any) => c.highlighted);
-        } catch {}
-        return { id: s.id, title: s.title, consecutive: s.consecutive, brand: s.brand, status: s.status, priority: s.priority, description: s.description, highlightedComments };
+      // Usar comentarios ya cargados del preview
+      const piezasConComentarios = piezasInforme.map(s => ({
+        id: s.id, title: s.title, consecutive: s.consecutive, brand: s.brand,
+        status: s.status, priority: s.priority, description: s.description,
+        highlightedComments: comentariosDestacados[s.id] || [],
       }));
       await fetch(sesUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
-        body: JSON.stringify({ template: 'informe_semanal', to: emailTo.split(',').map(e => e.trim()).filter(Boolean), cc: defaultCc, data: { piezas: piezasConComentarios } }),
+        body: JSON.stringify({ template: 'informe_semanal', to: emailTo.split(',').map(e => e.trim()).filter(Boolean), cc: defaultCc, data: { piezas: piezasConComentarios, totalRevisadas } }),
       });
       notify('Informe enviado por correo', 'success');
     } catch (e: any) { notify(e.message || 'Error al enviar', 'error'); }
@@ -396,7 +402,9 @@ const InformeSemanal: React.FC<{ solicitudes: any[] }> = ({ solicitudes }) => {
           <p className="text-center py-8 text-slate-400 text-sm">No hay piezas revisadas en este período</p>
         ) : (
           <div className="space-y-3">
-            <p className="text-xs text-slate-500">{piezasInforme.length} pieza{piezasInforme.length > 1 ? 's' : ''} revisada{piezasInforme.length > 1 ? 's' : ''} — ordenadas por prioridad</p>
+            <p className="text-xs text-slate-500">
+              Total revisadas: <strong>{totalRevisadas}</strong> — Mostrando top {piezasInforme.length} por prioridad
+            </p>
             {piezasInforme.map((s, i) => (
               <div key={s.id} className={cn('p-4 rounded-lg border', s.priority === 'red' ? 'bg-red-50 border-red-200' : s.priority === 'yellow' ? 'bg-yellow-50 border-yellow-200' : 'bg-slate-50 border-slate-200')}>
                 <div className="flex items-center justify-between mb-2">
