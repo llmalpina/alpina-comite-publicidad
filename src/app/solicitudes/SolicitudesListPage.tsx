@@ -8,8 +8,6 @@ import { Badge } from "../../components/ui/Badge";
 import { STATUS_LABELS } from "../../lib/constants";
 import { formatDate, cn } from "../../lib/utils";
 import { useSolicitudes } from "../../hooks/useSolicitudes";
-import { useConfig } from "../../contexts/ConfigContext";
-import { useAuth } from "../../contexts/AuthContext";
 import { solicitudesApi } from "../../lib/api";
 import { RequestStatus } from "../../types";
 
@@ -17,16 +15,13 @@ const STATUS_FILTER_OPTIONS: { value: RequestStatus | ""; label: string }[] = [
   { value: "", label: "Todos los estados" },
   { value: "ENVIADA", label: "Enviada" },
   { value: "EN_REVISION", label: "En Revision" },
-  { value: "APROBADA", label: "Aprobada" },
-  { value: "APROBADA_OBSERVACIONES", label: "Aprobada con Obs." },
+  { value: "APROBADA", label: "Sin comentarios" },
+  { value: "APROBADA_OBSERVACIONES", label: "Con observaciones" },
   { value: "RECHAZADA", label: "Rechazada" },
   { value: "PUBLICADA", label: "Publicada" },
 ];
 
 const SolicitudesPage: React.FC = () => {
-  const { user } = useAuth();
-  const { canSubmitNow } = useConfig();
-  const scheduleCheck = canSubmitNow(user?.role || 'SOLICITANTE');
   const { solicitudes, setSolicitudes, loading, error } = useSolicitudes();
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<RequestStatus | "">("");
@@ -54,11 +49,9 @@ const SolicitudesPage: React.FC = () => {
           <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Mis Solicitudes</h1>
           <p className="text-slate-500 dark:text-slate-400 text-sm">Gestiona y haz seguimiento a tus piezas publicitarias.</p>
         </div>
-        {scheduleCheck.allowed ? (
-          <Link to="/solicitudes/nueva"><Button className="gap-2"><PlusCircle size={18} />Nueva Solicitud</Button></Link>
-        ) : (
-          <div className="flex items-center gap-2"><span className="text-xs text-red-500 max-w-[200px] text-right">{scheduleCheck.message}</span><Button className="gap-2" disabled><PlusCircle size={18} />Nueva Solicitud</Button></div>
-        )}
+        <Link to="/solicitudes/nueva">
+          <Button className="gap-2"><PlusCircle size={18} />Nueva Solicitud</Button>
+        </Link>
       </div>
 
       {!statusFilter && solicitudes.filter((s) => s.status === "PUBLICADA").length > 0 && (
@@ -137,7 +130,7 @@ const SolicitudesPage: React.FC = () => {
                         <p className="text-sm text-slate-700 dark:text-slate-300">{formatDate(solicitud.deadline)}</p>
                       </div>
                       <div>
-                        <p className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Aprobaciones</p>
+                        <p className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Revisiones</p>
                         <div className="flex gap-1 mt-1">
                           <span className={cn("text-[10px] font-bold px-1.5 py-0.5 rounded border", (solicitud as any).approvalARA?.approved ? "bg-emerald-100 text-emerald-700 border-emerald-200" : "bg-slate-100 text-slate-400 border-slate-200")}>
                             ARA {(solicitud as any).approvalARA?.approved ? "\u2713" : "\u2014"}
@@ -153,7 +146,7 @@ const SolicitudesPage: React.FC = () => {
                     <Link to={"/solicitudes/" + solicitud.id} className="flex-1 md:flex-none">
                       <Button variant="outline" size="sm" className="w-full gap-2"><Eye size={14} />Detalles</Button>
                     </Link>
-                    {(solicitud.status === "APROBADA" || solicitud.status === "APROBADA_OBSERVACIONES") && (
+                    {solicitud.status === "APROBADA" && (
                       <Button size="sm" className="w-full gap-1 bg-violet-600 hover:bg-violet-700 text-white text-xs"
                         onClick={async (e) => {
                           e.preventDefault();
@@ -162,7 +155,7 @@ const SolicitudesPage: React.FC = () => {
                             setSolicitudes((prev) => prev.map((s) => s.id === solicitud.id ? { ...s, status: "PUBLICADA" as any } : s));
                           } catch {}
                         }}>
-                        Publicada
+                        Publicar
                       </Button>
                     )}
                   </div>

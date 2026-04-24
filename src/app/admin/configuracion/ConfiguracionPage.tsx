@@ -18,6 +18,7 @@ const PERMISSION_LABELS: Record<PermissionKey, string> = {
   agregar_anotacion_pdf:    'Anotar en PDF',
   subir_version:            'Subir nueva versión',
   subir_fuera_horario:      'Subir fuera de horario',
+  enviar_informe:           'Enviar informe semanal',
   ver_reportes:             'Ver reportes',
   gestionar_maestros:       'Gestionar maestros',
   gestionar_usuarios:       'Gestionar usuarios',
@@ -27,7 +28,7 @@ const PERMISSION_LABELS: Record<PermissionKey, string> = {
 
 const PERMISSION_GROUPS = [
   { label: 'Solicitudes', keys: ['crear_solicitud', 'ver_solicitudes_propias', 'ver_todas_solicitudes', 'subir_version', 'subir_fuera_horario'] as PermissionKey[] },
-  { label: 'Revisión', keys: ['revisar_solicitud', 'aprobar_rechazar', 'agregar_comentario', 'agregar_anotacion_pdf'] as PermissionKey[] },
+  { label: 'Revisión', keys: ['revisar_solicitud', 'aprobar_rechazar', 'agregar_comentario', 'agregar_anotacion_pdf', 'enviar_informe'] as PermissionKey[] },
   { label: 'Administración', keys: ['ver_reportes', 'gestionar_maestros', 'gestionar_usuarios', 'gestionar_roles', 'configurar_correos'] as PermissionKey[] },
 ];
 

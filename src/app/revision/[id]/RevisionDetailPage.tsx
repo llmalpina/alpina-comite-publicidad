@@ -433,6 +433,23 @@ const RevisionDetailPage: React.FC = () => {
               Legal {solicitud.approvalLegal?.approved ? '✓' : solicitud.approvalLegal?.approved === false ? '✗' : '—'}
             </span>
           </div>
+          {/* Semáforo de prioridad */}
+          {canAnnotate && (
+            <div className="hidden sm:flex items-center gap-1 mr-2">
+              {(['green', 'yellow', 'red'] as const).map(color => (
+                <button key={color} onClick={async () => {
+                  try {
+                    await apiFetch(`/solicitudes/${solicitud.id}/status`, { method: 'PATCH', body: JSON.stringify({ priority: color }) });
+                    setSolicitud(prev => prev ? { ...prev, priority: color } : prev);
+                  } catch {}
+                }}
+                  className={cn('w-6 h-6 rounded-full border-2 transition-all',
+                    color === 'red' ? 'bg-red-500' : color === 'yellow' ? 'bg-yellow-400' : 'bg-emerald-500',
+                    solicitud.priority === color ? 'border-slate-800 scale-125 ring-2 ring-offset-1 ring-slate-400' : 'border-white/50 opacity-50 hover:opacity-100'
+                  )} title={color === 'red' ? 'Urgente' : color === 'yellow' ? 'Media' : 'Normal'} />
+              ))}
+            </div>
+          )}
           {myApproval?.approved ? (
             <span className="text-xs text-emerald-600 font-semibold bg-emerald-50 px-3 py-1.5 rounded-lg border border-emerald-200">✓ Ya revisaste</span>
           ) : (
@@ -672,13 +689,23 @@ const RevisionDetailPage: React.FC = () => {
                     <div className="text-center py-10 opacity-30"><MessageSquare size={40} className="mx-auto mb-2" /><p className="text-xs">Sin comentarios aún.</p></div>
                   )}
                   {solicitud.comments.map(c => (
-                    <div key={c.id} className="space-y-1.5">
+                    <div key={c.id} className={cn('space-y-1.5', c.highlighted && 'bg-yellow-50 dark:bg-yellow-900/10 p-2 rounded-lg border border-yellow-200')}>
                       <div className="flex items-center gap-2">
                         <div className="w-7 h-7 rounded-full bg-[#1e3a5f] text-white flex items-center justify-center text-[10px] font-bold">{c.userName.charAt(0)}</div>
-                        <div>
+                        <div className="flex-1">
                           <p className="text-xs font-bold text-slate-800 dark:text-slate-200">{c.userName}</p>
                           <p className="text-[10px] text-slate-400">{c.area} · {formatDate(c.createdAt)}</p>
                         </div>
+                        {canAnnotate && (
+                          <button onClick={() => {
+                            setSolicitud(prev => {
+                              if (!prev) return prev;
+                              return { ...prev, comments: prev.comments.map(x => x.id === c.id ? { ...x, highlighted: !x.highlighted } : x) };
+                            });
+                          }} className={cn('p-1 rounded transition-colors', c.highlighted ? 'text-yellow-500' : 'text-slate-300 hover:text-yellow-400')} title="Destacar para informe">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill={c.highlighted ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" /></svg>
+                          </button>
+                        )}
                       </div>
                       <div className="ml-9 p-3 bg-slate-50 dark:bg-slate-800 border rounded-lg text-xs text-slate-600 dark:text-slate-400 leading-relaxed">{c.text}</div>
                     </div>

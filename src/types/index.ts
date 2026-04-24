@@ -81,6 +81,8 @@ export interface Comment {
   text: string;
   createdAt: string;
   area?: string;
+  /** Marcado como destacado para el informe */
+  highlighted?: boolean;
 }
 
 /** Tipo de herramienta de anotación */
@@ -136,6 +138,8 @@ export interface Solicitud {
   annotations: PdfAnnotation[];
   currentVersion: number;
   versions: DocumentVersion[];
+  /** Prioridad asignada por el comité (semáforo) */
+  priority?: 'red' | 'yellow' | 'green';
   /** Aprobación de ARA */
   approvalARA?: { approved: boolean; by: string; at: string; nota?: string };
   /** Aprobación de Legal */

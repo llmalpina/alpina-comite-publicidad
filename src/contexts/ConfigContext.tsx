@@ -21,6 +21,7 @@ export type PermissionKey =
   | 'agregar_anotacion_pdf'
   | 'subir_version'
   | 'subir_fuera_horario'
+  | 'enviar_informe'
   | 'ver_reportes'
   | 'gestionar_maestros'
   | 'gestionar_usuarios'
@@ -56,6 +57,12 @@ export interface ScheduleConfig {
   reminderDay: number;     // 0=dom, 1=lun, ..., 6=sáb
   reminderHour: number;
   reminderMinute: number;
+  /** Informe semanal del comité */
+  reportEnabled: boolean;
+  reportDay: number;
+  reportHour: number;
+  reportMinute: number;
+  reportTopN: number;
 }
 
 /** Una regla define: qué evento → quién recibe el correo */
@@ -109,7 +116,7 @@ interface ConfigContextType {
 export const ALL_PERMISSIONS: PermissionKey[] = [
   'crear_solicitud', 'ver_solicitudes_propias', 'ver_todas_solicitudes',
   'revisar_solicitud', 'aprobar_rechazar', 'agregar_comentario',
-  'agregar_anotacion_pdf', 'subir_version', 'subir_fuera_horario', 'ver_reportes',
+  'agregar_anotacion_pdf', 'subir_version', 'subir_fuera_horario', 'enviar_informe', 'ver_reportes',
   'gestionar_maestros', 'gestionar_usuarios', 'gestionar_roles', 'configurar_correos',
 ];
 
@@ -130,6 +137,11 @@ const DEFAULT_SCHEDULE: ScheduleConfig = {
   reminderDay: 1,
   reminderHour: 8,
   reminderMinute: 0,
+  reportEnabled: true,
+  reportDay: 2, // martes
+  reportHour: 8,
+  reportMinute: 0,
+  reportTopN: 10,
 };
 
 const DEFAULT_EMAIL: EmailConfig = {
