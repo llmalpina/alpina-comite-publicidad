@@ -2,10 +2,13 @@ import React, { useState, useMemo } from 'react';
 import { XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, PieChart, Pie, Cell, Legend } from 'recharts';
 import { Card, CardContent, CardHeader, CardTitle } from '../../../components/ui/Card';
 import { Button } from '../../../components/ui/Button';
-import { Calendar, Clock, FileText, CheckCircle2, XCircle, TrendingUp, Filter } from 'lucide-react';
+import { Calendar, Clock, FileText, CheckCircle2, XCircle, TrendingUp, Filter, Send, Loader2 } from 'lucide-react';
 import { useSolicitudes } from '../../../hooks/useSolicitudes';
 import { useMaestros } from '../../../contexts/MaestrosContext';
-import { cn } from '../../../lib/utils';
+import { useNotifications } from '../../../contexts/NotificationContext';
+import { cn, formatDate } from '../../../lib/utils';
+import { Input } from '../../../components/ui/Input';
+import { comentariosApi } from '../../../lib/api';
 
 type Periodo = 'semana' | 'mes' | 'trimestre' | 'anio';
 
@@ -268,7 +271,109 @@ const ReportsPage: React.FC = () => {
           </div>
         </CardContent>
       </Card>
+
+      {/* Informe semanal para gerencia */}
+      <InformeSemanal solicitudes={filtered} />
     </div>
+  );
+};
+
+// ─── Componente Informe Semanal ───────────────────────────────────────────────
+const InformeSemanal: React.FC<{ solicitudes: any[] }> = ({ solicitudes }) => {
+  const { notify } = useNotifications();
+  const [fechaInicio, setFechaInicio] = useState(() => {
+    const d = new Date(); d.setDate(d.getDate() - 7);
+    return d.toISOString().split('T')[0];
+  });
+  const [fechaFin, setFechaFin] = useState(() => new Date().toISOString().split('T')[0]);
+  const [sending, setSending] = useState(false);
+  const [topN, setTopN] = useState(10);
+
+  const piezasInforme = useMemo(() => {
+    const start = new Date(fechaInicio);
+    const end = new Date(fechaFin + 'T23:59:59');
+    return solicitudes
+      .filter(s => ['APROBADA', 'APROBADA_OBSERVACIONES', 'RECHAZADA'].includes(s.status))
+      .filter(s => { const d = new Date(s.updatedAt || s.createdAt); return d >= start && d <= end; })
+      .sort((a, b) => {
+        const prio: Record<string, number> = { red: 0, yellow: 1, green: 2 };
+        return (prio[a.priority] ?? 3) - (prio[b.priority] ?? 3);
+      })
+      .slice(0, topN);
+  }, [solicitudes, fechaInicio, fechaFin, topN]);
+
+  const prioColors: Record<string, string> = { red: 'bg-red-500', yellow: 'bg-yellow-400', green: 'bg-emerald-500' };
+  const prioLabels: Record<string, string> = { red: 'Urgente', yellow: 'Media', green: 'Normal' };
+  const statusLabels: Record<string, string> = { APROBADA: 'Sin comentarios', APROBADA_OBSERVACIONES: 'Con comentarios', RECHAZADA: 'Rechazada' };
+
+  const handleSend = async () => {
+    setSending(true);
+    try {
+      const sesUrl = (import.meta as any).env?.VITE_SES_LAMBDA_URL as string;
+      const apiUrl = (import.meta as any).env?.VITE_API_URL as string;
+      const token = localStorage.getItem('alpina_id_token');
+      // Obtener comentarios destacados para cada pieza
+      const piezasConComentarios = await Promise.all(piezasInforme.map(async (s) => {
+        let highlightedComments: any[] = [];
+        try {
+          const comments = await comentariosApi.list(s.id);
+          highlightedComments = (comments || []).filter((c: any) => c.highlighted);
+        } catch {}
+        return { id: s.id, title: s.title, consecutive: s.consecutive, brand: s.brand, status: s.status, priority: s.priority, description: s.description, highlightedComments };
+      }));
+      await fetch(sesUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+        body: JSON.stringify({ template: 'informe_semanal', to: ['nicolas.carreno@alpina.com'], cc: [], data: { piezas: piezasConComentarios } }),
+      });
+      notify('Informe enviado por correo', 'success');
+    } catch (e: any) { notify(e.message || 'Error al enviar', 'error'); }
+    finally { setSending(false); }
+  };
+
+  return (
+    <Card>
+      <CardHeader className="pb-2 flex flex-row items-center justify-between flex-wrap gap-2">
+        <CardTitle className="text-sm font-bold flex items-center gap-2"><FileText size={16} /> Informe semanal para gerencia</CardTitle>
+        <div className="flex items-center gap-2 flex-wrap">
+          <Input type="date" value={fechaInicio} onChange={e => setFechaInicio(e.target.value)} className="h-8 text-xs w-36" />
+          <span className="text-xs text-slate-400">a</span>
+          <Input type="date" value={fechaFin} onChange={e => setFechaFin(e.target.value)} className="h-8 text-xs w-36" />
+          <Input type="number" min={1} max={50} value={topN} onChange={e => setTopN(parseInt(e.target.value) || 10)} className="h-8 text-xs w-16" title="Top N" />
+          <Button size="sm" onClick={handleSend} disabled={sending || piezasInforme.length === 0} className="gap-1 shrink-0">
+            {sending ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />}
+            {sending ? 'Enviando...' : 'Enviar informe'}
+          </Button>
+        </div>
+      </CardHeader>
+      <CardContent>
+        {piezasInforme.length === 0 ? (
+          <p className="text-center py-8 text-slate-400 text-sm">No hay piezas revisadas en este período</p>
+        ) : (
+          <div className="space-y-3">
+            <p className="text-xs text-slate-500">{piezasInforme.length} pieza{piezasInforme.length > 1 ? 's' : ''} revisada{piezasInforme.length > 1 ? 's' : ''} — ordenadas por prioridad</p>
+            {piezasInforme.map((s, i) => (
+              <div key={s.id} className={cn('p-4 rounded-lg border', s.priority === 'red' ? 'bg-red-50 border-red-200' : s.priority === 'yellow' ? 'bg-yellow-50 border-yellow-200' : 'bg-slate-50 border-slate-200')}>
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-bold text-slate-400">#{i + 1}</span>
+                    <div className={cn('w-3 h-3 rounded-full', prioColors[s.priority] || 'bg-slate-300')} />
+                    <span className="text-xs font-semibold text-slate-500">{prioLabels[s.priority] || 'Sin prioridad'}</span>
+                  </div>
+                  <span className={cn('text-[10px] font-bold px-2 py-0.5 rounded-full',
+                    s.status === 'RECHAZADA' ? 'bg-red-100 text-red-700' : s.status === 'APROBADA' ? 'bg-emerald-100 text-emerald-700' : 'bg-blue-100 text-blue-700')}>
+                    {statusLabels[s.status] || s.status}
+                  </span>
+                </div>
+                <p className="text-sm font-bold text-slate-800">{s.title}</p>
+                <p className="text-[10px] text-slate-500">{s.consecutive} · {s.brand} · {formatDate(s.updatedAt || s.createdAt)}</p>
+                {s.description && <p className="text-xs text-slate-600 mt-1 italic">"{s.description}"</p>}
+              </div>
+            ))}
+          </div>
+        )}
+      </CardContent>
+    </Card>
   );
 };
 
