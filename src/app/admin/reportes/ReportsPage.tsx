@@ -293,7 +293,7 @@ const InformeSemanal: React.FC<{ solicitudes: any[] }> = ({ solicitudes }) => {
     const start = new Date(fechaInicio);
     const end = new Date(fechaFin + 'T23:59:59');
     return solicitudes
-      .filter(s => ['APROBADA', 'APROBADA_OBSERVACIONES', 'RECHAZADA'].includes(s.status))
+      .filter(s => ['APROBADA', 'APROBADA_OBSERVACIONES', 'RECHAZADA', 'EN_REVISION'].includes(s.status))
       .filter(s => { const d = new Date(s.updatedAt || s.createdAt); return d >= start && d <= end; })
       .sort((a, b) => {
         const prio: Record<string, number> = { red: 0, yellow: 1, green: 2 };
@@ -304,7 +304,7 @@ const InformeSemanal: React.FC<{ solicitudes: any[] }> = ({ solicitudes }) => {
 
   const prioColors: Record<string, string> = { red: 'bg-red-500', yellow: 'bg-yellow-400', green: 'bg-emerald-500' };
   const prioLabels: Record<string, string> = { red: 'Urgente', yellow: 'Media', green: 'Normal' };
-  const statusLabels: Record<string, string> = { APROBADA: 'Sin comentarios', APROBADA_OBSERVACIONES: 'Con comentarios', RECHAZADA: 'Rechazada' };
+  const statusLabels: Record<string, string> = { APROBADA: 'Sin comentarios', APROBADA_OBSERVACIONES: 'Con comentarios', RECHAZADA: 'Rechazada', EN_REVISION: 'En revisión' };
 
   const handleSend = async () => {
     setSending(true);
