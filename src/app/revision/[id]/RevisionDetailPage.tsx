@@ -697,11 +697,16 @@ const RevisionDetailPage: React.FC = () => {
                           <p className="text-[10px] text-slate-400">{c.area} · {formatDate(c.createdAt)}</p>
                         </div>
                         {canAnnotate && (
-                          <button onClick={() => {
+                          <button onClick={async () => {
+                            const newVal = !c.highlighted;
                             setSolicitud(prev => {
                               if (!prev) return prev;
-                              return { ...prev, comments: prev.comments.map(x => x.id === c.id ? { ...x, highlighted: !x.highlighted } : x) };
+                              return { ...prev, comments: prev.comments.map(x => x.id === c.id ? { ...x, highlighted: newVal } : x) };
                             });
+                            // Persistir en DynamoDB
+                            try {
+                              await apiFetch(`/solicitudes/${solicitud.id}/comentarios`, { method: 'PATCH', body: JSON.stringify({ sk: (c as any).sk, highlighted: newVal }) });
+                            } catch {}
                           }} className={cn('p-1 rounded transition-colors', c.highlighted ? 'text-yellow-500' : 'text-slate-300 hover:text-yellow-400')} title="Destacar para informe">
                             <svg width="16" height="16" viewBox="0 0 24 24" fill={c.highlighted ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" /></svg>
                           </button>
@@ -740,11 +745,15 @@ const RevisionDetailPage: React.FC = () => {
                         <div className="flex items-center gap-1">
                           <span className="text-[10px] text-yellow-600">Pág. {ann.page}</span>
                           {canAnnotate && (
-                            <button onClick={() => {
+                            <button onClick={async () => {
+                              const newVal = !(ann as any).highlighted;
                               setSolicitud(prev => {
                                 if (!prev) return prev;
-                                return { ...prev, annotations: prev.annotations.map(a => a.id === ann.id ? { ...a, highlighted: !(a as any).highlighted } : a) as any };
+                                return { ...prev, annotations: prev.annotations.map(a => a.id === ann.id ? { ...a, highlighted: newVal } : a) as any };
                               });
+                              try {
+                                await apiFetch(`/solicitudes/${solicitud.id}/anotaciones`, { method: 'PATCH', body: JSON.stringify({ sk: (ann as any).sk, highlighted: newVal }) });
+                              } catch {}
                             }} className={cn('p-1 rounded transition-colors', (ann as any).highlighted ? 'text-yellow-500' : 'text-slate-300 hover:text-yellow-400')} title="Destacar para informe">
                               <svg width="14" height="14" viewBox="0 0 24 24" fill={(ann as any).highlighted ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" /></svg>
                             </button>
