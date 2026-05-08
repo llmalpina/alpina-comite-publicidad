@@ -70,7 +70,7 @@ const LoginPage: React.FC = () => {
         </div>
         <div className="relative z-10 flex flex-col items-center text-center">
           <img src="/assets/Logo_azul_alpina.png" alt="Alpina" className="w-32 md:w-44 mb-8 drop-shadow-lg" />
-          <h1 className="text-3xl md:text-4xl font-bold text-white mb-3 tracking-tight">Comité de Publicidad</h1>
+          <h1 className="text-3xl md:text-4xl font-bold text-white mb-3 tracking-tight">Comité Autorregulación Publicitaria</h1>
           <p className="text-brand-200 text-sm max-w-xs">Plataforma de revisión y aprobación de piezas publicitarias</p>
         </div>
       </div>
@@ -192,7 +192,7 @@ const LoginPage: React.FC = () => {
             </>
           )}
 
-          <p className="text-[10px] text-slate-400 text-center mt-8">© 2025 Alpina — Comité de Publicidad</p>
+          <p className="text-[10px] text-slate-400 text-center mt-8">© 2025 Alpina — Comité Autorregulación Publicitaria</p>
         </div>
       </div>
     </div>

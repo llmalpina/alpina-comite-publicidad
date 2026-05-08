@@ -565,9 +565,8 @@ const SolicitudDetailPage: React.FC = () => {
             <CardHeader><CardTitle className="text-lg font-bold">Información de la Solicitud</CardTitle></CardHeader>
             <CardContent className="space-y-6">
               <div className="grid grid-cols-2 md:grid-cols-3 gap-6">
-                <div><p className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">Marca / Producto</p><p className="text-sm font-medium text-slate-800 dark:text-slate-200">{solicitud.brand} - {solicitud.product}</p></div>
+                <div><p className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">Marca / Asunto</p><p className="text-sm font-medium text-slate-800 dark:text-slate-200">{solicitud.brand} - {solicitud.product}</p></div>
                 <div><p className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">Tipo de Contenido</p><p className="text-sm font-medium text-slate-800 dark:text-slate-200">{solicitud.contentType.replace('_', ' ')}</p></div>
-                <div><p className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">Canal</p><p className="text-sm font-medium text-slate-800 dark:text-slate-200">{solicitud.channel}</p></div>
                 <div><p className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">Solicitante</p><p className="text-sm font-medium text-slate-800 dark:text-slate-200">{solicitud.solicitanteName}</p></div>
                 <div><p className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">Área</p><p className="text-sm font-medium text-slate-800 dark:text-slate-200">{solicitud.area}</p></div>
                 <div><p className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">Fecha Límite</p><p className="text-sm font-medium text-slate-800 dark:text-slate-200">{formatDate(solicitud.deadline)}</p></div>

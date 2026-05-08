@@ -100,7 +100,7 @@ const NuevaSolicitudPage: React.FC = () => {
   const [uploading, setUploading] = useState(false);
 
   const handleNext = async () => {
-    if (step === 1 && (!brand.length || !product || !contentType || !channel)) {
+    if (step === 1 && (!brand.length || !product || !contentType)) {
       notify('Completa todos los campos obligatorios', 'error'); return;
     }
     if (step === 2 && files.length === 0) {
@@ -332,21 +332,14 @@ const NuevaSolicitudPage: React.FC = () => {
                   </div>
                 </div>
                 <div className="space-y-2">
-                  <label className="text-sm font-semibold text-slate-700 dark:text-slate-300">Producto *</label>
-                  <Input placeholder="Ej: Bon Yurt Original 170g" value={product} onChange={e => setProduct(e.target.value)} />
+                  <label className="text-sm font-semibold text-slate-700 dark:text-slate-300">Asunto *</label>
+                  <Input placeholder="Ej: Campaña Bon Yurt Original 170g" value={product} onChange={e => setProduct(e.target.value)} />
                 </div>
                 <div className="space-y-2">
                   <label className="text-sm font-semibold text-slate-700 dark:text-slate-300">Tipo de Contenido *</label>
                   <select value={contentType} onChange={e => setContentType(e.target.value)} className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
                     <option value="">Selecciona tipo</option>
                     {tiposActivos.map(t => <option key={t.id} value={t.value}>{t.label}</option>)}
-                  </select>
-                </div>
-                <div className="space-y-2">
-                  <label className="text-sm font-semibold text-slate-700 dark:text-slate-300">Canal de Publicación *</label>
-                  <select value={channel} onChange={e => setChannel(e.target.value)} className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
-                    <option value="">Selecciona canal</option>
-                    {canalesActivos.map(c => <option key={c.id} value={c.value}>{c.label}</option>)}
                   </select>
                 </div>
               </div>

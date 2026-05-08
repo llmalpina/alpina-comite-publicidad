@@ -28,7 +28,7 @@ const Header: React.FC<HeaderProps> = ({ onMenuToggle }) => {
         </button>
         <button onClick={() => window.location.href = '/dashboard'} className="flex items-center gap-3 hover:opacity-80 transition-opacity" aria-label="Ir al inicio">
           <img src="/assets/logo-alpina.png" alt="" className="h-8" />
-          <span className="hidden sm:block font-bold text-white text-sm">Comité de Publicidad</span>
+          <span className="hidden sm:block font-bold text-white text-sm">Comité Autorregulación Publicitaria</span>
         </button>
       </div>
 
