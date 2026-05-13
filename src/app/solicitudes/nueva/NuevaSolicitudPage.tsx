@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ChevronRight, ChevronLeft, Upload, FileText, CheckCircle2, X, Info, ShieldCheck, AlertTriangle, Loader2, Clock } from 'lucide-react';
+import { ChevronRight, ChevronLeft, Upload, FileText, CheckCircle2, X, ShieldCheck, AlertTriangle, Loader2, Clock } from 'lucide-react';
 import { Button } from '../../../components/ui/Button';
 import { Card, CardContent, CardFooter } from '../../../components/ui/Card';
 import { Input } from '../../../components/ui/Input';
@@ -41,13 +41,12 @@ const NuevaSolicitudPage: React.FC = () => {
   const [brand, setBrand] = useState<string[]>([]);
   const [product, setProduct] = useState('');
   const [contentType, setContentType] = useState('');
-  const [channel, setChannel] = useState('');
+  const [channel] = useState('');
   const [description, setDescription] = useState('');
   const [deadline, setDeadline] = useState('');
 
   const marcasActivas = maestros.marcas.filter(m => m.activo);
   const tiposActivos = maestros.tiposContenido.filter(t => t.activo);
-  const canalesActivos = maestros.canales.filter(c => c.activo);
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop: (accepted: File[]) => {

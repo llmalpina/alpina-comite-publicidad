@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ChevronLeft, Clock, CheckCircle2, MessageSquare, FileText, Download, History, Upload, X, Pin, XCircle, RefreshCw } from 'lucide-react';
+import { ChevronLeft, Clock, CheckCircle2, MessageSquare, FileText, Download, FileDown, History, Upload, X, Pin, XCircle, RefreshCw } from 'lucide-react';
 import { Button } from '../../../components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '../../../components/ui/Card';
 import { Badge } from '../../../components/ui/Badge';
@@ -12,6 +12,7 @@ import { useNotifications } from '../../../contexts/NotificationContext';
 import { solicitudesApi } from '../../../lib/api';
 import { comentariosApi, versionesApi, anotacionesApi } from '../../../lib/api';
 import PdfViewer from '../../../components/ui/PdfViewer';
+import { exportPdfWithAnnotations } from '../../../lib/pdf-export';
 import { useDropzone } from 'react-dropzone';
 
 const SolicitudDetailPage: React.FC = () => {
@@ -543,6 +544,33 @@ const SolicitudDetailPage: React.FC = () => {
                 )}
                 <Button variant="ghost" size="sm" className="gap-2 text-blue-600" onClick={() => pdfUrl && window.open(pdfUrl, '_blank')} disabled={!pdfUrl}>
                   <Download size={16} /> Descargar
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="gap-2 text-emerald-600"
+                  disabled={!pdfUrl || solicitud.annotations.length === 0}
+                  onClick={async () => {
+                    if (!pdfUrl) return;
+                    try {
+                      notify('Generando PDF con comentarios...', 'info');
+                      await exportPdfWithAnnotations(
+                        pdfUrl,
+                        solicitud.annotations.map(a => ({
+                          id: a.id, page: a.page, x: a.x, y: a.y,
+                          x2: a.x2, y2: a.y2,
+                          text: a.text, userName: a.userName, area: a.area,
+                          tool: a.tool, color: a.color, resolved: a.resolved,
+                        })),
+                        `${solicitud.consecutive}_con_comentarios.pdf`
+                      );
+                      notify('PDF exportado con comentarios', 'success');
+                    } catch (e: any) {
+                      notify(e.message || 'Error al exportar', 'error');
+                    }
+                  }}
+                >
+                  <FileDown size={16} /> Exportar con comentarios
                 </Button>
               </div>
             </CardHeader>
