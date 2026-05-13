@@ -56,23 +56,18 @@ export async function exportPdfWithAnnotations(
     const commentText = `[${ann.userName}${ann.area ? ' - ' + ann.area : ''}]: ${ann.text}`;
 
     if (tool === 'pin' || tool === 'select') {
-      // Agregar como Text Annotation (sticky note)
       addTextAnnotation(page, pdfDoc, pdfX, pdfY, commentText, ann.color);
     } else if (tool === 'rect' && ann.x2 !== undefined && ann.y2 !== undefined) {
-      // Agregar como highlight/square annotation
       const pdfX2 = (ann.x2 / 100) * width;
       const pdfY2 = height - (ann.y2 / 100) * height;
       addSquareAnnotation(page, pdfDoc, pdfX, pdfY, pdfX2, pdfY2, commentText, ann.color);
     } else if ((tool === 'underline' || tool === 'strikethrough' || tool === 'arrow') && ann.x2 !== undefined && ann.y2 !== undefined) {
-      // Para líneas, agregar un sticky note en el punto medio
       const midX = ((ann.x + ann.x2) / 2 / 100) * width;
       const midY = height - ((ann.y + ann.y2) / 2 / 100) * height;
       addTextAnnotation(page, pdfDoc, midX, midY, commentText, ann.color);
     } else if (tool === 'freehand') {
-      // Para dibujo libre, sticky note en el punto inicial
       addTextAnnotation(page, pdfDoc, pdfX, pdfY, commentText, ann.color);
     } else {
-      // Fallback: sticky note
       addTextAnnotation(page, pdfDoc, pdfX, pdfY, commentText, ann.color);
     }
   }
@@ -92,6 +87,31 @@ export async function exportPdfWithAnnotations(
 }
 
 /**
+ * Obtiene o crea el array de anotaciones de una página.
+ * Evita el error "Expected instance of PDFArray" cuando la página no tiene Annots.
+ */
+function getOrCreateAnnotsArray(page: PDFPage, doc: PDFDocument): PDFArray {
+  const existingAnnots = page.node.get(PDFName.of('Annots'));
+
+  if (existingAnnots instanceof PDFArray) {
+    return existingAnnots;
+  }
+
+  // Si es una referencia, resolver
+  if (existingAnnots) {
+    const resolved = doc.context.lookup(existingAnnots);
+    if (resolved instanceof PDFArray) {
+      return resolved;
+    }
+  }
+
+  // No existe — crear un nuevo array vacío y asignarlo a la página
+  const newAnnots = doc.context.obj([]);
+  page.node.set(PDFName.of('Annots'), newAnnots);
+  return newAnnots;
+}
+
+/**
  * Agrega una Text Annotation (sticky note) nativa al PDF.
  */
 function addTextAnnotation(
@@ -104,7 +124,6 @@ function addTextAnnotation(
 ) {
   const { r, g, b } = parseColor(color || '#ef4444');
 
-  // Crear el diccionario de anotación manualmente
   const annotDict = doc.context.obj({
     Type: 'Annot',
     Subtype: 'Text',
@@ -113,19 +132,12 @@ function addTextAnnotation(
     C: [r, g, b],
     Name: 'Comment',
     Open: false,
-    F: 4, // Print flag
+    F: 4,
   });
 
-  // Agregar al array de anotaciones de la página
-  const annots = page.node.lookup(PDFName.of('Annots'), PDFArray);
-  if (annots) {
-    const ref = doc.context.register(annotDict);
-    annots.push(ref);
-  } else {
-    const ref = doc.context.register(annotDict);
-    const newAnnots = doc.context.obj([ref]);
-    page.node.set(PDFName.of('Annots'), newAnnots);
-  }
+  const ref = doc.context.register(annotDict);
+  const annots = getOrCreateAnnotsArray(page, doc);
+  annots.push(ref);
 }
 
 /**
@@ -143,7 +155,6 @@ function addSquareAnnotation(
 ) {
   const { r, g, b } = parseColor(color || '#ef4444');
 
-  // Normalizar coordenadas (PDF espera lowerLeft, upperRight)
   const lx = Math.min(x1, x2);
   const ly = Math.min(y1, y2);
   const ux = Math.max(x1, x2);
@@ -155,21 +166,15 @@ function addSquareAnnotation(
     Rect: [lx, ly, ux, uy],
     Contents: PDFString.of(contents),
     C: [r, g, b],
-    IC: [r, g, b], // Interior color (semi-transparent in viewers)
-    BS: doc.context.obj({ W: 2, S: 'S' }), // Border style
-    CA: 0.3, // Opacity
+    IC: [r, g, b],
+    BS: doc.context.obj({ W: 2, S: 'S' }),
+    CA: 0.3,
     F: 4,
   });
 
-  const annots = page.node.lookup(PDFName.of('Annots'), PDFArray);
-  if (annots) {
-    const ref = doc.context.register(annotDict);
-    annots.push(ref);
-  } else {
-    const ref = doc.context.register(annotDict);
-    const newAnnots = doc.context.obj([ref]);
-    page.node.set(PDFName.of('Annots'), newAnnots);
-  }
+  const ref = doc.context.register(annotDict);
+  const annots = getOrCreateAnnotsArray(page, doc);
+  annots.push(ref);
 }
 
 /**
