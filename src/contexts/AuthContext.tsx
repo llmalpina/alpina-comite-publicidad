@@ -139,9 +139,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         } catch { /* token inválido, continúa con flujo normal */ }
       }
 
-      // Sesión dev guardada
-      const devUser = localStorage.getItem('alpina_dev_user');
-      if (devUser) { setUser(JSON.parse(devUser)); setLoading(false); return; }
+      // Sesión dev guardada (deshabilitado en producción)
+      // const devUser = localStorage.getItem('alpina_dev_user');
+      // if (devUser) { setUser(JSON.parse(devUser)); setLoading(false); return; }
 
       const idToken = localStorage.getItem('alpina_id_token');
       const refreshToken = localStorage.getItem('alpina_refresh_token');

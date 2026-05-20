@@ -1,10 +1,9 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
-import { UserRole } from '../../types';
 
 const LoginPage: React.FC = () => {
-  const { login, loginDev, completeNewPassword } = useAuth();
+  const { login, completeNewPassword } = useAuth();
   const navigate = useNavigate();
 
   const [email, setEmail] = useState('');
@@ -33,7 +32,17 @@ const LoginPage: React.FC = () => {
         navigate('/dashboard');
       }
     } catch (err: any) {
-      setError(err.message || 'Error al iniciar sesión');
+      const msg = err.message || 'Error al iniciar sesión';
+      // Traducir errores comunes de Cognito
+      if (msg.toLowerCase().includes('temporary password has expired')) {
+        setError('Tu contraseña temporal ha expirado. Contacta al administrador para que te asigne una nueva.');
+      } else if (msg.toLowerCase().includes('incorrect username or password') || msg.toLowerCase().includes('user does not exist')) {
+        setError('Correo o contraseña incorrectos.');
+      } else if (msg.toLowerCase().includes('user is disabled')) {
+        setError('Tu cuenta está desactivada. Contacta al administrador.');
+      } else {
+        setError(msg);
+      }
     } finally {
       setLoading(false);
     }
@@ -53,11 +62,6 @@ const LoginPage: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  };
-
-  const handleQuickLogin = (role: UserRole) => {
-    loginDev(role);
-    navigate('/dashboard');
   };
 
   return (
@@ -167,28 +171,6 @@ const LoginPage: React.FC = () => {
                   {loading ? 'Verificando...' : 'Iniciar Sesión'}
                 </button>
               </form>
-
-              {/* Acceso rápido dev */}
-              <div className="mt-6 border-t border-slate-100 dark:border-slate-700 pt-5">
-                <p className="text-[10px] text-slate-400 text-center mb-3 uppercase tracking-widest">Acceso rápido (dev)</p>
-                <div className="grid grid-cols-2 gap-2">
-                  {([
-                    { role: 'SOLICITANTE' as UserRole,   label: 'Solicitante' },
-                    { role: 'REVISOR_ARA' as UserRole,   label: 'Revisor ARA' },
-                    { role: 'REVISOR_LEGAL' as UserRole, label: 'Revisor Legal' },
-                    { role: 'ADMIN' as UserRole,         label: 'Administrador' },
-                  ]).map(({ role, label }) => (
-                    <button
-                      key={role}
-                      type="button"
-                      onClick={() => handleQuickLogin(role)}
-                      className="text-xs border border-slate-200 dark:border-slate-600 rounded-lg px-3 py-2 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
-                    >
-                      {label}
-                    </button>
-                  ))}
-                </div>
-              </div>
             </>
           )}
 

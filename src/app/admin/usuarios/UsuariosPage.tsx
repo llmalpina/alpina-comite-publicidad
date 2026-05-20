@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { UserPlus, Search, ToggleLeft, ToggleRight, Loader2 } from 'lucide-react';
+import { UserPlus, Search, ToggleLeft, ToggleRight, Loader2, KeyRound } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '../../../components/ui/Card';
 import { Button } from '../../../components/ui/Button';
 import { Input } from '../../../components/ui/Input';
@@ -80,6 +80,16 @@ const UsuariosPage: React.FC = () => {
       await usuariosApi.disable(userId);
       setUsers(prev => prev.map(u => u.id === userId ? { ...u, activo: !u.activo } : u));
       notify(target.activo ? 'Usuario desactivado' : 'Usuario activado', 'info');
+    } catch (e: any) { notify(e.message, 'error'); }
+  };
+
+  const handleResetPassword = async (userId: string) => {
+    const target = users.find(u => u.id === userId);
+    if (!target) return;
+    if (!confirm(`¿Resetear la contraseña de ${target.name}? Se le enviará un correo con una nueva contraseña temporal.`)) return;
+    try {
+      const result = await usuariosApi.resetPassword(userId);
+      notify(result.message || 'Contraseña reseteada exitosamente', 'success');
     } catch (e: any) { notify(e.message, 'error'); }
   };
 
@@ -199,9 +209,14 @@ const UsuariosPage: React.FC = () => {
                         </Badge>
                       </td>
                       <td className="p-4">
-                        <button onClick={() => handleToggle(u.id)} className="p-1.5 rounded hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-500 transition-colors" title={u.activo ? 'Desactivar' : 'Activar'}>
-                          {u.activo ? <ToggleRight size={20} className="text-emerald-500" /> : <ToggleLeft size={20} />}
-                        </button>
+                        <div className="flex items-center gap-1">
+                          <button onClick={() => handleResetPassword(u.id)} className="p-1.5 rounded hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-500 transition-colors" title="Resetear contraseña">
+                            <KeyRound size={18} className="text-amber-500" />
+                          </button>
+                          <button onClick={() => handleToggle(u.id)} className="p-1.5 rounded hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-500 transition-colors" title={u.activo ? 'Desactivar' : 'Activar'}>
+                            {u.activo ? <ToggleRight size={20} className="text-emerald-500" /> : <ToggleLeft size={20} />}
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))}

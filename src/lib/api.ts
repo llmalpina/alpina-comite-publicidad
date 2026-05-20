@@ -100,6 +100,8 @@ export const usuariosApi = {
     apiFetch<any>(`/usuarios/${id}/rol`, { method: 'PATCH', body: JSON.stringify({ role }) }),
   disable: (id: string) =>
     apiFetch<any>(`/usuarios/${id}/disable`, { method: 'PATCH' }),
+  resetPassword: (id: string) =>
+    apiFetch<{ message: string }>(`/usuarios/${id}/reset-password`, { method: 'PATCH' }),
 };
 
 // ─── S3 Presigned URL ────────────────────────────────────────────────────────
