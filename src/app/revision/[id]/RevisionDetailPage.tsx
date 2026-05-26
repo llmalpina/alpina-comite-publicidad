@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ChevronLeft, MessageSquare, ShieldCheck, CheckCircle2, XCircle, Send, FileText, Pin, PlusCircle, RefreshCw } from 'lucide-react';
+import { ChevronLeft, MessageSquare, ShieldCheck, CheckCircle2, XCircle, Send, FileText, Pin, PlusCircle, RefreshCw, FileDown, Download } from 'lucide-react';
 import { Button } from '../../../components/ui/Button';
 import { Card, CardContent } from '../../../components/ui/Card';
 import { Badge } from '../../../components/ui/Badge';
@@ -11,6 +11,7 @@ import { cn, formatDate } from '../../../lib/utils';
 import { Solicitud, Comment, PdfAnnotation, AnnotationTool } from '../../../types';
 import { solicitudesApi, comentariosApi, anotacionesApi, versionesApi, apiFetch } from '../../../lib/api';
 import PdfViewer from '../../../components/ui/PdfViewer';
+import { exportPdfWithAnnotations } from '../../../lib/pdf-export';
 
 type PanelTab = 'IA' | 'COMENTARIOS' | 'ANOTACIONES' | 'VERSIONES';
 
@@ -417,6 +418,38 @@ const RevisionDetailPage: React.FC = () => {
           {/* Botón refrescar */}
           <Button variant="ghost" size="icon" onClick={handleRefresh} disabled={refreshing} className="text-slate-400 hover:text-slate-600" title="Actualizar datos">
             <RefreshCw size={16} className={refreshing ? 'animate-spin' : ''} />
+          </Button>
+          {/* Botones descarga PDF */}
+          <Button variant="ghost" size="icon" onClick={() => pdfUrl && window.open(pdfUrl, '_blank')} disabled={!pdfUrl} className="text-slate-400 hover:text-blue-600" title="Descargar PDF">
+            <Download size={16} />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="text-slate-400 hover:text-emerald-600"
+            disabled={!pdfUrl || solicitud.annotations.length === 0}
+            title="Exportar PDF con comentarios"
+            onClick={async () => {
+              if (!pdfUrl) return;
+              try {
+                notify('Generando PDF con comentarios...', 'info');
+                await exportPdfWithAnnotations(
+                  pdfUrl,
+                  solicitud.annotations.map(a => ({
+                    id: a.id, page: a.page, x: a.x, y: a.y,
+                    x2: a.x2, y2: a.y2,
+                    text: a.text, userName: a.userName, area: a.area,
+                    tool: a.tool, color: a.color, resolved: a.resolved,
+                  })),
+                  `${solicitud.consecutive}_con_comentarios.pdf`
+                );
+                notify('PDF exportado con comentarios', 'success');
+              } catch (e: any) {
+                notify(e.message || 'Error al exportar PDF', 'error');
+              }
+            }}
+          >
+            <FileDown size={16} />
           </Button>
           {/* Indicadores de aprobación */}
           <div className="hidden sm:flex items-center gap-1.5 mr-2">

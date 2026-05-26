@@ -2,7 +2,7 @@
  * Exportar PDF con anotaciones incrustadas como PDF annotations nativas.
  * Usa pdf-lib para modificar el PDF original y agregar sticky notes / highlights.
  */
-import { PDFDocument, PDFPage, PDFName, PDFArray, PDFString } from 'pdf-lib';
+import { PDFDocument, PDFPage, PDFName, PDFArray, PDFString, PDFRef } from 'pdf-lib';
 
 export interface ExportAnnotation {
   id: string;
@@ -28,12 +28,40 @@ export async function exportPdfWithAnnotations(
   annotations: ExportAnnotation[],
   fileName?: string
 ): Promise<void> {
-  // 1. Descargar el PDF original
-  const response = await fetch(pdfUrl);
-  if (!response.ok) throw new Error('No se pudo descargar el PDF');
-  const pdfBytes = await response.arrayBuffer();
+  // 1. Descargar el PDF original — con reintentos y manejo de CORS
+  let pdfBytes: ArrayBuffer;
+  try {
+    // Intentar fetch directo (funciona si la URL presignada es válida y CORS permite)
+    const response = await fetch(pdfUrl, { mode: 'cors' });
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    pdfBytes = await response.arrayBuffer();
+  } catch (fetchError) {
+    // Si falla el fetch directo, intentar obtener una URL presignada fresca
+    const PRESIGN_URL = (import.meta as any).env?.VITE_PRESIGN_URL as string;
+    if (!PRESIGN_URL) {
+      throw new Error('No se pudo descargar el PDF. La URL puede haber expirado. Recarga la página e intenta de nuevo.');
+    }
+    // Extraer la key de S3 de la URL original
+    const s3Key = extractS3KeyFromUrl(pdfUrl);
+    if (!s3Key) {
+      throw new Error('No se pudo descargar el PDF. Recarga la página e intenta de nuevo.');
+    }
+    // Obtener nueva URL presignada
+    const presignRes = await fetch(PRESIGN_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'download', key: s3Key }),
+    });
+    const presignData = await presignRes.json();
+    if (!presignData.url) {
+      throw new Error('No se pudo obtener URL de descarga. Recarga la página.');
+    }
+    const retryRes = await fetch(presignData.url, { mode: 'cors' });
+    if (!retryRes.ok) throw new Error('No se pudo descargar el PDF después de renovar la URL.');
+    pdfBytes = await retryRes.arrayBuffer();
+  }
 
-  // 2. Cargar con pdf-lib
+  // 2. Cargar con pdf-lib (ignorar encriptación y no validar estrictamente)
   const pdfDoc = await PDFDocument.load(pdfBytes, { ignoreEncryption: true });
   const pages = pdfDoc.getPages();
 
@@ -88,7 +116,7 @@ export async function exportPdfWithAnnotations(
 
 /**
  * Obtiene o crea el array de anotaciones de una página.
- * Evita el error "Expected instance of PDFArray" cuando la página no tiene Annots.
+ * Maneja correctamente referencias indirectas y arrays existentes.
  */
 function getOrCreateAnnotsArray(page: PDFPage, doc: PDFDocument): PDFArray {
   const existingAnnots = page.node.get(PDFName.of('Annots'));
@@ -97,11 +125,25 @@ function getOrCreateAnnotsArray(page: PDFPage, doc: PDFDocument): PDFArray {
     return existingAnnots;
   }
 
-  // Si es una referencia, resolver
-  if (existingAnnots) {
+  // Si es una referencia indirecta, resolver
+  if (existingAnnots instanceof PDFRef) {
     const resolved = doc.context.lookup(existingAnnots);
     if (resolved instanceof PDFArray) {
+      // Reemplazar la referencia con el array directo para poder modificarlo
+      page.node.set(PDFName.of('Annots'), resolved);
       return resolved;
+    }
+  }
+
+  if (existingAnnots) {
+    try {
+      const resolved = doc.context.lookup(existingAnnots);
+      if (resolved instanceof PDFArray) {
+        page.node.set(PDFName.of('Annots'), resolved);
+        return resolved;
+      }
+    } catch {
+      // Si no se puede resolver, crear uno nuevo
     }
   }
 
@@ -109,6 +151,17 @@ function getOrCreateAnnotsArray(page: PDFPage, doc: PDFDocument): PDFArray {
   const newAnnots = doc.context.obj([]);
   page.node.set(PDFName.of('Annots'), newAnnots);
   return newAnnots;
+}
+
+/**
+ * Sanitiza texto para PDFString — remueve caracteres que causan problemas.
+ */
+function sanitizeText(text: string): string {
+  return text
+    .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F]/g, '') // Remove control chars
+    .replace(/\\/g, '\\\\')
+    .replace(/\(/g, '\\(')
+    .replace(/\)/g, '\\)');
 }
 
 /**
@@ -123,21 +176,26 @@ function addTextAnnotation(
   color?: string
 ) {
   const { r, g, b } = parseColor(color || '#ef4444');
+  const safeContents = sanitizeText(contents);
 
-  const annotDict = doc.context.obj({
-    Type: 'Annot',
-    Subtype: 'Text',
-    Rect: [x - 12, y - 12, x + 12, y + 12],
-    Contents: PDFString.of(contents),
-    C: [r, g, b],
-    Name: 'Comment',
-    Open: false,
-    F: 4,
-  });
+  try {
+    const annotDict = doc.context.obj({
+      Type: 'Annot',
+      Subtype: 'Text',
+      Rect: [x - 12, y - 12, x + 12, y + 12],
+      Contents: PDFString.of(safeContents),
+      C: [r, g, b],
+      Name: 'Comment',
+      Open: false,
+      F: 4,
+    });
 
-  const ref = doc.context.register(annotDict);
-  const annots = getOrCreateAnnotsArray(page, doc);
-  annots.push(ref);
+    const ref = doc.context.register(annotDict);
+    const annots = getOrCreateAnnotsArray(page, doc);
+    annots.push(ref);
+  } catch (e) {
+    console.warn('[pdf-export] Error adding text annotation:', e);
+  }
 }
 
 /**
@@ -154,27 +212,32 @@ function addSquareAnnotation(
   color?: string
 ) {
   const { r, g, b } = parseColor(color || '#ef4444');
+  const safeContents = sanitizeText(contents);
 
   const lx = Math.min(x1, x2);
   const ly = Math.min(y1, y2);
   const ux = Math.max(x1, x2);
   const uy = Math.max(y1, y2);
 
-  const annotDict = doc.context.obj({
-    Type: 'Annot',
-    Subtype: 'Square',
-    Rect: [lx, ly, ux, uy],
-    Contents: PDFString.of(contents),
-    C: [r, g, b],
-    IC: [r, g, b],
-    BS: doc.context.obj({ W: 2, S: 'S' }),
-    CA: 0.3,
-    F: 4,
-  });
+  try {
+    const annotDict = doc.context.obj({
+      Type: 'Annot',
+      Subtype: 'Square',
+      Rect: [lx, ly, ux, uy],
+      Contents: PDFString.of(safeContents),
+      C: [r, g, b],
+      IC: [r, g, b],
+      BS: doc.context.obj({ W: 2, S: 'S' }),
+      CA: 0.3,
+      F: 4,
+    });
 
-  const ref = doc.context.register(annotDict);
-  const annots = getOrCreateAnnotsArray(page, doc);
-  annots.push(ref);
+    const ref = doc.context.register(annotDict);
+    const annots = getOrCreateAnnotsArray(page, doc);
+    annots.push(ref);
+  } catch (e) {
+    console.warn('[pdf-export] Error adding square annotation:', e);
+  }
 }
 
 /**
@@ -188,4 +251,22 @@ function parseColor(hex: string): { r: number; g: number; b: number } {
     g: ((bigint >> 8) & 255) / 255,
     b: (bigint & 255) / 255,
   };
+}
+
+
+/**
+ * Extrae la key de S3 de una URL presignada.
+ * Ejemplo: https://bucket.s3.amazonaws.com/solicitudes/abc/v1_file.pdf?X-Amz-...
+ * Retorna: solicitudes/abc/v1_file.pdf
+ */
+function extractS3KeyFromUrl(url: string): string | null {
+  try {
+    const parsed = new URL(url);
+    // Remover el leading slash y query params
+    const path = decodeURIComponent(parsed.pathname.replace(/^\//, ''));
+    if (path) return path;
+    return null;
+  } catch {
+    return null;
+  }
 }

@@ -18,19 +18,25 @@ const RevisionQueuePage: React.FC = () => {
   const [search, setSearch] = useState('');
   const [sortAsc, setSortAsc] = useState(false);
   const [activeQueueTab, setActiveQueueTab] = useState<QueueTab>('PENDIENTES');
+  const [solicitanteFilter, setSolicitanteFilter] = useState('');
 
   const isARA = user?.role === 'REVISOR_ARA' || user?.role === 'ADMIN';
   const isLegal = user?.role === 'REVISOR_LEGAL' || user?.role === 'ADMIN';
 
+  // Lista única de solicitantes para el filtro
+  const solicitantes = [...new Set(solicitudes.map(s => (s as any).solicitanteName).filter(Boolean))].sort();
+
   const matchesSearch = (s: any) =>
     s.title?.toLowerCase().includes(search.toLowerCase()) ||
     s.consecutive?.toLowerCase().includes(search.toLowerCase()) ||
-    s.brand?.toLowerCase().includes(search.toLowerCase());
+    s.brand?.toLowerCase().includes(search.toLowerCase()) ||
+    s.solicitanteName?.toLowerCase().includes(search.toLowerCase());
 
   const pending = solicitudes
     .filter(s =>
       ['ENVIADA', 'EN_REVISION'].includes(s.status) &&
-      matchesSearch(s)
+      matchesSearch(s) &&
+      (solicitanteFilter ? (s as any).solicitanteName === solicitanteFilter : true)
     )
     .sort((a, b) => {
       const da = a.createdAt || '';
@@ -39,7 +45,7 @@ const RevisionQueuePage: React.FC = () => {
     });
 
   const published = solicitudes
-    .filter(s => s.status === 'PUBLICADA' && matchesSearch(s))
+    .filter(s => s.status === 'PUBLICADA' && matchesSearch(s) && (solicitanteFilter ? (s as any).solicitanteName === solicitanteFilter : true))
     .sort((a, b) => {
       const da = a.updatedAt || a.createdAt || '';
       const db = b.updatedAt || b.createdAt || '';
@@ -102,8 +108,12 @@ const RevisionQueuePage: React.FC = () => {
       <div className="flex gap-3">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
-          <Input placeholder="Buscar por marca, consecutivo o título..." className="pl-10" value={search} onChange={e => setSearch(e.target.value)} />
+          <Input placeholder="Buscar por marca, consecutivo, título o solicitante..." className="pl-10" value={search} onChange={e => setSearch(e.target.value)} />
         </div>
+        <select value={solicitanteFilter} onChange={e => setSolicitanteFilter(e.target.value)} className="flex h-10 rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring min-w-[180px]">
+          <option value="">Todos los solicitantes</option>
+          {solicitantes.map(s => <option key={s} value={s}>{s}</option>)}
+        </select>
       </div>
 
       {loading ? (

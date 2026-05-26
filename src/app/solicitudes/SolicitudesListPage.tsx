@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { Link } from "react-router-dom";
-import { PlusCircle, Search, Eye, Loader2, FileText, X, ChevronUp, ChevronDown } from "lucide-react";
+import { PlusCircle, Search, Eye, Loader2, FileText, X, ChevronUp, ChevronDown, Archive } from "lucide-react";
 import { Button } from "../../components/ui/Button";
 import { Card, CardContent } from "../../components/ui/Card";
 import { Input } from "../../components/ui/Input";
@@ -8,7 +8,9 @@ import { Badge } from "../../components/ui/Badge";
 import { STATUS_LABELS } from "../../lib/constants";
 import { formatDate, cn } from "../../lib/utils";
 import { useSolicitudes } from "../../hooks/useSolicitudes";
-import { solicitudesApi } from "../../lib/api";
+import { solicitudesApi, apiFetch } from "../../lib/api";
+import { useAuth } from "../../contexts/AuthContext";
+import { useConfig } from "../../contexts/ConfigContext";
 import { RequestStatus } from "../../types";
 
 const STATUS_FILTER_OPTIONS: { value: RequestStatus | ""; label: string }[] = [
@@ -23,9 +25,19 @@ const STATUS_FILTER_OPTIONS: { value: RequestStatus | ""; label: string }[] = [
 
 const SolicitudesPage: React.FC = () => {
   const { solicitudes, setSolicitudes, loading, error } = useSolicitudes();
+  const { user } = useAuth();
+  const { hasPermission } = useConfig();
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<RequestStatus | "">("");
+  const [solicitanteFilter, setSolicitanteFilter] = useState("");
   const [sortAsc, setSortAsc] = useState(false);
+
+  // Permiso configurable: si el solicitante puede ver solicitudes de otros
+  const canSeeOthers = user?.role === 'ADMIN' || user?.role === 'REVISOR_ARA' || user?.role === 'REVISOR_LEGAL' || hasPermission(user?.role || 'SOLICITANTE', 'ver_solicitudes_otros');
+  const canDelete = hasPermission(user?.role || 'SOLICITANTE', 'eliminar_solicitudes');
+
+  // Obtener lista única de solicitantes para el filtro
+  const solicitantes = [...new Set(solicitudes.map(s => s.solicitanteName).filter(Boolean))].sort();
 
   const filtered = solicitudes
     .filter((s) => {
@@ -34,13 +46,24 @@ const SolicitudesPage: React.FC = () => {
         s.consecutive?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         s.brand?.toLowerCase().includes(searchTerm.toLowerCase());
       const matchStatus = statusFilter ? s.status === statusFilter : s.status !== "PUBLICADA";
-      return matchSearch && matchStatus;
+      const matchSolicitante = solicitanteFilter ? s.solicitanteName === solicitanteFilter : true;
+      // Si es solicitante y no tiene permiso de ver otros, solo ve las propias
+      const matchOwnership = canSeeOthers ? true : (s.solicitanteId === user?.id || s.solicitanteName === user?.name);
+      return matchSearch && matchStatus && matchSolicitante && matchOwnership;
     })
     .sort((a, b) => {
       const da = a.createdAt || "";
       const db = b.createdAt || "";
       return sortAsc ? da.localeCompare(db) : db.localeCompare(da);
     });
+
+  const handleArchive = async (solicitudId: string) => {
+    if (!confirm('¿Archivar esta solicitud? No se eliminará, solo se ocultará de la lista.')) return;
+    try {
+      await apiFetch(`/solicitudes/${solicitudId}/status`, { method: 'PATCH', body: JSON.stringify({ active: 0 }) });
+      setSolicitudes(prev => prev.filter(s => s.id !== solicitudId));
+    } catch {}
+  };
 
   return (
     <div className="space-y-4">
@@ -71,8 +94,14 @@ const SolicitudesPage: React.FC = () => {
             <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value as RequestStatus | "")} className="flex h-10 rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring min-w-[180px]">
               {STATUS_FILTER_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
             </select>
-            {(searchTerm || statusFilter) && (
-              <Button variant="ghost" size="sm" className="gap-1 text-slate-500" onClick={() => { setSearchTerm(""); setStatusFilter(""); }}>
+            {canSeeOthers && (
+              <select value={solicitanteFilter} onChange={(e) => setSolicitanteFilter(e.target.value)} className="flex h-10 rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring min-w-[180px]">
+                <option value="">Todos los solicitantes</option>
+                {solicitantes.map((s) => <option key={s} value={s}>{s}</option>)}
+              </select>
+            )}
+            {(searchTerm || statusFilter || solicitanteFilter) && (
+              <Button variant="ghost" size="sm" className="gap-1 text-slate-500" onClick={() => { setSearchTerm(""); setStatusFilter(""); setSolicitanteFilter(""); }}>
                 <X size={14} /> Limpiar
               </Button>
             )}
@@ -124,6 +153,7 @@ const SolicitudesPage: React.FC = () => {
                           Creada {sortAsc ? <ChevronUp size={10} /> : <ChevronDown size={10} />}
                         </p>
                         <p className="text-sm text-slate-700 dark:text-slate-300">{formatDate(solicitud.createdAt)}</p>
+                        <p className="text-[10px] text-slate-400">{solicitud.createdAt ? new Date(solicitud.createdAt).toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' }) : ''}</p>
                       </div>
                       <div>
                         <p className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Fecha Limite</p>
@@ -156,6 +186,12 @@ const SolicitudesPage: React.FC = () => {
                           } catch {}
                         }}>
                         Publicar
+                      </Button>
+                    )}
+                    {canDelete && (
+                      <Button variant="ghost" size="sm" className="w-full gap-1 text-red-500 hover:bg-red-50 text-xs"
+                        onClick={(e) => { e.preventDefault(); handleArchive(solicitud.id); }}>
+                        <Archive size={14} /> Archivar
                       </Button>
                     )}
                   </div>

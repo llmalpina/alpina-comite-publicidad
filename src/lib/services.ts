@@ -10,7 +10,7 @@ const BEDROCK_URL = import.meta.env.VITE_BEDROCK_LAMBDA_URL as string;
 // ─── Correo ───────────────────────────────────────────────────────────────────
 
 export interface EmailPayload {
-  template: 'nueva_solicitud' | 'cambio_estado' | 'nuevo_comentario' | 'aprobacion_parcial';
+  template: 'nueva_solicitud' | 'cambio_estado' | 'nuevo_comentario' | 'aprobacion_parcial' | 'recordatorio_pendientes' | 'resumen_revision_miercoles' | 'informe_semanal' | 'bienvenida';
   to: string | string[];
   cc?: string | string[];
   data: Record<string, any>;
@@ -184,6 +184,9 @@ export async function dispararRegla(
       solicitud_rechazada:          'cambio_estado',
       comentario_agregado:          'nuevo_comentario',
       recordatorio_pendientes:      'recordatorio_pendientes',
+      resumen_revision_miercoles:   'resumen_revision_miercoles',
+      informe_semanal:              'informe_semanal',
+      usuario_creado:               'bienvenida',
     };
 
     const template = templateMap[event];

@@ -15,6 +15,7 @@ export type PermissionKey =
   | 'crear_solicitud'
   | 'ver_solicitudes_propias'
   | 'ver_todas_solicitudes'
+  | 'ver_solicitudes_otros'
   | 'revisar_solicitud'
   | 'aprobar_rechazar'
   | 'agregar_comentario'
@@ -26,7 +27,8 @@ export type PermissionKey =
   | 'gestionar_maestros'
   | 'gestionar_usuarios'
   | 'gestionar_roles'
-  | 'configurar_correos';
+  | 'configurar_correos'
+  | 'eliminar_solicitudes';
 
 export interface RoleConfig {
   id: string;
@@ -91,6 +93,7 @@ export type NotificationEvent =
   | 'comentario_agregado'
   | 'nueva_version_subida'
   | 'recordatorio_pendientes'
+  | 'resumen_revision_miercoles'
   | 'informe_semanal'
   | 'usuario_creado';
 
@@ -115,10 +118,10 @@ interface ConfigContextType {
 // ─── Defaults ─────────────────────────────────────────────────────────────────
 
 export const ALL_PERMISSIONS: PermissionKey[] = [
-  'crear_solicitud', 'ver_solicitudes_propias', 'ver_todas_solicitudes',
+  'crear_solicitud', 'ver_solicitudes_propias', 'ver_todas_solicitudes', 'ver_solicitudes_otros',
   'revisar_solicitud', 'aprobar_rechazar', 'agregar_comentario',
   'agregar_anotacion_pdf', 'subir_version', 'subir_fuera_horario', 'enviar_informe', 'ver_reportes',
-  'gestionar_maestros', 'gestionar_usuarios', 'gestionar_roles', 'configurar_correos',
+  'gestionar_maestros', 'gestionar_usuarios', 'gestionar_roles', 'configurar_correos', 'eliminar_solicitudes',
 ];
 
 const DEFAULT_ROLES: RoleConfig[] = [
@@ -229,6 +232,15 @@ const DEFAULT_EMAIL: EmailConfig = {
       event: 'recordatorio_pendientes',
       label: 'Recordatorio semanal de piezas pendientes',
       description: 'Envía un correo a los solicitantes con piezas pendientes de subir o publicar.',
+      toRoles: ['SOLICITANTE'],
+      toEmails: [],
+      cc: ['nicolas.carreno@alpina.com'],
+    },
+    {
+      id: 'rule-8b', system: true, enabled: true,
+      event: 'resumen_revision_miercoles',
+      label: 'Resumen pre-comité (miércoles 5 PM)',
+      description: 'Envía a cada solicitante un resumen de las piezas que subió y que se revisarán el miércoles a las 5:00 PM.',
       toRoles: ['SOLICITANTE'],
       toEmails: [],
       cc: ['nicolas.carreno@alpina.com'],

@@ -52,10 +52,20 @@ const NuevaSolicitudPage: React.FC = () => {
     onDrop: (accepted: File[]) => {
       const pdfs = accepted.filter(f => f.type === 'application/pdf');
       if (pdfs.length < accepted.length) notify('Solo se permiten archivos PDF', 'error');
-      setFiles(prev => [...prev, ...pdfs]);
+      if (files.length > 0) {
+        notify('Solo se permite un PDF por solicitud. Elimina el actual para subir otro.', 'error');
+        return;
+      }
+      if (pdfs.length > 1) {
+        notify('Solo se permite un PDF por solicitud', 'error');
+        setFiles([pdfs[0]]);
+        return;
+      }
+      setFiles(pdfs.slice(0, 1));
     },
     accept: { 'application/pdf': ['.pdf'] },
     maxSize: 52428800,
+    maxFiles: 1,
   });
 
   const removeFile = (i: number) => setFiles(prev => prev.filter((_, idx) => idx !== i));

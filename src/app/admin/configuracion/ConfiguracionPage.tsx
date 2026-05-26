@@ -12,6 +12,7 @@ const PERMISSION_LABELS: Record<PermissionKey, string> = {
   crear_solicitud:          'Crear solicitudes',
   ver_solicitudes_propias:  'Ver sus propias solicitudes',
   ver_todas_solicitudes:    'Ver todas las solicitudes',
+  ver_solicitudes_otros:    'Ver solicitudes de otros solicitantes',
   revisar_solicitud:        'Revisar solicitudes',
   aprobar_rechazar:         'Aprobar / Rechazar',
   agregar_comentario:       'Agregar comentarios',
@@ -24,10 +25,11 @@ const PERMISSION_LABELS: Record<PermissionKey, string> = {
   gestionar_usuarios:       'Gestionar usuarios',
   gestionar_roles:          'Gestionar roles',
   configurar_correos:       'Configurar correos',
+  eliminar_solicitudes:     'Eliminar (archivar) solicitudes',
 };
 
 const PERMISSION_GROUPS = [
-  { label: 'Solicitudes', keys: ['crear_solicitud', 'ver_solicitudes_propias', 'ver_todas_solicitudes', 'subir_version', 'subir_fuera_horario'] as PermissionKey[] },
+  { label: 'Solicitudes', keys: ['crear_solicitud', 'ver_solicitudes_propias', 'ver_todas_solicitudes', 'ver_solicitudes_otros', 'subir_version', 'subir_fuera_horario', 'eliminar_solicitudes'] as PermissionKey[] },
   { label: 'Revisión', keys: ['revisar_solicitud', 'aprobar_rechazar', 'agregar_comentario', 'agregar_anotacion_pdf', 'enviar_informe'] as PermissionKey[] },
   { label: 'Administración', keys: ['ver_reportes', 'gestionar_maestros', 'gestionar_usuarios', 'gestionar_roles', 'configurar_correos'] as PermissionKey[] },
 ];
@@ -163,6 +165,7 @@ const EVENT_LABELS: Record<NotificationEvent, string> = {
   comentario_agregado:         'Comentario del comité',
   nueva_version_subida:        'Nueva versión subida',
   recordatorio_pendientes:     'Recordatorio semanal',
+  resumen_revision_miercoles:  'Resumen pre-comité (miércoles)',
   informe_semanal:             'Informe semanal gerencia',
   usuario_creado:              'Usuario creado',
 };
