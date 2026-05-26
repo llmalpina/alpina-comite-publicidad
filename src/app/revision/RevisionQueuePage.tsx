@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Search, Clock, ChevronRight, ChevronUp, ChevronDown, CheckCircle2, Loader2, Eye, RefreshCw } from 'lucide-react';
+import { Search, Clock, ChevronRight, ChevronUp, ChevronDown, CheckCircle2, Loader2, Eye, RefreshCw, Archive } from 'lucide-react';
 import { Button } from '../../components/ui/Button';
 import { Card, CardContent } from '../../components/ui/Card';
 import { Input } from '../../components/ui/Input';
@@ -9,12 +9,15 @@ import { STATUS_LABELS } from '../../lib/constants';
 import { formatDate, cn } from '../../lib/utils';
 import { useSolicitudes } from '../../hooks/useSolicitudes';
 import { useAuth } from '../../contexts/AuthContext';
+import { useConfig } from '../../contexts/ConfigContext';
+import { apiFetch } from '../../lib/api';
 
 type QueueTab = 'PENDIENTES' | 'PUBLICADAS';
 
 const RevisionQueuePage: React.FC = () => {
   const { solicitudes, loading, refetch } = useSolicitudes();
   const { user } = useAuth();
+  const { hasPermission } = useConfig();
   const [search, setSearch] = useState('');
   const [sortAsc, setSortAsc] = useState(false);
   const [activeQueueTab, setActiveQueueTab] = useState<QueueTab>('PENDIENTES');
@@ -22,9 +25,18 @@ const RevisionQueuePage: React.FC = () => {
 
   const isARA = user?.role === 'REVISOR_ARA' || user?.role === 'ADMIN';
   const isLegal = user?.role === 'REVISOR_LEGAL' || user?.role === 'ADMIN';
+  const canDelete = hasPermission(user?.role || 'SOLICITANTE', 'eliminar_solicitudes');
 
   // Lista única de solicitantes para el filtro
   const solicitantes = [...new Set(solicitudes.map(s => (s as any).solicitanteName).filter(Boolean))].sort();
+
+  const handleArchive = async (solicitudId: string) => {
+    if (!confirm('¿Archivar esta solicitud? No se eliminará, solo se ocultará de la lista.')) return;
+    try {
+      await apiFetch(`/solicitudes/${solicitudId}/status`, { method: 'PATCH', body: JSON.stringify({ active: 0 }) });
+      refetch();
+    } catch {}
+  };
 
   const matchesSearch = (s: any) =>
     s.title?.toLowerCase().includes(search.toLowerCase()) ||
@@ -203,7 +215,8 @@ const RevisionQueuePage: React.FC = () => {
                     </div>
 
                     {/* Acción */}
-                    <div>
+                    {/* Acción */}
+                    <div className="flex flex-col gap-1">
                       {isPublished ? (
                         <Link to={`/revision/${s.id}`}>
                           <Button variant="outline" size="sm" className="gap-1 w-full text-slate-500"><Eye size={14} /> Ver</Button>
@@ -218,6 +231,12 @@ const RevisionQueuePage: React.FC = () => {
                         <Link to={`/revision/${s.id}`}>
                           <Button size="sm" className="gap-1 w-full">Revisar <ChevronRight size={14} /></Button>
                         </Link>
+                      )}
+                      {canDelete && (
+                        <Button variant="ghost" size="sm" className="gap-1 w-full text-red-500 hover:bg-red-50 text-[10px] h-7"
+                          onClick={(e) => { e.preventDefault(); handleArchive(s.id); }}>
+                          <Archive size={12} /> Archivar
+                        </Button>
                       )}
                     </div>
                   </div>
