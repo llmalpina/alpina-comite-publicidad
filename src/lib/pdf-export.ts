@@ -1,7 +1,7 @@
 /**
  * Exportar PDF con anotaciones.
- * Estrategia: Genera un PDF resumen con todos los comentarios organizados por página,
- * con colores llamativos y fácil de leer. Si se puede descargar el original, lo adjunta.
+ * Estrategia: Obtiene URL presignada fresca, descarga el PDF, agrega anotaciones nativas
+ * y páginas de resumen con todos los comentarios organizados por página.
  */
 import { PDFDocument, PDFPage, PDFName, PDFArray, PDFString, PDFRef, rgb, StandardFonts } from 'pdf-lib';
 
@@ -21,12 +21,15 @@ export interface ExportAnnotation {
 }
 
 /**
- * Genera un PDF con el resumen de comentarios al final (páginas adicionales).
- * Si puede descargar el PDF original, lo incluye con anotaciones nativas.
- * Si no puede (CORS/expiración), genera solo el resumen de comentarios como PDF independiente.
+ * Genera un PDF completo: PDF original con anotaciones nativas + páginas de resumen al final.
+ * Siempre obtiene una URL presignada fresca para evitar expiración.
+ * 
+ * @param s3Key - La key del archivo en S3 (no la URL presignada)
+ * @param annotations - Las anotaciones a incluir
+ * @param fileName - Nombre del archivo de salida
  */
 export async function exportPdfWithAnnotations(
-  pdfUrl: string,
+  pdfUrlOrKey: string,
   annotations: ExportAnnotation[],
   fileName?: string
 ): Promise<void> {
@@ -35,30 +38,23 @@ export async function exportPdfWithAnnotations(
     throw new Error('No hay comentarios activos para exportar.');
   }
 
-  let pdfDoc: PDFDocument;
-  let originalLoaded = false;
+  // 1. Obtener URL presignada FRESCA (no usar la que ya tenemos que puede estar expirada)
+  const pdfBytes = await downloadPdfFresh(pdfUrlOrKey);
 
-  // Intentar descargar el PDF original
+  // 2. Cargar con pdf-lib
+  const pdfDoc = await PDFDocument.load(pdfBytes, { ignoreEncryption: true });
+
+  // 3. Agregar anotaciones nativas al PDF (sticky notes visibles en Adobe Reader)
   try {
-    const pdfBytes = await downloadPdf(pdfUrl);
-    pdfDoc = await PDFDocument.load(pdfBytes, { ignoreEncryption: true });
-    originalLoaded = true;
-
-    // Intentar agregar anotaciones nativas al PDF original
-    try {
-      addNativeAnnotations(pdfDoc, activeAnnotations);
-    } catch (e) {
-      console.warn('[pdf-export] No se pudieron agregar anotaciones nativas, se usará solo el resumen:', e);
-    }
+    addNativeAnnotations(pdfDoc, activeAnnotations);
   } catch (e) {
-    console.warn('[pdf-export] No se pudo descargar el PDF original, generando solo resumen:', e);
-    pdfDoc = await PDFDocument.create();
+    console.warn('[pdf-export] Error agregando anotaciones nativas:', e);
   }
 
-  // Siempre agregar páginas de resumen al final (visibles y llamativas)
-  await addSummaryPages(pdfDoc, activeAnnotations, originalLoaded);
+  // 4. Agregar páginas de resumen al final
+  await addSummaryPages(pdfDoc, activeAnnotations, true);
 
-  // Serializar y descargar
+  // 5. Serializar y descargar
   const modifiedPdfBytes = await pdfDoc.save();
   const blob = new Blob([modifiedPdfBytes], { type: 'application/pdf' });
   const url = URL.createObjectURL(blob);
@@ -73,33 +69,51 @@ export async function exportPdfWithAnnotations(
 }
 
 /**
- * Descarga el PDF con reintentos y URL presignada fresca.
+ * Descarga el PDF obteniendo SIEMPRE una URL presignada fresca del backend.
+ * Esto evita el problema de URLs expiradas.
  */
-async function downloadPdf(pdfUrl: string): Promise<ArrayBuffer> {
-  // Intento 1: fetch directo
-  try {
-    const response = await fetch(pdfUrl, { mode: 'cors' });
-    if (response.ok) return await response.arrayBuffer();
-  } catch { /* continuar con retry */ }
-
-  // Intento 2: obtener URL presignada fresca
+async function downloadPdfFresh(pdfUrlOrKey: string): Promise<ArrayBuffer> {
   const PRESIGN_URL = (import.meta as any).env?.VITE_PRESIGN_URL as string;
-  if (!PRESIGN_URL) throw new Error('URL expirada');
+  
+  // Extraer la s3Key de la URL (si es una URL) o usarla directamente (si ya es una key)
+  let s3Key: string;
+  if (pdfUrlOrKey.startsWith('http')) {
+    s3Key = extractS3KeyFromUrl(pdfUrlOrKey) || '';
+  } else {
+    s3Key = pdfUrlOrKey;
+  }
 
-  const s3Key = extractS3KeyFromUrl(pdfUrl);
-  if (!s3Key) throw new Error('No se pudo extraer key de S3');
+  if (!s3Key) {
+    throw new Error('No se pudo determinar la ubicación del PDF en S3.');
+  }
 
+  if (!PRESIGN_URL) {
+    throw new Error('PRESIGN_URL no configurada. No se puede descargar el PDF.');
+  }
+
+  // Obtener URL presignada fresca (válida por 1 hora)
   const presignRes = await fetch(PRESIGN_URL, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ action: 'download', key: s3Key }),
   });
-  const presignData = await presignRes.json();
-  if (!presignData.url) throw new Error('No se obtuvo URL presignada');
 
-  const retryRes = await fetch(presignData.url, { mode: 'cors' });
-  if (!retryRes.ok) throw new Error('Descarga falló con URL renovada');
-  return await retryRes.arrayBuffer();
+  if (!presignRes.ok) {
+    throw new Error(`Error al obtener URL de descarga (${presignRes.status})`);
+  }
+
+  const presignData = await presignRes.json();
+  if (!presignData.url) {
+    throw new Error('El servidor no devolvió una URL de descarga válida.');
+  }
+
+  // Descargar el PDF con la URL fresca
+  const pdfRes = await fetch(presignData.url);
+  if (!pdfRes.ok) {
+    throw new Error(`Error al descargar el PDF (${pdfRes.status}). Intenta de nuevo.`);
+  }
+
+  return await pdfRes.arrayBuffer();
 }
 
 /**

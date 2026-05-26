@@ -551,11 +551,12 @@ const SolicitudDetailPage: React.FC = () => {
                   className="gap-2 text-emerald-600"
                   disabled={!pdfUrl || solicitud.annotations.length === 0}
                   onClick={async () => {
-                    if (!pdfUrl) return;
+                    const s3Key = (solicitud.files?.[0] as any)?.s3Key;
+                    if (!s3Key && !pdfUrl) { notify('No hay PDF disponible', 'error'); return; }
                     try {
                       notify('Generando PDF con comentarios...', 'info');
                       await exportPdfWithAnnotations(
-                        pdfUrl,
+                        s3Key || pdfUrl!,
                         solicitud.annotations.map(a => ({
                           id: a.id, page: a.page, x: a.x, y: a.y,
                           x2: a.x2, y2: a.y2,
