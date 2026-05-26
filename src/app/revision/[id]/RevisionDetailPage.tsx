@@ -442,7 +442,7 @@ const RevisionDetailPage: React.FC = () => {
                     text: a.text, userName: a.userName, area: a.area,
                     tool: a.tool, color: a.color, resolved: a.resolved,
                   })),
-                  `${solicitud.consecutive}_con_comentarios.pdf`
+                  `${(solicitud.files?.[0]?.name || solicitud.consecutive).replace('.pdf', '')}_comentarios.pdf`
                 );
                 notify('PDF exportado con comentarios', 'success');
               } catch (e: any) {

@@ -54,28 +54,31 @@ export async function exportPdfWithAnnotations(
   // 4. Agregar páginas de resumen al final
   await addSummaryPages(pdfDoc, activeAnnotations, true);
 
-  // 5. Serializar y descargar
+  // 5. Serializar y abrir en nueva pestaña (evita bloqueos de descarga corporativos)
   const modifiedPdfBytes = await pdfDoc.save();
   const blob = new Blob([modifiedPdfBytes], { type: 'application/pdf' });
   const blobUrl = URL.createObjectURL(blob);
 
-  // Forzar descarga con nombre correcto
-  const link = document.createElement('a');
-  link.style.display = 'none';
-  link.href = blobUrl;
-  link.download = fileName || 'documento_con_comentarios.pdf';
-  link.type = 'application/pdf';
-  document.body.appendChild(link);
+  // Abrir en nueva pestaña — el usuario puede descargar desde ahí o guardar en Drive
+  const newTab = window.open(blobUrl, '_blank');
   
-  // Timeout para asegurar que el DOM se actualice antes del click
-  await new Promise(resolve => setTimeout(resolve, 100));
-  link.click();
+  // Si el navegador bloqueó el popup, intentar descarga directa como fallback
+  if (!newTab) {
+    const link = document.createElement('a');
+    link.style.display = 'none';
+    link.href = blobUrl;
+    link.download = fileName || 'documento_con_comentarios.pdf';
+    link.type = 'application/pdf';
+    document.body.appendChild(link);
+    link.click();
+    setTimeout(() => {
+      document.body.removeChild(link);
+      URL.revokeObjectURL(blobUrl);
+    }, 2000);
+  }
   
-  // Limpiar después de un momento
-  setTimeout(() => {
-    document.body.removeChild(link);
-    URL.revokeObjectURL(blobUrl);
-  }, 1000);
+  // No revocar inmediatamente — la pestaña necesita la URL activa
+  setTimeout(() => URL.revokeObjectURL(blobUrl), 120000); // limpiar después de 2 min
 }
 
 /**
@@ -123,13 +126,23 @@ async function downloadPdfFresh(pdfUrlOrKey: string): Promise<ArrayBuffer> {
     throw new Error('El servidor no devolvió una URL de descarga válida.');
   }
 
-  // Descargar el PDF inmediatamente con la URL fresca (válida por 1 hora desde AHORA)
-  const pdfRes = await fetch(presignData.url);
-  if (!pdfRes.ok) {
-    throw new Error(`Error al descargar el PDF (${pdfRes.status}). La URL presignada puede no ser válida.`);
-  }
-
-  return await pdfRes.arrayBuffer();
+  // Descargar el PDF usando XMLHttpRequest (más compatible con CORS de S3 que fetch)
+  return new Promise<ArrayBuffer>((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open('GET', presignData.url, true);
+    xhr.responseType = 'arraybuffer';
+    xhr.onload = () => {
+      if (xhr.status >= 200 && xhr.status < 300) {
+        resolve(xhr.response as ArrayBuffer);
+      } else {
+        reject(new Error(`Error al descargar PDF (${xhr.status})`));
+      }
+    };
+    xhr.onerror = () => reject(new Error('Error de red al descargar el PDF. Verifica tu conexión.'));
+    xhr.ontimeout = () => reject(new Error('Timeout al descargar el PDF.'));
+    xhr.timeout = 60000;
+    xhr.send();
+  });
 }
 
 /**
