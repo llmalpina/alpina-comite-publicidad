@@ -57,20 +57,31 @@ export async function exportPdfWithAnnotations(
   // 5. Serializar y descargar
   const modifiedPdfBytes = await pdfDoc.save();
   const blob = new Blob([modifiedPdfBytes], { type: 'application/pdf' });
-  const url = URL.createObjectURL(blob);
+  const blobUrl = URL.createObjectURL(blob);
 
+  // Forzar descarga con nombre correcto
   const link = document.createElement('a');
-  link.href = url;
+  link.style.display = 'none';
+  link.href = blobUrl;
   link.download = fileName || 'documento_con_comentarios.pdf';
+  link.type = 'application/pdf';
   document.body.appendChild(link);
+  
+  // Timeout para asegurar que el DOM se actualice antes del click
+  await new Promise(resolve => setTimeout(resolve, 100));
   link.click();
-  document.body.removeChild(link);
-  URL.revokeObjectURL(url);
+  
+  // Limpiar después de un momento
+  setTimeout(() => {
+    document.body.removeChild(link);
+    URL.revokeObjectURL(blobUrl);
+  }, 1000);
 }
 
 /**
  * Descarga el PDF obteniendo SIEMPRE una URL presignada fresca del backend.
  * Esto evita el problema de URLs expiradas.
+ * La URL presignada se genera en el momento del clic (tiempo empieza a contar aquí).
  */
 async function downloadPdfFresh(pdfUrlOrKey: string): Promise<ArrayBuffer> {
   const PRESIGN_URL = (import.meta as any).env?.VITE_PRESIGN_URL as string;
@@ -91,15 +102,20 @@ async function downloadPdfFresh(pdfUrlOrKey: string): Promise<ArrayBuffer> {
     throw new Error('PRESIGN_URL no configurada. No se puede descargar el PDF.');
   }
 
-  // Obtener URL presignada fresca (válida por 1 hora)
+  // Obtener URL presignada fresca — el tiempo de expiración empieza AHORA
+  const token = localStorage.getItem('alpina_id_token');
   const presignRes = await fetch(PRESIGN_URL, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: {
+      'Content-Type': 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
     body: JSON.stringify({ action: 'download', key: s3Key }),
   });
 
   if (!presignRes.ok) {
-    throw new Error(`Error al obtener URL de descarga (${presignRes.status})`);
+    const errText = await presignRes.text().catch(() => '');
+    throw new Error(`Error al obtener URL de descarga (${presignRes.status}): ${errText}`);
   }
 
   const presignData = await presignRes.json();
@@ -107,10 +123,10 @@ async function downloadPdfFresh(pdfUrlOrKey: string): Promise<ArrayBuffer> {
     throw new Error('El servidor no devolvió una URL de descarga válida.');
   }
 
-  // Descargar el PDF con la URL fresca
+  // Descargar el PDF inmediatamente con la URL fresca (válida por 1 hora desde AHORA)
   const pdfRes = await fetch(presignData.url);
   if (!pdfRes.ok) {
-    throw new Error(`Error al descargar el PDF (${pdfRes.status}). Intenta de nuevo.`);
+    throw new Error(`Error al descargar el PDF (${pdfRes.status}). La URL presignada puede no ser válida.`);
   }
 
   return await pdfRes.arrayBuffer();

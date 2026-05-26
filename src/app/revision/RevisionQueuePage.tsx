@@ -189,6 +189,7 @@ const RevisionQueuePage: React.FC = () => {
                     {/* Fecha */}
                     <div>
                       <p className="text-xs text-slate-600 dark:text-slate-400">{formatDate(isPublished ? (s.updatedAt || s.createdAt) : s.createdAt)}</p>
+                      <p className="text-[10px] text-slate-400">{s.createdAt ? new Date(s.createdAt).toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' }) : ''}</p>
                     </div>
 
                     {/* Versión */}
