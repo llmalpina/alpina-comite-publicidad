@@ -80,6 +80,7 @@ const PdfViewer: React.FC<PdfViewerProps> = ({
   const [drawStart, setDrawStart] = useState<{ x: number; y: number } | null>(null);
   const [drawEnd, setDrawEnd] = useState<{ x: number; y: number } | null>(null);
   const [freehandPoints, setFreehandPoints] = useState<{ x: number; y: number }[]>([]);
+  const [isFullscreen, setIsFullscreen] = useState(false);
 
   // Pan (hand tool) — uses refs for smooth performance, no re-renders
   const isPanningRef = useRef(false);
@@ -157,6 +158,13 @@ const PdfViewer: React.FC<PdfViewerProps> = ({
     };
     document.addEventListener('click', handler, true);
     return () => document.removeEventListener('click', handler, true);
+  }, []);
+
+  // Detect fullscreen changes
+  useEffect(() => {
+    const onFsChange = () => setIsFullscreen(!!document.fullscreenElement);
+    document.addEventListener('fullscreenchange', onFsChange);
+    return () => document.removeEventListener('fullscreenchange', onFsChange);
   }, []);
 
   const changePage = (p: number) => {
@@ -386,9 +394,9 @@ const PdfViewer: React.FC<PdfViewerProps> = ({
   }
 
   return (
-    <div className={cn('flex flex-col bg-white dark:bg-slate-900 pdf-viewer-root', className)}>
+    <div className={cn('flex flex-col bg-white dark:bg-slate-900 pdf-viewer-root', isFullscreen && 'h-screen', className)}>
       {/* Annotation Toolbar */}
-      {showToolbar && annotating && (
+      {showToolbar && (annotating || isFullscreen) && (
         <div className="flex items-center gap-2 px-3 py-2 bg-yellow-50 dark:bg-yellow-900/20 border-b border-yellow-200 flex-wrap">
           <span className="text-[10px] font-bold text-yellow-700 uppercase tracking-wider mr-1">Herramienta:</span>
           {TOOLS.map(t => (
@@ -449,12 +457,12 @@ const PdfViewer: React.FC<PdfViewerProps> = ({
         </div>
       </div>
 
-      {/* Viewer — Scroll continuo (todas las páginas) */}
+      {/* Viewer — Scroll continuo (todas las páginas) con altura fija */}
       <div ref={containerRef}
         className={cn('flex-1 overflow-auto bg-slate-200 dark:bg-slate-700',
           activeTool === 'hand' ? 'cursor-grab' :
           annotating && activeTool !== 'select' ? 'cursor-crosshair' : '')}
-        style={{ minHeight: '500px' }}
+        style={isFullscreen ? { flex: 1, minHeight: 0 } : { maxHeight: 'calc(100vh - 200px)', minHeight: '500px' }}
         onMouseUp={handleMouseUp}
       >
         {loading && !error && (
