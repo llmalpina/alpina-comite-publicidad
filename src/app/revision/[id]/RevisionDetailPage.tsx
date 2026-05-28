@@ -622,6 +622,15 @@ const RevisionDetailPage: React.FC = () => {
 
       {/* Main — en móvil apilado, en desktop lado a lado */}
       <div className="flex flex-col lg:flex-row gap-4">
+        {/* Descripción/Contexto arriba */}
+        {solicitud.description && (
+          <div className="w-full lg:col-span-2 mb-0">
+            <div className="p-3 bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-lg">
+              <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Contexto / Descripción</p>
+              <p className="text-sm text-slate-700 dark:text-slate-300 leading-relaxed whitespace-pre-wrap">{solicitud.description}</p>
+            </div>
+          </div>
+        )}
         {/* Visor PDF */}
         <div className="flex-1 rounded-xl border-2 border-slate-300 dark:border-slate-600 overflow-hidden flex flex-col relative" style={{ minHeight: 'calc(100vh - 180px)' }}>
           {/* Botón anotar */}
@@ -746,10 +755,10 @@ const RevisionDetailPage: React.FC = () => {
                   {solicitud.comments.map(c => (
                     <div key={c.id} className={cn('space-y-1.5', c.highlighted && 'bg-yellow-50 dark:bg-yellow-900/10 p-2 rounded-lg border border-yellow-200')}>
                       <div className="flex items-center gap-2">
-                        <div className="w-7 h-7 rounded-full bg-[#1e3a5f] text-white flex items-center justify-center text-[10px] font-bold">{c.userName.charAt(0)}</div>
+                        <div className="w-7 h-7 rounded-full bg-[#1e3a5f] text-white flex items-center justify-center text-[10px] font-bold">{(c.area || 'S').charAt(0)}</div>
                         <div className="flex-1">
-                          <p className="text-xs font-bold text-slate-800 dark:text-slate-200">{c.userName}</p>
-                          <p className="text-[10px] text-slate-400">{c.area} · {formatDate(c.createdAt)}</p>
+                          <p className="text-xs font-bold text-slate-800 dark:text-slate-200">{c.area || 'Sin área'}</p>
+                          <p className="text-[10px] text-slate-400">{formatDate(c.createdAt)}</p>
                         </div>
                         {canAnnotate && (
                           <button onClick={async () => {
@@ -794,8 +803,7 @@ const RevisionDetailPage: React.FC = () => {
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
                           <Pin size={12} className="text-yellow-600" />
-                          <span className="text-xs font-bold text-yellow-800">{ann.userName}</span>
-                          <Badge className="bg-yellow-200 text-yellow-800 text-[9px] px-1">{ann.area}</Badge>
+                          <span className="text-xs font-bold text-yellow-800">{ann.area || 'Sin área'}</span>
                         </div>
                         <div className="flex items-center gap-1">
                           <span className="text-[10px] text-yellow-600">Pág. {ann.page}</span>
@@ -834,7 +842,7 @@ const RevisionDetailPage: React.FC = () => {
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
                           <Pin size={12} className="text-slate-400" />
-                          <span className="text-xs font-bold text-slate-500">{ann.userName}</span>
+                          <span className="text-xs font-bold text-slate-500">{ann.area || 'Sin área'}</span>
                           <Badge className="bg-slate-200 text-slate-500 text-[9px] px-1">v{ann.version || 1}</Badge>
                         </div>
                         <div className="flex items-center gap-1">
@@ -859,7 +867,7 @@ const RevisionDetailPage: React.FC = () => {
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
                           <CheckCircle2 size={12} className="text-emerald-500" />
-                          <span className="text-xs font-bold text-emerald-700 line-through">{ann.userName}</span>
+                          <span className="text-xs font-bold text-emerald-700 line-through">{ann.area || 'Sin área'}</span>
                           <Badge className="bg-emerald-200 text-emerald-700 text-[9px] px-1">v{ann.version || 1}</Badge>
                         </div>
                         <span className="text-[10px] text-emerald-500">Resuelta</span>

@@ -53,6 +53,11 @@ const DEFAULT_CONFIG: MaestrosConfig = {
     { id: 't10', label: 'Paquete POP punto de venta (incluye aprox 5 piezas)', value: 'PAQUETE_POP', activo: true },
     { id: 't11', label: 'Comunicados de prensa y publirreportajes', value: 'COMUNICADOS_PRENSA', activo: true },
   ],
+  motivosRechazo: [
+    { id: 'mr1', label: 'Pieza repetida', value: 'Pieza repetida', activo: true },
+    { id: 'mr2', label: 'Ajustes no realizados', value: 'Ajustes no realizados', activo: true },
+    { id: 'mr3', label: 'Cumplimiento legal', value: 'Cumplimiento legal', activo: true },
+  ],
   promptIA: DEFAULT_PROMPT,
 };
 
@@ -81,11 +86,12 @@ export const MaestrosProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     const currentConfig = JSON.parse(localStorage.getItem('alpina_maestros') || 'null') || DEFAULT_CONFIG;
     (async () => {
       try {
-        const [marcas, canales, tiposContenido, areas] = await Promise.all([
+        const [marcas, canales, tiposContenido, areas, motivosRechazo] = await Promise.all([
           maestrosApi.list('marcas').catch(() => null),
           maestrosApi.list('canales').catch(() => null),
           maestrosApi.list('tiposContenido').catch(() => null),
           maestrosApi.list('areas').catch(() => null),
+          maestrosApi.list('motivosRechazo').catch(() => null),
         ]);
         let promptIA = currentConfig.promptIA;
         try {
@@ -108,6 +114,7 @@ export const MaestrosProvider: React.FC<{ children: React.ReactNode }> = ({ chil
           canales: toItems(canales, currentConfig.canales),
           tiposContenido: toItems(tiposContenido, currentConfig.tiposContenido),
           areas: toItems(areas, currentConfig.areas),
+          motivosRechazo: toItems(motivosRechazo, currentConfig.motivosRechazo || DEFAULT_CONFIG.motivosRechazo),
           promptIA,
         };
         setConfig(merged);

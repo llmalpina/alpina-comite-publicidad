@@ -177,5 +177,6 @@ export interface MaestrosConfig {
   areas: MaestroItem[];
   canales: MaestroItem[];
   tiposContenido: MaestroItem[];
+  motivosRechazo: MaestroItem[];
   promptIA: string;
 }
