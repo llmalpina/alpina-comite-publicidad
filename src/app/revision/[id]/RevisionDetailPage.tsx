@@ -400,12 +400,39 @@ const RevisionDetailPage: React.FC = () => {
 
   const handleDeleteAnnotation = (annId: string) => {
     if (!user) return;
+    const ann = solicitud.annotations.find(a => a.id === annId);
     setSolicitud(prev => {
       if (!prev) return prev;
       return { ...prev, annotations: prev.annotations.filter(a => a.id !== annId) };
     });
-    anotacionesApi.delete(solicitud.id, annId).catch(console.error);
+    // Usa el sk (sort key de DynamoDB) para eliminar
+    const sk = (ann as any)?.sk || `anotaciones#${(ann as any)?.createdAt || ''}#${annId}`;
+    anotacionesApi.delete(solicitud.id, sk).catch(console.error);
     notify('Anotación eliminada', 'info');
+  };
+
+  const [editingAnnotation, setEditingAnnotation] = useState<string | null>(null);
+  const [editAnnotationText, setEditAnnotationText] = useState('');
+
+  const handleEditAnnotation = (annId: string) => {
+    const ann = solicitud.annotations.find(a => a.id === annId);
+    if (!ann) return;
+    setEditingAnnotation(annId);
+    setEditAnnotationText(ann.text);
+  };
+
+  const handleSaveEditAnnotation = () => {
+    if (!editingAnnotation || !editAnnotationText.trim()) return;
+    const ann = solicitud.annotations.find(a => a.id === editingAnnotation);
+    setSolicitud(prev => {
+      if (!prev) return prev;
+      return { ...prev, annotations: prev.annotations.map(a => a.id === editingAnnotation ? { ...a, text: editAnnotationText.trim() } : a) };
+    });
+    const sk = (ann as any)?.sk || `anotaciones#${(ann as any)?.createdAt || ''}#${editingAnnotation}`;
+    anotacionesApi.update(solicitud.id, sk, editAnnotationText.trim()).catch(console.error);
+    setEditingAnnotation(null);
+    setEditAnnotationText('');
+    notify('Anotación actualizada', 'success');
   };
 
   const scrollToAnnotation = (ann: PdfAnnotation) => {
@@ -843,13 +870,33 @@ const RevisionDetailPage: React.FC = () => {
                             </button>
                           )}
                           {(ann.userId === user?.id || ann.userName === user?.name || user?.role === 'ADMIN' || canAnnotate) && (
+                            <button onClick={() => handleEditAnnotation(ann.id)} className="p-1 hover:bg-blue-100 text-blue-400 rounded transition-colors" title="Editar anotación">
+                              <MessageSquare size={12} />
+                            </button>
+                          )}
+                          {(ann.userId === user?.id || ann.userName === user?.name || user?.role === 'ADMIN' || canAnnotate) && (
                             <button onClick={() => handleDeleteAnnotation(ann.id)} className="p-1 hover:bg-red-100 text-red-400 rounded transition-colors" title="Eliminar anotación">
                               <XCircle size={14} />
                             </button>
                           )}
                         </div>
                       </div>
-                      <p className="text-xs text-yellow-900 leading-relaxed cursor-pointer hover:underline" onClick={() => scrollToAnnotation(ann)}>{ann.text}</p>
+                      {editingAnnotation === ann.id ? (
+                        <div className="flex gap-1 items-center">
+                          <input
+                            type="text"
+                            value={editAnnotationText}
+                            onChange={e => setEditAnnotationText(e.target.value)}
+                            onKeyDown={e => { if (e.key === 'Enter') handleSaveEditAnnotation(); if (e.key === 'Escape') setEditingAnnotation(null); }}
+                            className="flex-1 text-xs p-1.5 border rounded bg-white dark:bg-slate-900 focus:ring-1 focus:ring-blue-400 outline-none"
+                            autoFocus
+                          />
+                          <button onClick={handleSaveEditAnnotation} className="text-xs text-blue-600 font-bold px-2 py-1 hover:bg-blue-50 rounded">✓</button>
+                          <button onClick={() => setEditingAnnotation(null)} className="text-xs text-slate-400 px-1 py-1 hover:bg-slate-100 rounded">✗</button>
+                        </div>
+                      ) : (
+                        <p className="text-xs text-yellow-900 leading-relaxed cursor-pointer hover:underline" onClick={() => scrollToAnnotation(ann)}>{ann.text}</p>
+                      )}
                       <p className="text-[10px] text-yellow-500">{formatDate(ann.createdAt)}</p>
                     </div>
                   ))}

@@ -52,8 +52,10 @@ export const anotacionesApi = {
   list: (solicitudId: string) => apiFetch<any[]>(`/solicitudes/${solicitudId}/anotaciones`),
   create: (solicitudId: string, data: { text: string; page: number; x: number; y: number; userName?: string; userRole?: string; area?: string; x2?: number; y2?: number; tool?: string; color?: string; points?: { x: number; y: number }[] }) =>
     apiFetch<any>(`/solicitudes/${solicitudId}/anotaciones`, { method: 'POST', body: JSON.stringify(data) }),
-  delete: (solicitudId: string, annotationId: string) =>
-    apiFetch<any>(`/solicitudes/${solicitudId}/anotaciones/${annotationId}`, { method: 'DELETE' }),
+  delete: (solicitudId: string, sk: string) =>
+    apiFetch<any>(`/solicitudes/${solicitudId}/anotaciones`, { method: 'DELETE', body: JSON.stringify({ sk }) }),
+  update: (solicitudId: string, sk: string, text: string) =>
+    apiFetch<any>(`/solicitudes/${solicitudId}/anotaciones`, { method: 'PATCH', body: JSON.stringify({ sk, text }) }),
 };
 
 // ─── Versiones de documentos ─────────────────────────────────────────────────
