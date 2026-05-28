@@ -37,6 +37,8 @@ const RevisionDetailPage: React.FC = () => {
   const [actionNote, setActionNote] = useState('');
   const [viewingVersion, setViewingVersion] = useState<number | null>(null);
   const [refreshing, setRefreshing] = useState(false);
+  const [editingAnnotation, setEditingAnnotation] = useState<string | null>(null);
+  const [editAnnotationText, setEditAnnotationText] = useState('');
   const currentPdfPageRef = useRef(1);
   const goToPageRef = useRef<((page: number) => void) | null>(null);
 
@@ -410,9 +412,6 @@ const RevisionDetailPage: React.FC = () => {
     anotacionesApi.delete(solicitud.id, sk).catch(console.error);
     notify('Anotación eliminada', 'info');
   };
-
-  const [editingAnnotation, setEditingAnnotation] = useState<string | null>(null);
-  const [editAnnotationText, setEditAnnotationText] = useState('');
 
   const handleEditAnnotation = (annId: string) => {
     const ann = solicitud.annotations.find(a => a.id === annId);
