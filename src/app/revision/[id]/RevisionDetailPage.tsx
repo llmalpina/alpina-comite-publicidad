@@ -400,12 +400,6 @@ const RevisionDetailPage: React.FC = () => {
 
   const handleDeleteAnnotation = (annId: string) => {
     if (!user) return;
-    const ann = solicitud.annotations.find(a => a.id === annId);
-    if (!ann) return;
-    if (ann.userId !== user.id && user.role !== 'ADMIN') {
-      notify('Solo puedes eliminar tus propias anotaciones', 'error');
-      return;
-    }
     setSolicitud(prev => {
       if (!prev) return prev;
       return { ...prev, annotations: prev.annotations.filter(a => a.id !== annId) };
@@ -848,7 +842,7 @@ const RevisionDetailPage: React.FC = () => {
                               <CheckCircle2 size={14} />
                             </button>
                           )}
-                          {(ann.userId === user?.id || user?.role === 'ADMIN') && (
+                          {(ann.userId === user?.id || ann.userName === user?.name || user?.role === 'ADMIN' || canAnnotate) && (
                             <button onClick={() => handleDeleteAnnotation(ann.id)} className="p-1 hover:bg-red-100 text-red-400 rounded transition-colors" title="Eliminar anotación">
                               <XCircle size={14} />
                             </button>
