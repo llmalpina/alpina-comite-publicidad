@@ -214,6 +214,7 @@ const NuevaSolicitudPage: React.FC = () => {
         title: `${brand.join(', ')} — ${product}`,
         description, brand: brand.join(', '), product, contentType, channel,
         deadline: deadline || new Date(Date.now() + 7 * 86400000).toISOString(),
+        fechaDeseadaRevision: new (await import('../../../lib/utils')).calculateNextReviewDate(),
         iaResult: iaResult ?? undefined,
         files: uploadedFiles,
         annotations: [], comments: [], currentVersion: 1, versions: [],
@@ -387,21 +388,14 @@ const NuevaSolicitudPage: React.FC = () => {
           {step === 3 && (
             <div className="space-y-8 animate-in fade-in duration-300">
               <div className="space-y-2">
-                <label className="text-sm font-semibold text-slate-700 dark:text-slate-300">Fecha Límite Deseada</label>
-                <div
-                  className="flex items-center gap-3 h-12 w-full rounded-xl border-2 border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 px-4 cursor-pointer hover:border-[#1e3a5f] transition-colors focus-within:border-[#1e3a5f] focus-within:ring-2 focus-within:ring-[#1e3a5f]/20"
-                  onClick={() => { const el = document.getElementById('deadline-input') as HTMLInputElement; el?.showPicker?.(); el?.focus(); }}
-                >
+                <label className="text-sm font-semibold text-slate-700 dark:text-slate-300">Fecha de Revisión Deseada</label>
+                <div className="flex items-center gap-3 h-12 w-full rounded-xl border-2 border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-700 px-4">
                   <span className="text-slate-400 text-lg">📅</span>
-                  <input
-                    id="deadline-input"
-                    type="date"
-                    value={deadline}
-                    onChange={e => setDeadline(e.target.value)}
-                    className="flex-1 bg-transparent text-sm text-slate-700 dark:text-slate-200 outline-none cursor-pointer w-full"
-                  />
+                  <span className="flex-1 text-sm text-slate-700 dark:text-slate-200 font-medium">
+                    {new Intl.DateTimeFormat('es-CO', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' }).format(new Date(deadline || new Date(Date.now() + 7 * 86400000).toISOString()))}
+                  </span>
                 </div>
-                <p className="text-xs text-slate-400">Sujeto a disponibilidad de la bolsa de horas.</p>
+                <p className="text-xs text-slate-400">Se revisará el próximo lunes hábil a las 5:00 PM. Sujeto a disponibilidad de la bolsa de horas.</p>
               </div>
             </div>
           )}

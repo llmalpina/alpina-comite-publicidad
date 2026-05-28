@@ -2,7 +2,7 @@ import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { Document, Page, pdfjs } from 'react-pdf';
 import 'react-pdf/dist/Page/AnnotationLayer.css';
 import 'react-pdf/dist/Page/TextLayer.css';
-import { ChevronLeft, ChevronRight, ZoomIn, ZoomOut, Loader2, FileText, Maximize2, Pin, Square, ArrowRight, Pencil, Strikethrough, Underline as UnderlineIcon, MousePointer2, Hand } from 'lucide-react';
+import { ChevronLeft, ChevronRight, ZoomIn, ZoomOut, Loader2, FileText, Maximize2, Pin, Square, ArrowRight, Pencil, Strikethrough, Underline as UnderlineIcon, MousePointer2, Hand, Highlighter } from 'lucide-react';
 import { Button } from './Button';
 import { cn } from '../../lib/utils';
 import type { AnnotationTool } from '../../types';
@@ -50,6 +50,7 @@ const TOOLS: { key: AnnotationTool; icon: React.ElementType; label: string }[] =
   { key: 'select', icon: MousePointer2, label: 'Seleccionar' },
   { key: 'hand', icon: Hand, label: 'Mover' },
   { key: 'pin', icon: Pin, label: 'Pin' },
+  { key: 'highlight', icon: Highlighter, label: 'Resaltar' },
   { key: 'rect', icon: Square, label: 'Rectangulo' },
   { key: 'underline', icon: UnderlineIcon, label: 'Subrayar' },
   { key: 'strikethrough', icon: Strikethrough, label: 'Tachar' },
@@ -303,6 +304,14 @@ const PdfViewer: React.FC<PdfViewerProps> = ({
               onMouseEnter={() => setHoveredAnn(ann.id)} onMouseLeave={() => setHoveredAnn(null)}
             />
           )}
+          {tool === 'highlight' && (
+            <rect
+              x={`${x1}%`} y={`${y1}%`} width={`${w}%`} height={`${h}%`}
+              fill={color} fillOpacity={isHovered ? 0.4 : 0.25} stroke="none"
+              className="pointer-events-auto cursor-pointer"
+              onMouseEnter={() => setHoveredAnn(ann.id)} onMouseLeave={() => setHoveredAnn(null)}
+            />
+          )}
         </svg>
         {/* Tooltip */}
         {isHovered && ann.text && (
@@ -330,6 +339,13 @@ const PdfViewer: React.FC<PdfViewerProps> = ({
             x={`${Math.min(drawStart.x, drawEnd.x)}%`} y={`${Math.min(drawStart.y, drawEnd.y)}%`}
             width={`${Math.abs(drawEnd.x - drawStart.x)}%`} height={`${Math.abs(drawEnd.y - drawStart.y)}%`}
             fill={color} fillOpacity={0.1} stroke={color} strokeWidth="2" strokeDasharray="6,3" rx="4"
+          />
+        )}
+        {activeTool === 'highlight' && (
+          <rect
+            x={`${Math.min(drawStart.x, drawEnd.x)}%`} y={`${Math.min(drawStart.y, drawEnd.y)}%`}
+            width={`${Math.abs(drawEnd.x - drawStart.x)}%`} height={`${Math.abs(drawEnd.y - drawStart.y)}%`}
+            fill={color} fillOpacity={0.3} stroke={color} strokeWidth="1" strokeDasharray="6,3"
           />
         )}
         {(activeTool === 'underline' || activeTool === 'strikethrough') && (

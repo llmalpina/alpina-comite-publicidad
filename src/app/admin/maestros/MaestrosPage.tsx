@@ -8,13 +8,14 @@ import { useNotifications } from '../../../contexts/NotificationContext';
 import { MaestroItem } from '../../../types';
 import { cn } from '../../../lib/utils';
 
-type TipoMaestro = 'marcas' | 'areas' | 'canales' | 'tiposContenido';
+type TipoMaestro = 'marcas' | 'areas' | 'canales' | 'tiposContenido' | 'motivosRechazo';
 
 const SECCIONES: { key: TipoMaestro; label: string }[] = [
   { key: 'marcas', label: 'Marcas' },
   { key: 'areas', label: 'Áreas' },
   { key: 'canales', label: 'Canales' },
   { key: 'tiposContenido', label: 'Tipos de Contenido' },
+  { key: 'motivosRechazo', label: 'Motivos de Rechazo' },
 ];
 
 const ListaMaestro: React.FC<{ tipo: TipoMaestro; items: MaestroItem[] }> = ({ tipo, items }) => {

@@ -80,13 +80,17 @@ export interface Comment {
   userRole: UserRole;
   text: string;
   createdAt: string;
+  updatedAt?: string;
   area?: string;
   /** Marcado como destacado para el informe */
   highlighted?: boolean;
+  /** Para CRUD de comentarios */
+  editedBy?: string;
+  editedAt?: string;
 }
 
 /** Tipo de herramienta de anotación */
-export type AnnotationTool = 'select' | 'hand' | 'pin' | 'rect' | 'underline' | 'strikethrough' | 'arrow' | 'freehand';
+export type AnnotationTool = 'select' | 'hand' | 'pin' | 'rect' | 'underline' | 'strikethrough' | 'arrow' | 'freehand' | 'highlight';
 
 /** Anotación sobre el PDF: referencia a página y posición */
 export interface PdfAnnotation {
@@ -127,10 +131,12 @@ export interface Solicitud {
   channel: string;
   status: RequestStatus;
   deadline: string;
+  fechaDeseadaRevision?: string;
   createdAt: string;
   updatedAt: string;
   solicitanteId: string;
   solicitanteName: string;
+  solicitanteEmail?: string;
   area: string;
   files: FileAsset[];
   iaResult?: IAResult;
@@ -144,6 +150,8 @@ export interface Solicitud {
   approvalARA?: { approved: boolean; by: string; at: string; nota?: string };
   /** Aprobación de Legal */
   approvalLegal?: { approved: boolean; by: string; at: string; nota?: string };
+  /** Motivo del rechazo (si aplica) */
+  rejectionReason?: string;
 }
 
 export interface AreaBudget {

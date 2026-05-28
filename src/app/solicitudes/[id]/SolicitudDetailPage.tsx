@@ -345,6 +345,18 @@ const SolicitudDetailPage: React.FC = () => {
         </div>
       </div>
 
+      {/* Contexto/Descripción */}
+      {solicitud.description && (
+        <Card className="border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-bold text-slate-700 dark:text-slate-300">Contexto / Descripción</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-sm text-slate-600 dark:text-slate-400 leading-relaxed whitespace-pre-wrap">{solicitud.description}</p>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Panel de versiones */}
       {showVersions && (
         <Card className="border-blue-100 bg-blue-50/50 dark:bg-blue-900/10">

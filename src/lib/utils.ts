@@ -20,3 +20,27 @@ export function formatDate(date: Date | string) {
     year: 'numeric',
   }).format(d);
 }
+
+/**
+ * Calcula el próximo lunes o martes (si el lunes es festivo).
+ * Retorna la fecha en formato ISO string a las 17:00 (5:00 PM).
+ */
+export function calculateNextReviewDate(): string {
+  const now = new Date();
+  const today = now.getDay(); // 0 = domingo, 1 = lunes, ..., 6 = sábado
+  
+  // Calcular días hasta el próximo lunes
+  let daysUntilMonday = (1 - today + 7) % 7;
+  if (daysUntilMonday === 0) daysUntilMonday = 7; // Si hoy es lunes, ir al próximo lunes
+  
+  const nextMonday = new Date(now);
+  nextMonday.setDate(nextMonday.getDate() + daysUntilMonday);
+  nextMonday.setHours(17, 0, 0, 0);
+  
+  // TODO: Aquí se podría agregar lógica para detectar festivos en Colombia
+  // Por ahora, asumimos que si es lunes, es día hábil. Si no, usar martes.
+  // En una implementación real, consultar una API de festivos.
+  
+  return nextMonday.toISOString();
+}
+

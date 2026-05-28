@@ -204,6 +204,10 @@ const RevisionDetailPage: React.FC = () => {
       const body: any = { status: newStatus, nota: actionNote };
       if (updatedARA !== undefined) body.approvalARA = updatedARA;
       if (updatedLegal !== undefined) body.approvalLegal = updatedLegal;
+      if (newStatus === 'RECHAZADA') {
+        const motivo = actionNote.split('\n')[0] || '';
+        body.rejectionReason = motivo;
+      }
       await apiFetch(`/solicitudes/${solicitud.id}/status`, { method: 'PATCH', body: JSON.stringify(body) });
     } catch (e: any) { notify(e.message, 'error'); return; }
 
@@ -420,7 +424,7 @@ const RevisionDetailPage: React.FC = () => {
             <RefreshCw size={16} className={refreshing ? 'animate-spin' : ''} />
           </Button>
           {/* Botones descarga PDF */}
-          <Button variant="ghost" size="icon" onClick={() => pdfUrl && window.open(pdfUrl, '_blank')} disabled={!pdfUrl} className="text-slate-400 hover:text-blue-600" title="Descargar PDF">
+          <Button variant="ghost" size="icon" onClick={() => pdfUrl && window.open(pdfUrl, '_blank')} disabled={!pdfUrl} className="text-slate-400 hover:text-blue-600" title="Descargar PDF original">
             <Download size={16} />
           </Button>
           <Button
@@ -509,19 +513,36 @@ const RevisionDetailPage: React.FC = () => {
                 <p className="text-xs text-slate-500 dark:text-slate-400">Se notificará al solicitante con el motivo.</p>
               </div>
             </div>
-            <div className="space-y-1">
-              <label className="text-xs font-semibold text-slate-600 dark:text-slate-400">Motivo del rechazo (recomendado)</label>
-              <textarea
-                className="w-full p-3 text-sm border rounded-lg focus:ring-1 focus:ring-red-400 outline-none min-h-[80px] bg-white dark:bg-slate-900"
-                placeholder="Describe por qué se rechaza la pieza..."
-                value={actionNote}
-                onChange={e => setActionNote(e.target.value)}
-                autoFocus
-              />
+            <div className="space-y-3">
+              <div className="space-y-1">
+                <label className="text-xs font-semibold text-slate-600 dark:text-slate-400">Motivo del rechazo *</label>
+                <select
+                  value={actionNote}
+                  onChange={e => setActionNote(e.target.value)}
+                  className="w-full p-3 text-sm border rounded-lg focus:ring-1 focus:ring-red-400 outline-none bg-white dark:bg-slate-900"
+                >
+                  <option value="">Selecciona un motivo...</option>
+                  <option value="Pieza repetida">Pieza repetida</option>
+                  <option value="Ajustes no realizados">Ajustes no realizados</option>
+                  <option value="Cumplimiento legal">Cumplimiento legal</option>
+                </select>
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs font-semibold text-slate-600 dark:text-slate-400">Observaciones adicionales (opcional)</label>
+                <textarea
+                  className="w-full p-3 text-sm border rounded-lg focus:ring-1 focus:ring-red-400 outline-none min-h-[60px] bg-white dark:bg-slate-900"
+                  placeholder="Detalles adicionales sobre el rechazo..."
+                  value={actionNote.includes('\n') ? actionNote.split('\n').slice(1).join('\n') : ''}
+                  onChange={e => {
+                    const motivo = actionNote.split('\n')[0] || '';
+                    setActionNote(e.target.value ? `${motivo}\n${e.target.value}` : motivo);
+                  }}
+                />
+              </div>
             </div>
             <div className="flex gap-2 justify-end">
               <Button variant="outline" onClick={() => { setConfirmAction(null); setActionNote(''); }}>Cancelar</Button>
-              <Button className="bg-red-600 hover:bg-red-700 text-white gap-2" onClick={() => handleAction('REJECT')}>
+              <Button className="bg-red-600 hover:bg-red-700 text-white gap-2" onClick={() => handleAction('REJECT')} disabled={!actionNote.split('\n')[0]}>
                 <XCircle size={16} /> Confirmar rechazo
               </Button>
             </div>

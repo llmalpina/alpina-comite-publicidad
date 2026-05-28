@@ -185,11 +185,11 @@ const UsuariosPage: React.FC = () => {
                       <td className="p-4">
                         <div className="flex items-center gap-3">
                           <div className="w-9 h-9 rounded-full bg-[#1e3a5f] text-white flex items-center justify-center text-sm font-bold">
-                            {u.name?.charAt(0) || '?'}
+                            {u.area?.charAt(0) || '?'}
                           </div>
                           <div>
-                            <p className="text-sm font-semibold text-slate-900 dark:text-white">{u.name}</p>
-                            <p className="text-xs text-slate-500 dark:text-slate-400">{u.email}</p>
+                            <p className="text-sm font-semibold text-slate-900 dark:text-white">{u.email}</p>
+                            <p className="text-xs text-slate-500 dark:text-slate-400">{u.area || 'Sin área'}</p>
                           </div>
                         </div>
                       </td>
