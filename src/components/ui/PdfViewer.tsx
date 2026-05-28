@@ -440,6 +440,26 @@ const PdfViewer: React.FC<PdfViewerProps> = ({
                 annotationColor === c ? 'border-slate-800 scale-110 shadow-md' : 'border-transparent hover:scale-105')}
               style={{ backgroundColor: c }} />
           ))}
+          <div className="w-px h-6 bg-yellow-300 mx-1" />
+          <div className="relative group">
+            <button className="p-1.5 rounded-lg text-xs font-semibold bg-white dark:bg-slate-800 text-slate-500 border border-slate-200 hover:border-slate-400" title="Atajos de teclado">
+              <span className="text-[10px]">⌨️</span>
+            </button>
+            <div className="absolute right-0 top-full mt-1 w-52 bg-white dark:bg-slate-800 border shadow-xl rounded-lg p-3 z-50 hidden group-hover:block">
+              <p className="text-[10px] font-bold text-slate-500 uppercase mb-2">Atajos de teclado</p>
+              <div className="space-y-1 text-[11px] text-slate-600">
+                <div className="flex justify-between"><span>Pin</span><kbd className="bg-slate-100 px-1 rounded text-[10px]">P</kbd></div>
+                <div className="flex justify-between"><span>Resaltar</span><kbd className="bg-slate-100 px-1 rounded text-[10px]">H</kbd></div>
+                <div className="flex justify-between"><span>Rectángulo</span><kbd className="bg-slate-100 px-1 rounded text-[10px]">R</kbd></div>
+                <div className="flex justify-between"><span>Subrayar</span><kbd className="bg-slate-100 px-1 rounded text-[10px]">U</kbd></div>
+                <div className="flex justify-between"><span>Tachar</span><kbd className="bg-slate-100 px-1 rounded text-[10px]">S</kbd></div>
+                <div className="flex justify-between"><span>Flecha</span><kbd className="bg-slate-100 px-1 rounded text-[10px]">A</kbd></div>
+                <div className="flex justify-between"><span>Dibujo libre</span><kbd className="bg-slate-100 px-1 rounded text-[10px]">F</kbd></div>
+                <div className="flex justify-between"><span>Seleccionar</span><kbd className="bg-slate-100 px-1 rounded text-[10px]">V</kbd></div>
+                <div className="flex justify-between"><span>Mover</span><kbd className="bg-slate-100 px-1 rounded text-[10px]">M</kbd></div>
+              </div>
+            </div>
+          </div>
         </div>
       )}
 

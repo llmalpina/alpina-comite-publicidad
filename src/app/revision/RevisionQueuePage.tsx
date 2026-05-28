@@ -224,15 +224,7 @@ const RevisionQueuePage: React.FC = () => {
                     <div className="text-center">
                       {(() => {
                         const araApproved = (s as any).approvalARA?.approved;
-                        const araHasComments = ((s as any).annotations || []).some((a: any) => {
-                          const area = (a.area || '').toUpperCase();
-                          const role = (a.userRole || '').toUpperCase();
-                          return area.includes('ARA') || area.includes('NUTRI') || role === 'REVISOR_ARA';
-                        }) || ((s as any).comments || []).some((c: any) => {
-                          const area = (c.area || '').toUpperCase();
-                          const role = (c.userRole || '').toUpperCase();
-                          return area.includes('ARA') || area.includes('NUTRI') || role === 'REVISOR_ARA';
-                        });
+                        const araHasComments = (s as any).araReviewing === true;
                         return (
                           <span className={cn('text-[10px] font-bold px-1.5 py-0.5 rounded-full border',
                             araApproved ? 'bg-emerald-100 text-emerald-700 border-emerald-200' :
@@ -248,15 +240,7 @@ const RevisionQueuePage: React.FC = () => {
                     <div className="text-center">
                       {(() => {
                         const legalApproved = (s as any).approvalLegal?.approved;
-                        const legalHasComments = ((s as any).annotations || []).some((a: any) => {
-                          const area = (a.area || '').toUpperCase();
-                          const role = (a.userRole || '').toUpperCase();
-                          return area.includes('LEGAL') || role === 'REVISOR_LEGAL';
-                        }) || ((s as any).comments || []).some((c: any) => {
-                          const area = (c.area || '').toUpperCase();
-                          const role = (c.userRole || '').toUpperCase();
-                          return area.includes('LEGAL') || role === 'REVISOR_LEGAL';
-                        });
+                        const legalHasComments = (s as any).legalReviewing === true;
                         return (
                           <span className={cn('text-[10px] font-bold px-1.5 py-0.5 rounded-full border',
                             legalApproved ? 'bg-emerald-100 text-emerald-700 border-emerald-200' :

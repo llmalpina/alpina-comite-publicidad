@@ -324,6 +324,11 @@ const RevisionDetailPage: React.FC = () => {
     notify('Comentario agregado', 'success');
     // Persiste en API
     comentariosApi.create(solicitud.id, { text: comment.trim(), userName: user.name, userRole: user.role, area: user.area || '' }).catch(console.error);
+    // Marcar como "revisando" en la solicitud
+    const reviewingField = isARA ? 'araReviewing' : isLegal ? 'legalReviewing' : null;
+    if (reviewingField) {
+      apiFetch(`/solicitudes/${solicitud.id}/status`, { method: 'PATCH', body: JSON.stringify({ [reviewingField]: true }) }).catch(() => {});
+    }
   };
 
   const handleSaveAnnotation = () => {
@@ -391,6 +396,22 @@ const RevisionDetailPage: React.FC = () => {
       };
     });
     notify('Anotación marcada como resuelta', 'success');
+  };
+
+  const handleDeleteAnnotation = (annId: string) => {
+    if (!user) return;
+    const ann = solicitud.annotations.find(a => a.id === annId);
+    if (!ann) return;
+    if (ann.userId !== user.id && user.role !== 'ADMIN') {
+      notify('Solo puedes eliminar tus propias anotaciones', 'error');
+      return;
+    }
+    setSolicitud(prev => {
+      if (!prev) return prev;
+      return { ...prev, annotations: prev.annotations.filter(a => a.id !== annId) };
+    });
+    anotacionesApi.delete(solicitud.id, annId).catch(console.error);
+    notify('Anotación eliminada', 'info');
   };
 
   const scrollToAnnotation = (ann: PdfAnnotation) => {
@@ -825,6 +846,11 @@ const RevisionDetailPage: React.FC = () => {
                           {canAnnotate && (
                             <button onClick={() => handleResolveAnnotation(ann.id)} className="p-1 hover:bg-emerald-100 text-emerald-500 rounded transition-colors" title="Marcar como resuelta">
                               <CheckCircle2 size={14} />
+                            </button>
+                          )}
+                          {(ann.userId === user?.id || user?.role === 'ADMIN') && (
+                            <button onClick={() => handleDeleteAnnotation(ann.id)} className="p-1 hover:bg-red-100 text-red-400 rounded transition-colors" title="Eliminar anotación">
+                              <XCircle size={14} />
                             </button>
                           )}
                         </div>
