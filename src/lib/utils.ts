@@ -22,25 +22,44 @@ export function formatDate(date: Date | string) {
 }
 
 /**
- * Calcula el próximo lunes o martes (si el lunes es festivo).
- * Retorna la fecha en formato ISO string a las 17:00 (5:00 PM).
+ * Calcula la fecha de revisión según el ciclo del comité.
+ * - Si se sube Lunes a Miércoles antes del corte → próximo lunes
+ * - Si se sube Miércoles después del corte, Jueves o Viernes → lunes de la semana subsiguiente
+ * 
+ * @param cutoffDay - Día de corte (3 = miércoles)
+ * @param cutoffHour - Hora de corte
+ * @param cutoffMinute - Minuto de corte
+ * @param reviewDay - Día de revisión (1 = lunes)
  */
-export function calculateNextReviewDate(): string {
+export function calculateNextReviewDate(
+  cutoffDay: number = 3,
+  cutoffHour: number = 11,
+  cutoffMinute: number = 45,
+  reviewDay: number = 1
+): { date: string; outOfCycle: boolean } {
   const now = new Date();
-  const today = now.getDay(); // 0 = domingo, 1 = lunes, ..., 6 = sábado
+  const today = now.getDay(); // 0=dom, 1=lun, ..., 6=sáb
+  const currentMinutes = now.getHours() * 60 + now.getMinutes();
+  const cutoffMinutes = cutoffHour * 60 + cutoffMinute;
   
-  // Calcular días hasta el próximo lunes
-  let daysUntilMonday = (1 - today + 7) % 7;
-  if (daysUntilMonday === 0) daysUntilMonday = 7; // Si hoy es lunes, ir al próximo lunes
+  // Determinar si está fuera de ciclo
+  const isPastCutoff = today === cutoffDay && currentMinutes >= cutoffMinutes;
+  const isAfterCutoffDay = today > cutoffDay && today <= 5; // Jueves o Viernes
+  const outOfCycle = isPastCutoff || isAfterCutoffDay;
   
-  const nextMonday = new Date(now);
-  nextMonday.setDate(nextMonday.getDate() + daysUntilMonday);
-  nextMonday.setHours(17, 0, 0, 0);
+  // Calcular próximo lunes (reviewDay)
+  let daysUntilReview = (reviewDay - today + 7) % 7;
+  if (daysUntilReview === 0) daysUntilReview = 7; // Si hoy es lunes, ir al próximo
   
-  // TODO: Aquí se podría agregar lógica para detectar festivos en Colombia
-  // Por ahora, asumimos que si es lunes, es día hábil. Si no, usar martes.
-  // En una implementación real, consultar una API de festivos.
+  // Si está fuera de ciclo, agregar una semana más
+  if (outOfCycle) {
+    daysUntilReview += 7;
+  }
   
-  return nextMonday.toISOString();
+  const reviewDate = new Date(now);
+  reviewDate.setDate(reviewDate.getDate() + daysUntilReview);
+  reviewDate.setHours(9, 0, 0, 0); // 9:00 AM del día de revisión
+  
+  return { date: reviewDate.toISOString(), outOfCycle };
 }
 

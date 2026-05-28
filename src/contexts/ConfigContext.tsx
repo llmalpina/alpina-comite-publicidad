@@ -52,8 +52,14 @@ export interface ScheduleConfig {
   enabled: boolean;
   cutoffHour: number;
   cutoffMinute: number;
+  cutoffDay: number;        // Día de corte (3 = miércoles)
   allowedDays: number[];
   message: string;
+  /** Días extendidos: se permite subir pero va al siguiente ciclo */
+  extendedDays: number[];   // Ej: [4, 5] = jueves y viernes
+  extendedMessage: string;  // Mensaje para piezas fuera de ciclo
+  /** Día de revisión del comité (1 = lunes) */
+  reviewDay: number;
   /** Recordatorio semanal de piezas pendientes */
   reminderEnabled: boolean;
   reminderDay: number;     // 0=dom, 1=lun, ..., 6=sáb
@@ -133,10 +139,14 @@ const DEFAULT_ROLES: RoleConfig[] = [
 
 const DEFAULT_SCHEDULE: ScheduleConfig = {
   enabled: true,
-  cutoffHour: 17,
-  cutoffMinute: 0,
+  cutoffHour: 11,
+  cutoffMinute: 45,
+  cutoffDay: 3,             // Miércoles
   allowedDays: [1, 2, 3, 4, 5],
-  message: 'El horario de envio de piezas es de lunes a viernes hasta las 5:00 PM.',
+  message: 'El horario de envio de piezas es de lunes a viernes. El corte para el comité del próximo lunes es miércoles a las 11:45 AM.',
+  extendedDays: [4, 5],    // Jueves y viernes
+  extendedMessage: 'Tu pieza fue recibida después del cierre del miércoles. Será revisada en el comité del lunes de la semana subsiguiente (aprox. 8 días).',
+  reviewDay: 1,             // Lunes
   reminderEnabled: true,
   reminderDay: 1,
   reminderHour: 8,
@@ -362,23 +372,37 @@ export const ConfigProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     await saveToDynamo('config-schedule', next);
   };
 
-  const canSubmitNow = (roleId: string): { allowed: boolean; message?: string } => {
+  const canSubmitNow = (roleId: string): { allowed: boolean; message?: string; outOfCycle?: boolean } => {
     if (!scheduleConfig.enabled) return { allowed: true };
     if (hasPermission(roleId, 'subir_fuera_horario')) return { allowed: true };
     const now = new Date();
     const day = now.getDay();
     const hour = now.getHours();
     const minute = now.getMinutes();
-    if (!scheduleConfig.allowedDays.includes(day)) {
+    
+    // Verificar si es un día permitido (normal o extendido)
+    const isAllowedDay = scheduleConfig.allowedDays.includes(day);
+    const isExtendedDay = (scheduleConfig.extendedDays || []).includes(day);
+    
+    if (!isAllowedDay && !isExtendedDay) {
       return { allowed: false, message: scheduleConfig.message || 'No se pueden enviar piezas hoy.' };
     }
+    
+    // Si es día de corte y pasó la hora de corte → es como día extendido
+    const isCutoffDay = day === (scheduleConfig.cutoffDay || 3);
     const currentMinutes = hour * 60 + minute;
     const cutoffMinutes = scheduleConfig.cutoffHour * 60 + scheduleConfig.cutoffMinute;
-    if (currentMinutes >= cutoffMinutes) {
-      const h = String(scheduleConfig.cutoffHour).padStart(2, '0');
-      const m = String(scheduleConfig.cutoffMinute).padStart(2, '0');
-      return { allowed: false, message: scheduleConfig.message || `El horario de envío es hasta las ${h}:${m}.` };
+    
+    if (isCutoffDay && currentMinutes >= cutoffMinutes) {
+      // Pasó el corte del miércoles → se permite pero va al siguiente ciclo
+      return { allowed: true, outOfCycle: true, message: scheduleConfig.extendedMessage || 'Tu pieza será revisada en el siguiente ciclo del comité.' };
     }
+    
+    if (isExtendedDay) {
+      // Jueves/Viernes → se permite pero va al siguiente ciclo
+      return { allowed: true, outOfCycle: true, message: scheduleConfig.extendedMessage || 'Tu pieza será revisada en el siguiente ciclo del comité.' };
+    }
+    
     return { allowed: true };
   };
 

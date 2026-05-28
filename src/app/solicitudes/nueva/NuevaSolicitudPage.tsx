@@ -14,6 +14,7 @@ import { cn } from '../../../lib/utils';
 import { analizarConBedrock, BedrockResult } from '../../../lib/services';
 import { solicitudesApi } from '../../../lib/api';
 import { Solicitud } from '../../../types';
+import { calculateNextReviewDate } from '../../../lib/utils';
 
 const STEPS = [
   { id: 1, title: 'Información Básica' },
@@ -214,7 +215,8 @@ const NuevaSolicitudPage: React.FC = () => {
         title: `${brand.join(', ')} — ${product}`,
         description, brand: brand.join(', '), product, contentType, channel,
         deadline: deadline || new Date(Date.now() + 7 * 86400000).toISOString(),
-        fechaDeseadaRevision: new (await import('../../../lib/utils')).calculateNextReviewDate(),
+        fechaDeseadaRevision: calculateNextReviewDate().date,
+        outOfCycle: calculateNextReviewDate().outOfCycle,
         iaResult: iaResult ?? undefined,
         files: uploadedFiles,
         annotations: [], comments: [], currentVersion: 1, versions: [],
@@ -249,6 +251,25 @@ const NuevaSolicitudPage: React.FC = () => {
             },
           }),
         }).catch(console.error);
+
+        // Si está fuera de ciclo, enviar correo informativo al solicitante
+        if (solicitudData.outOfCycle && user?.email) {
+          const fechaRevision = new Intl.DateTimeFormat('es-CO', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' }).format(new Date(solicitudData.fechaDeseadaRevision));
+          fetch(SES_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+            body: JSON.stringify({
+              template: 'fuera_de_ciclo',
+              to: [user.email],
+              cc: ['nicolas.carreno@alpina.com'],
+              data: {
+                id: solicitud.id, consecutive: solicitud.consecutive, title: solicitud.title,
+                brand: brand.join(', '), solicitanteName: user?.name || '',
+                fechaRevision,
+              },
+            }),
+          }).catch(console.error);
+        }
       }
 
       notify(`Solicitud ${solicitud.consecutive} enviada al comité`, 'success');
@@ -388,14 +409,37 @@ const NuevaSolicitudPage: React.FC = () => {
           {step === 3 && (
             <div className="space-y-8 animate-in fade-in duration-300">
               <div className="space-y-2">
-                <label className="text-sm font-semibold text-slate-700 dark:text-slate-300">Fecha de Revisión Deseada</label>
-                <div className="flex items-center gap-3 h-12 w-full rounded-xl border-2 border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-700 px-4">
-                  <span className="text-slate-400 text-lg">📅</span>
-                  <span className="flex-1 text-sm text-slate-700 dark:text-slate-200 font-medium">
-                    {new Intl.DateTimeFormat('es-CO', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' }).format(new Date(deadline || new Date(Date.now() + 7 * 86400000).toISOString()))}
-                  </span>
-                </div>
-                <p className="text-xs text-slate-400">Se revisará el próximo lunes hábil a las 5:00 PM. Sujeto a disponibilidad de la bolsa de horas.</p>
+                <label className="text-sm font-semibold text-slate-700 dark:text-slate-300">Fecha de Revisión</label>
+                {(() => {
+                  const { scheduleConfig } = { scheduleConfig: { cutoffDay: 3, cutoffHour: 11, cutoffMinute: 45, reviewDay: 1 } };
+                  const reviewInfo = calculateNextReviewDate(
+                    (emailConfig as any)?.scheduleConfig?.cutoffDay || 3,
+                    (emailConfig as any)?.scheduleConfig?.cutoffHour || 11,
+                    (emailConfig as any)?.scheduleConfig?.cutoffMinute || 45,
+                    (emailConfig as any)?.scheduleConfig?.reviewDay || 1
+                  );
+                  return (
+                    <>
+                      <div className={cn('flex items-center gap-3 h-12 w-full rounded-xl border-2 px-4',
+                        reviewInfo.outOfCycle
+                          ? 'border-amber-300 bg-amber-50 dark:bg-amber-900/20'
+                          : 'border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-700'
+                      )}>
+                        <span className="text-lg">{reviewInfo.outOfCycle ? '⚠️' : '📅'}</span>
+                        <span className="flex-1 text-sm text-slate-700 dark:text-slate-200 font-medium">
+                          {new Intl.DateTimeFormat('es-CO', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' }).format(new Date(reviewInfo.date))}
+                        </span>
+                      </div>
+                      {reviewInfo.outOfCycle ? (
+                        <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg">
+                          <p className="text-xs text-amber-800 font-medium">⚠️ Tu pieza fue enviada después del cierre del miércoles. Será revisada en el comité del lunes de la semana subsiguiente (aprox. 8 días).</p>
+                        </div>
+                      ) : (
+                        <p className="text-xs text-slate-400">Se revisará el próximo lunes. El corte para este ciclo es miércoles a las 11:45 AM.</p>
+                      )}
+                    </>
+                  );
+                })()}
               </div>
             </div>
           )}

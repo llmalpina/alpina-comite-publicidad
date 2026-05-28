@@ -161,20 +161,24 @@ const RevisionQueuePage: React.FC = () => {
           {items.map(s => {
             const alreadyApproved = hasMyApproval(s);
             const isPublished = s.status === 'PUBLICADA';
+            const isOutOfCycle = (s as any).outOfCycle === true;
 
             return (
-              <Card key={s.id} className={cn('hover:shadow-md transition-shadow', isPublished && 'opacity-80')}>
+              <Card key={s.id} className={cn('hover:shadow-md transition-shadow', isPublished && 'opacity-80', isOutOfCycle && 'border-l-4 border-l-amber-400')}>
                 <CardContent className="p-0">
                   <div className="flex flex-col md:grid md:grid-cols-[1fr_100px_100px_60px_70px_70px_90px] md:items-center gap-3 md:gap-2 p-4">
                     {/* Solicitud */}
                     <div className="flex items-center gap-3 min-w-0">
-                      <div className="w-9 h-9 bg-brand-50 dark:bg-blue-900/20 rounded-lg flex items-center justify-center text-brand font-bold text-sm border border-brand/10 shrink-0">
+                      <div className={cn('w-9 h-9 rounded-lg flex items-center justify-center font-bold text-sm border shrink-0',
+                        isOutOfCycle ? 'bg-amber-50 dark:bg-amber-900/20 text-amber-600 border-amber-200' : 'bg-brand-50 dark:bg-blue-900/20 text-brand border-brand/10'
+                      )}>
                         {s.brand?.[0] || '?'}
                       </div>
                       <div className="min-w-0">
                         <div className="flex items-center gap-2">
                           <p className="text-sm font-bold text-slate-900 dark:text-white truncate">{s.title}</p>
                           {isPublished && <Badge className={STATUS_LABELS['PUBLICADA'].color}>{STATUS_LABELS['PUBLICADA'].label}</Badge>}
+                          {isOutOfCycle && !isPublished && <Badge className="bg-amber-100 text-amber-700 text-[9px]">Sig. ciclo</Badge>}
                         </div>
                         <p className="text-[11px] text-slate-500 truncate">{s.consecutive} · {s.solicitanteName}</p>
                       </div>
