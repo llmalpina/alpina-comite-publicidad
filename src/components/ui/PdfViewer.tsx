@@ -172,6 +172,25 @@ const PdfViewer: React.FC<PdfViewerProps> = ({
     return () => document.removeEventListener('fullscreenchange', onFsChange);
   }, []);
 
+  // Keyboard shortcuts for annotation tools
+  useEffect(() => {
+    if (!annotating) return;
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.target as HTMLElement).tagName === 'INPUT' || (e.target as HTMLElement).tagName === 'TEXTAREA') return;
+      const shortcuts: Record<string, AnnotationTool> = {
+        '1': 'pin', '2': 'highlight', '3': 'rect', '4': 'underline',
+        '5': 'strikethrough', '6': 'arrow', '7': 'freehand',
+        'p': 'pin', 'h': 'highlight', 'r': 'rect', 'u': 'underline',
+        's': 'strikethrough', 'a': 'arrow', 'f': 'freehand',
+        'v': 'select', 'm': 'hand',
+      };
+      const tool = shortcuts[e.key.toLowerCase()];
+      if (tool && onToolChange) { e.preventDefault(); onToolChange(tool); }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [annotating, onToolChange]);
+
   const changePage = (p: number) => {
     setCurrentPage(p);
     onPageChange?.(p);

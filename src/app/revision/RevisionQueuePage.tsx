@@ -203,20 +203,50 @@ const RevisionQueuePage: React.FC = () => {
 
                     {/* ARA */}
                     <div className="text-center">
-                      <span className={cn('text-[10px] font-bold px-1.5 py-0.5 rounded-full border',
-                        (s as any).approvalARA?.approved ? 'bg-emerald-100 text-emerald-700 border-emerald-200' :
-                        'bg-slate-100 text-slate-400 border-slate-200')}>
-                        {(s as any).approvalARA?.approved ? '✓' : '—'}
-                      </span>
+                      {(() => {
+                        const araApproved = (s as any).approvalARA?.approved;
+                        const araHasComments = ((s as any).annotations || []).some((a: any) => {
+                          const area = (a.area || '').toUpperCase();
+                          const role = (a.userRole || '').toUpperCase();
+                          return area.includes('ARA') || area.includes('NUTRI') || role === 'REVISOR_ARA';
+                        }) || ((s as any).comments || []).some((c: any) => {
+                          const area = (c.area || '').toUpperCase();
+                          const role = (c.userRole || '').toUpperCase();
+                          return area.includes('ARA') || area.includes('NUTRI') || role === 'REVISOR_ARA';
+                        });
+                        return (
+                          <span className={cn('text-[10px] font-bold px-1.5 py-0.5 rounded-full border',
+                            araApproved ? 'bg-emerald-100 text-emerald-700 border-emerald-200' :
+                            araHasComments ? 'bg-purple-100 text-purple-700 border-purple-200' :
+                            'bg-slate-100 text-slate-400 border-slate-200')}>
+                            {araApproved ? '✓' : araHasComments ? '✎' : '—'}
+                          </span>
+                        );
+                      })()}
                     </div>
 
                     {/* Legal */}
                     <div className="text-center">
-                      <span className={cn('text-[10px] font-bold px-1.5 py-0.5 rounded-full border',
-                        (s as any).approvalLegal?.approved ? 'bg-emerald-100 text-emerald-700 border-emerald-200' :
-                        'bg-slate-100 text-slate-400 border-slate-200')}>
-                        {(s as any).approvalLegal?.approved ? '✓' : '—'}
-                      </span>
+                      {(() => {
+                        const legalApproved = (s as any).approvalLegal?.approved;
+                        const legalHasComments = ((s as any).annotations || []).some((a: any) => {
+                          const area = (a.area || '').toUpperCase();
+                          const role = (a.userRole || '').toUpperCase();
+                          return area.includes('LEGAL') || role === 'REVISOR_LEGAL';
+                        }) || ((s as any).comments || []).some((c: any) => {
+                          const area = (c.area || '').toUpperCase();
+                          const role = (c.userRole || '').toUpperCase();
+                          return area.includes('LEGAL') || role === 'REVISOR_LEGAL';
+                        });
+                        return (
+                          <span className={cn('text-[10px] font-bold px-1.5 py-0.5 rounded-full border',
+                            legalApproved ? 'bg-emerald-100 text-emerald-700 border-emerald-200' :
+                            legalHasComments ? 'bg-amber-100 text-amber-700 border-amber-200' :
+                            'bg-slate-100 text-slate-400 border-slate-200')}>
+                            {legalApproved ? '✓' : legalHasComments ? '✎' : '—'}
+                          </span>
+                        );
+                      })()}
                     </div>
 
                     {/* Acción */}

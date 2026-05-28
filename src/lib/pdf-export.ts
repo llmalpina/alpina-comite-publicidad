@@ -417,10 +417,12 @@ function getOrCreateAnnotsArray(page: PDFPage, doc: PDFDocument): PDFArray {
 
 function sanitizeText(text: string): string {
   return text
-    .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F]/g, '')
+    .replace(/[\x00-\x1F\x7F-\x9F]/g, ' ')  // Reemplazar TODOS los caracteres de control (incluye \n, \r, \t)
+    .replace(/[^\x20-\x7E\xA0-\xFF]/g, '')   // Eliminar caracteres fuera de WinAnsi (emojis, unicode extendido)
     .replace(/\\/g, '\\\\')
     .replace(/\(/g, '\\(')
-    .replace(/\)/g, '\\)');
+    .replace(/\)/g, '\\)')
+    .trim();
 }
 
 function parseColorNorm(hex: string): { r: number; g: number; b: number } {
@@ -434,7 +436,11 @@ function parseColorNorm(hex: string): { r: number; g: number; b: number } {
 }
 
 function wrapText(text: string, font: any, fontSize: number, maxWidth: number): string[] {
-  const words = text.split(' ');
+  // Reemplazar saltos de línea por espacios y limpiar caracteres no soportados
+  const cleanText = text
+    .replace(/[\r\n]+/g, ' ')
+    .replace(/[^\x20-\x7E\xA0-\xFF]/g, '');
+  const words = cleanText.split(' ').filter(w => w.length > 0);
   const lines: string[] = [];
   let currentLine = '';
 
