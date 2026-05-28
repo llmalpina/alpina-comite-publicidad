@@ -620,17 +620,16 @@ const RevisionDetailPage: React.FC = () => {
         </div>
       )}
 
+      {/* Contexto/Descripción arriba */}
+      {solicitud.description && (
+        <div className="p-3 bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-lg">
+          <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Contexto / Descripción</p>
+          <p className="text-sm text-slate-700 dark:text-slate-300 leading-relaxed whitespace-pre-wrap">{solicitud.description}</p>
+        </div>
+      )}
+
       {/* Main — en móvil apilado, en desktop lado a lado */}
       <div className="flex flex-col lg:flex-row gap-4">
-        {/* Descripción/Contexto arriba */}
-        {solicitud.description && (
-          <div className="w-full lg:col-span-2 mb-0">
-            <div className="p-3 bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-lg">
-              <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Contexto / Descripción</p>
-              <p className="text-sm text-slate-700 dark:text-slate-300 leading-relaxed whitespace-pre-wrap">{solicitud.description}</p>
-            </div>
-          </div>
-        )}
         {/* Visor PDF */}
         <div className="flex-1 rounded-xl border-2 border-slate-300 dark:border-slate-600 overflow-hidden flex flex-col relative" style={{ minHeight: 'calc(100vh - 180px)' }}>
           {/* Botón anotar */}

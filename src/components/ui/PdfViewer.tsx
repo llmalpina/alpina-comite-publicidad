@@ -2,7 +2,7 @@ import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { Document, Page, pdfjs } from 'react-pdf';
 import 'react-pdf/dist/Page/AnnotationLayer.css';
 import 'react-pdf/dist/Page/TextLayer.css';
-import { ChevronLeft, ChevronRight, ZoomIn, ZoomOut, Loader2, FileText, Maximize2, Pin, Square, ArrowRight, Pencil, Strikethrough, Underline as UnderlineIcon, MousePointer2, Hand, Highlighter } from 'lucide-react';
+import { ZoomIn, ZoomOut, Loader2, FileText, Maximize2, Pin, Square, ArrowRight, Pencil, Strikethrough, Underline as UnderlineIcon, MousePointer2, Hand, Highlighter } from 'lucide-react';
 import { Button } from './Button';
 import { cn } from '../../lib/utils';
 import type { AnnotationTool } from '../../types';
@@ -159,7 +159,13 @@ const PdfViewer: React.FC<PdfViewerProps> = ({
     return () => document.removeEventListener('click', handler, true);
   }, []);
 
-  const changePage = (p: number) => { setCurrentPage(p); onPageChange?.(p); };
+  const changePage = (p: number) => {
+    setCurrentPage(p);
+    onPageChange?.(p);
+    // Scroll to the page element
+    const pageEl = containerRef.current?.querySelector(`[data-page="${p}"]`);
+    if (pageEl) pageEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
   useEffect(() => { if (goToPageRef) goToPageRef.current = changePage; }, [goToPageRef]);
 
   const onDocumentLoadSuccess = useCallback(({ numPages: n }: { numPages: number }) => {
@@ -171,12 +177,19 @@ const PdfViewer: React.FC<PdfViewerProps> = ({
 
   // Get relative coords from mouse event
   const getRelCoords = (e: React.MouseEvent): { x: number; y: number } | null => {
-    const pageEl = pageRef.current?.querySelector('.react-pdf__Page');
-    if (!pageEl) return null;
+    const target = (e.target as HTMLElement).closest('[data-page]');
+    if (!target) return null;
+    const pageNum = parseInt(target.getAttribute('data-page') || '1');
+    const pageEl = target.querySelector('.react-pdf__Page') || target;
     const rect = pageEl.getBoundingClientRect();
     const x = ((e.clientX - rect.left) / rect.width) * 100;
     const y = ((e.clientY - rect.top) / rect.height) * 100;
     if (x < 0 || x > 100 || y < 0 || y > 100) return null;
+    // Update current page based on where user clicked
+    if (pageNum !== currentPage) {
+      setCurrentPage(pageNum);
+      onPageChange?.(pageNum);
+    }
     return { x: Math.round(x * 10) / 10, y: Math.round(y * 10) / 10 };
   };
 
@@ -218,8 +231,6 @@ const PdfViewer: React.FC<PdfViewerProps> = ({
     );
     setIsDrawing(false); setDrawStart(null); setDrawEnd(null); setFreehandPoints([]);
   };
-
-  const pageAnnotations = annotations.filter(a => a.page === currentPage && !a.resolved);
 
   // Render annotation shape as SVG
   const renderAnnotationShape = (ann: PdfAnnotationOverlay, isPreview = false) => {
@@ -375,7 +386,7 @@ const PdfViewer: React.FC<PdfViewerProps> = ({
   }
 
   return (
-    <div className={cn('flex flex-col bg-white dark:bg-slate-900', className)}>
+    <div className={cn('flex flex-col bg-white dark:bg-slate-900 pdf-viewer-root', className)}>
       {/* Annotation Toolbar */}
       {showToolbar && annotating && (
         <div className="flex items-center gap-2 px-3 py-2 bg-yellow-50 dark:bg-yellow-900/20 border-b border-yellow-200 flex-wrap">
@@ -403,20 +414,12 @@ const PdfViewer: React.FC<PdfViewerProps> = ({
       {/* Navigation Toolbar */}
       <div className="flex items-center justify-between px-3 py-2 bg-slate-50 dark:bg-slate-800 border-b shrink-0 gap-2 flex-wrap">
         <div className="flex items-center gap-1">
-          <Button variant="ghost" size="icon" className="h-7 w-7"
-            onClick={() => changePage(Math.max(1, currentPage - 1))} disabled={currentPage <= 1 || loading}>
-            <ChevronLeft size={14} />
-          </Button>
           <span className="text-xs text-slate-600 dark:text-slate-400 min-w-[60px] text-center">
-            {loading ? '...' : `${currentPage} / ${numPages}`}
+            {loading ? '...' : `${numPages} pág.`}
           </span>
-          <Button variant="ghost" size="icon" className="h-7 w-7"
-            onClick={() => changePage(Math.min(numPages, currentPage + 1))} disabled={currentPage >= numPages || loading}>
-            <ChevronRight size={14} />
-          </Button>
         </div>
         <div className="flex items-center gap-1">
-          <Button variant={fitToWidth ? 'default' : 'ghost'} size="icon" className="h-7 w-7" onClick={() => setFitToWidth(v => !v)}>
+          <Button variant={fitToWidth ? 'default' : 'ghost'} size="icon" className="h-7 w-7" onClick={() => setFitToWidth(v => !v)} title="Ajustar al ancho">
             <Maximize2 size={13} />
           </Button>
           <Button variant="ghost" size="icon" className="h-7 w-7"
@@ -430,14 +433,28 @@ const PdfViewer: React.FC<PdfViewerProps> = ({
             onClick={() => { setFitToWidth(false); setScale(s => Math.min(3.0, +(s + 0.15).toFixed(2))); }}>
             <ZoomIn size={14} />
           </Button>
+          <div className="w-px h-5 bg-slate-300 mx-1" />
+          <Button variant="ghost" size="icon" className="h-7 w-7" title="Pantalla completa"
+            onClick={() => {
+              const el = containerRef.current?.closest('.pdf-viewer-root') as HTMLElement;
+              if (!el) return;
+              if (document.fullscreenElement) {
+                document.exitFullscreen();
+              } else {
+                el.requestFullscreen?.();
+              }
+            }}>
+            <Maximize2 size={14} />
+          </Button>
         </div>
       </div>
 
-      {/* Viewer */}
+      {/* Viewer — Scroll continuo (todas las páginas) */}
       <div ref={containerRef}
-        className={cn('flex-1 overflow-scroll bg-slate-200 dark:bg-slate-700 min-h-[400px]',
+        className={cn('flex-1 overflow-auto bg-slate-200 dark:bg-slate-700',
           activeTool === 'hand' ? 'cursor-grab' :
           annotating && activeTool !== 'select' ? 'cursor-crosshair' : '')}
+        style={{ minHeight: '500px' }}
         onMouseUp={handleMouseUp}
       >
         {loading && !error && (
@@ -454,57 +471,47 @@ const PdfViewer: React.FC<PdfViewerProps> = ({
           </div>
         )}
 
-        {/* Wrapper que permite scroll libre — padding crea espacio para pan */}
-        <div style={{ display: (loading || error) ? 'none' : 'flex', justifyContent: 'center', padding: '16px', minWidth: 'fit-content' }}>
-          <div ref={pageRef} className={cn('relative', annotating && activeTool !== 'select' && activeTool !== 'hand' && 'select-none')}
-          style={{ display: (loading || error) ? 'none' : 'block' }}
-          onMouseDown={handleMouseDown}
-          onMouseMove={handleMouseMove}
-        >
-          <Document file={url} onLoadSuccess={onDocumentLoadSuccess} onLoadError={onDocumentLoadError} loading="" className="shadow-2xl">
-            <Page pageNumber={currentPage}
-              scale={fitToWidth && containerWidth > 0 ? undefined : scale}
-              width={fitToWidth && containerWidth > 0 ? containerWidth : undefined}
-              renderTextLayer renderAnnotationLayer className="bg-white" />
-          </Document>
+        {/* Scroll continuo — todas las páginas */}
+        <div style={{ display: (loading || error) ? 'none' : 'flex', flexDirection: 'column', alignItems: 'center', padding: '16px', gap: '12px' }}>
+          <Document file={url} onLoadSuccess={onDocumentLoadSuccess} onLoadError={onDocumentLoadError} loading="">
+            {Array.from({ length: numPages }, (_, i) => i + 1).map(pageNum => (
+              <div key={pageNum} ref={pageNum === currentPage ? pageRef : undefined}
+                className={cn('relative shadow-2xl mb-3', annotating && activeTool !== 'select' && activeTool !== 'hand' && 'select-none')}
+                onMouseDown={handleMouseDown}
+                onMouseMove={handleMouseMove}
+                data-page={pageNum}
+              >
+                <Page pageNumber={pageNum}
+                  scale={fitToWidth && containerWidth > 0 ? undefined : scale}
+                  width={fitToWidth && containerWidth > 0 ? containerWidth : undefined}
+                  renderTextLayer renderAnnotationLayer className="bg-white" />
 
-          {/* Existing annotations */}
-          {pageAnnotations.map(ann => renderAnnotationShape(ann))}
+                {/* Annotations for this page */}
+                {annotations.filter(a => a.page === pageNum && !a.resolved).map(ann => renderAnnotationShape(ann))}
 
-          {/* Drawing preview */}
-          {renderDrawingPreview()}
+                {/* Drawing preview (only on current page) */}
+                {pageNum === currentPage && renderDrawingPreview()}
 
-          {/* Pending pin */}
-          {pendingPin && activeTool === 'pin' && (
-            <div className="absolute z-30 animate-pulse"
-              style={{ left: `${pendingPin.x}%`, top: `${pendingPin.y}%`, transform: 'translate(-50%, -100%)' }}>
-              <div className="w-7 h-7 rounded-full flex items-center justify-center shadow-lg"
-                style={{ backgroundColor: annotationColor, border: `2px solid ${annotationColor}` }}>
-                <Pin size={13} className="text-white" />
+                {/* Pending pin */}
+                {pendingPin && activeTool === 'pin' && pageNum === currentPage && (
+                  <div className="absolute z-30 animate-pulse"
+                    style={{ left: `${pendingPin.x}%`, top: `${pendingPin.y}%`, transform: 'translate(-50%, -100%)' }}>
+                    <div className="w-7 h-7 rounded-full flex items-center justify-center shadow-lg"
+                      style={{ backgroundColor: annotationColor, border: `2px solid ${annotationColor}` }}>
+                      <Pin size={13} className="text-white" />
+                    </div>
+                  </div>
+                )}
+
+                {/* Page number indicator */}
+                <div className="absolute bottom-2 right-2 bg-black/50 text-white text-[10px] px-2 py-0.5 rounded-full">
+                  {pageNum}
+                </div>
               </div>
-            </div>
-          )}
-        </div>
+            ))}
+          </Document>
         </div>
       </div>
-
-      {/* Thumbnails */}
-      {numPages > 1 && !loading && !error && (
-        <div className="flex gap-2 p-2 bg-slate-50 dark:bg-slate-800 border-t overflow-x-auto shrink-0">
-          {Array.from({ length: numPages }, (_, i) => i + 1).map(p => (
-            <button key={p} onClick={() => changePage(p)}
-              className={cn('shrink-0 w-10 h-14 border-2 rounded text-xs font-bold transition-all relative',
-                p === currentPage ? 'border-[#1e3a5f] bg-blue-50 text-[#1e3a5f]' : 'border-slate-200 dark:border-slate-600 text-slate-400 hover:border-slate-400')}>
-              {p}
-              {annotations.filter(a => a.page === p && !a.resolved).length > 0 && (
-                <span className="absolute -top-1 -right-1 w-3.5 h-3.5 bg-yellow-400 border border-yellow-600 rounded-full text-[8px] font-bold text-yellow-900 flex items-center justify-center">
-                  {annotations.filter(a => a.page === p && !a.resolved).length}
-                </span>
-              )}
-            </button>
-          ))}
-        </div>
-      )}
     </div>
   );
 };
