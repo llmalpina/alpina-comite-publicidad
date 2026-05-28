@@ -53,7 +53,7 @@ export const anotacionesApi = {
   create: (solicitudId: string, data: { text: string; page: number; x: number; y: number; userName?: string; userRole?: string; area?: string; x2?: number; y2?: number; tool?: string; color?: string; points?: { x: number; y: number }[] }) =>
     apiFetch<any>(`/solicitudes/${solicitudId}/anotaciones`, { method: 'POST', body: JSON.stringify(data) }),
   delete: (solicitudId: string, sk: string) =>
-    apiFetch<any>(`/solicitudes/${solicitudId}/anotaciones`, { method: 'DELETE', body: JSON.stringify({ sk }) }),
+    apiFetch<any>(`/solicitudes/${solicitudId}/anotaciones`, { method: 'PATCH', body: JSON.stringify({ sk, active: false }) }),
   update: (solicitudId: string, sk: string, text: string) =>
     apiFetch<any>(`/solicitudes/${solicitudId}/anotaciones`, { method: 'PATCH', body: JSON.stringify({ sk, text }) }),
 };
