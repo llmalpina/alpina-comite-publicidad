@@ -12,7 +12,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { useConfig } from '../../contexts/ConfigContext';
 import { apiFetch } from '../../lib/api';
 
-type QueueTab = 'PENDIENTES' | 'PUBLICADAS';
+type QueueTab = 'PENDIENTES' | 'APROBADAS' | 'RECHAZADAS' | 'CON_COMENTARIOS' | 'PUBLICADAS' | 'TODAS';
 
 const RevisionQueuePage: React.FC = () => {
   const { solicitudes, loading, refetch } = useSolicitudes();
@@ -44,27 +44,37 @@ const RevisionQueuePage: React.FC = () => {
     s.brand?.toLowerCase().includes(search.toLowerCase()) ||
     s.solicitanteName?.toLowerCase().includes(search.toLowerCase());
 
-  const pending = solicitudes
-    .filter(s =>
-      ['ENVIADA', 'EN_REVISION'].includes(s.status) &&
-      matchesSearch(s) &&
-      (solicitanteFilter ? (s as any).solicitanteName === solicitanteFilter : true)
-    )
+  const filterByTab = (s: any) => {
+    if (!matchesSearch(s)) return false;
+    if (solicitanteFilter && s.solicitanteName !== solicitanteFilter) return false;
+    switch (activeQueueTab) {
+      case 'PENDIENTES': return ['ENVIADA', 'EN_REVISION'].includes(s.status);
+      case 'APROBADAS': return s.status === 'APROBADA';
+      case 'RECHAZADAS': return s.status === 'RECHAZADA';
+      case 'CON_COMENTARIOS': return s.status === 'APROBADA_OBSERVACIONES';
+      case 'PUBLICADAS': return s.status === 'PUBLICADA';
+      case 'TODAS': return true;
+      default: return true;
+    }
+  };
+
+  const items = solicitudes
+    .filter(filterByTab)
     .sort((a, b) => {
       const da = a.createdAt || '';
       const db = b.createdAt || '';
       return sortAsc ? da.localeCompare(db) : db.localeCompare(da);
     });
 
-  const published = solicitudes
-    .filter(s => s.status === 'PUBLICADA' && matchesSearch(s) && (solicitanteFilter ? (s as any).solicitanteName === solicitanteFilter : true))
-    .sort((a, b) => {
-      const da = a.updatedAt || a.createdAt || '';
-      const db = b.updatedAt || b.createdAt || '';
-      return db.localeCompare(da);
-    });
-
-  const publishedCount = solicitudes.filter(s => s.status === 'PUBLICADA').length;
+  // Contadores
+  const counts = {
+    PENDIENTES: solicitudes.filter(s => ['ENVIADA', 'EN_REVISION'].includes(s.status)).length,
+    APROBADAS: solicitudes.filter(s => s.status === 'APROBADA').length,
+    RECHAZADAS: solicitudes.filter(s => s.status === 'RECHAZADA').length,
+    CON_COMENTARIOS: solicitudes.filter(s => s.status === 'APROBADA_OBSERVACIONES').length,
+    PUBLICADAS: solicitudes.filter(s => s.status === 'PUBLICADA').length,
+    TODAS: solicitudes.length,
+  };
 
   // Determina si este revisor ya aprobó una solicitud
   const hasMyApproval = (s: any) => {
@@ -72,8 +82,6 @@ const RevisionQueuePage: React.FC = () => {
     if (isLegal && s.approvalLegal?.approved) return true;
     return false;
   };
-
-  const items = activeQueueTab === 'PENDIENTES' ? pending : published;
 
   return (
     <div className="space-y-4">
@@ -89,32 +97,33 @@ const RevisionQueuePage: React.FC = () => {
             </Button>
             <div className="flex items-center gap-2 bg-brand-50 dark:bg-blue-900/20 px-3 py-1.5 rounded-lg border border-brand/10">
               <Clock size={16} className="text-brand" />
-              <span className="text-sm font-bold text-brand-800 dark:text-brand-200">{pending.length} Pendientes</span>
+              <span className="text-sm font-bold text-brand-800 dark:text-brand-200">{counts.PENDIENTES} Pendientes</span>
             </div>
           </div>
         )}
       </div>
 
-      {/* Tabs: Pendientes / Publicadas */}
-      <div className="flex gap-1 p-1 bg-slate-100 dark:bg-slate-800 rounded-lg w-fit">
-        <button
-          onClick={() => setActiveQueueTab('PENDIENTES')}
-          className={cn('px-4 py-2 text-xs font-bold uppercase tracking-wider rounded-md transition-colors',
-            activeQueueTab === 'PENDIENTES'
-              ? 'bg-white dark:bg-slate-700 text-[#1e3a5f] shadow-sm'
-              : 'text-slate-400 hover:text-slate-600')}
-        >
-          Pendientes ({pending.length})
-        </button>
-        <button
-          onClick={() => setActiveQueueTab('PUBLICADAS')}
-          className={cn('px-4 py-2 text-xs font-bold uppercase tracking-wider rounded-md transition-colors',
-            activeQueueTab === 'PUBLICADAS'
-              ? 'bg-white dark:bg-slate-700 text-violet-600 shadow-sm'
-              : 'text-slate-400 hover:text-slate-600')}
-        >
-          Publicadas ({publishedCount})
-        </button>
+      {/* Tabs: filtros por estado */}
+      <div className="flex gap-1 p-1 bg-slate-100 dark:bg-slate-800 rounded-lg overflow-x-auto">
+        {([
+          { key: 'PENDIENTES', label: 'Pendientes', color: 'text-[#1e3a5f]' },
+          { key: 'APROBADAS', label: 'Aprobadas', color: 'text-emerald-600' },
+          { key: 'CON_COMENTARIOS', label: 'Con comentarios', color: 'text-blue-600' },
+          { key: 'RECHAZADAS', label: 'Rechazadas', color: 'text-red-600' },
+          { key: 'PUBLICADAS', label: 'Publicadas', color: 'text-violet-600' },
+          { key: 'TODAS', label: 'Todas', color: 'text-slate-600' },
+        ] as { key: QueueTab; label: string; color: string }[]).map(tab => (
+          <button
+            key={tab.key}
+            onClick={() => setActiveQueueTab(tab.key)}
+            className={cn('px-3 py-2 text-xs font-bold uppercase tracking-wider rounded-md transition-colors whitespace-nowrap',
+              activeQueueTab === tab.key
+                ? `bg-white dark:bg-slate-700 ${tab.color} shadow-sm`
+                : 'text-slate-400 hover:text-slate-600')}
+          >
+            {tab.label} ({counts[tab.key]})
+          </button>
+        ))}
       </div>
 
       <div className="flex gap-3">
@@ -161,16 +170,23 @@ const RevisionQueuePage: React.FC = () => {
           {items.map(s => {
             const alreadyApproved = hasMyApproval(s);
             const isPublished = s.status === 'PUBLICADA';
+            const isRejected = s.status === 'RECHAZADA';
             const isOutOfCycle = (s as any).outOfCycle === true;
 
             return (
-              <Card key={s.id} className={cn('hover:shadow-md transition-shadow', isPublished && 'opacity-80', isOutOfCycle && 'border-l-4 border-l-amber-400')}>
+              <Card key={s.id} className={cn('hover:shadow-md transition-shadow',
+                isPublished && 'opacity-80',
+                isRejected && 'border-l-4 border-l-red-400 opacity-90',
+                isOutOfCycle && !isRejected && !isPublished && 'border-l-4 border-l-amber-400'
+              )}>
                 <CardContent className="p-0">
                   <div className="flex flex-col md:grid md:grid-cols-[1fr_100px_100px_60px_70px_70px_90px] md:items-center gap-3 md:gap-2 p-4">
                     {/* Solicitud */}
                     <div className="flex items-center gap-3 min-w-0">
                       <div className={cn('w-9 h-9 rounded-lg flex items-center justify-center font-bold text-sm border shrink-0',
-                        isOutOfCycle ? 'bg-amber-50 dark:bg-amber-900/20 text-amber-600 border-amber-200' : 'bg-brand-50 dark:bg-blue-900/20 text-brand border-brand/10'
+                        isRejected ? 'bg-red-50 dark:bg-red-900/20 text-red-600 border-red-200' :
+                        isOutOfCycle ? 'bg-amber-50 dark:bg-amber-900/20 text-amber-600 border-amber-200' :
+                        'bg-brand-50 dark:bg-blue-900/20 text-brand border-brand/10'
                       )}>
                         {s.brand?.[0] || '?'}
                       </div>
@@ -178,7 +194,10 @@ const RevisionQueuePage: React.FC = () => {
                         <div className="flex items-center gap-2">
                           <p className="text-sm font-bold text-slate-900 dark:text-white truncate">{s.title}</p>
                           {isPublished && <Badge className={STATUS_LABELS['PUBLICADA'].color}>{STATUS_LABELS['PUBLICADA'].label}</Badge>}
-                          {isOutOfCycle && !isPublished && <Badge className="bg-amber-100 text-amber-700 text-[9px]">Sig. ciclo</Badge>}
+                          {isRejected && <Badge className="bg-red-100 text-red-700 text-[9px]">Rechazada</Badge>}
+                          {s.status === 'APROBADA' && <Badge className="bg-emerald-100 text-emerald-700 text-[9px]">Aprobada</Badge>}
+                          {s.status === 'APROBADA_OBSERVACIONES' && <Badge className="bg-blue-100 text-blue-700 text-[9px]">Con comentarios</Badge>}
+                          {isOutOfCycle && !isRejected && !isPublished && <Badge className="bg-amber-100 text-amber-700 text-[9px]">Sig. ciclo</Badge>}
                         </div>
                         <p className="text-[11px] text-slate-500 truncate">{s.consecutive} · {s.solicitanteName}</p>
                       </div>
