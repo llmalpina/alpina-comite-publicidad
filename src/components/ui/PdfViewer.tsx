@@ -42,6 +42,10 @@ interface PdfViewerProps {
   annotationColor?: string;
   onColorChange?: (color: string) => void;
   showToolbar?: boolean;
+  /** Callback para activar/desactivar modo anotación */
+  onToggleAnnotating?: () => void;
+  /** Si el usuario puede anotar */
+  canAnnotate?: boolean;
 }
 
 const TOOL_COLORS = ['#ef4444', '#f59e0b', '#22c55e', '#3b82f6', '#8b5cf6', '#ec4899'];
@@ -63,6 +67,7 @@ const PdfViewer: React.FC<PdfViewerProps> = ({
   annotating = false, activeTool = 'pin', annotations = [], pendingPin,
   onAnnotationClick, onPageChange, goToPageRef,
   onToolChange, annotationColor = '#ef4444', onColorChange, showToolbar = false,
+  onToggleAnnotating, canAnnotate = false,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const pageRef = useRef<HTMLDivElement>(null);
@@ -422,14 +427,21 @@ const PdfViewer: React.FC<PdfViewerProps> = ({
       {/* Navigation Toolbar */}
       <div className="flex items-center justify-between px-3 py-2 bg-slate-50 dark:bg-slate-800 border-b shrink-0 gap-2 flex-wrap">
         <div className="flex items-center gap-1">
+          {canAnnotate && onToggleAnnotating && (
+            <Button
+              variant={annotating ? 'default' : 'outline'}
+              size="sm"
+              className={cn('gap-1 text-xs mr-2', annotating && 'bg-yellow-500 hover:bg-yellow-600 text-white border-yellow-500')}
+              onClick={onToggleAnnotating}
+            >
+              <Pin size={14} /> {annotating ? 'Anotando...' : 'Anotar'}
+            </Button>
+          )}
           <span className="text-xs text-slate-600 dark:text-slate-400 min-w-[60px] text-center">
             {loading ? '...' : `${numPages} pág.`}
           </span>
         </div>
         <div className="flex items-center gap-1">
-          <Button variant={fitToWidth ? 'default' : 'ghost'} size="icon" className="h-7 w-7" onClick={() => setFitToWidth(v => !v)} title="Ajustar al ancho">
-            <Maximize2 size={13} />
-          </Button>
           <Button variant="ghost" size="icon" className="h-7 w-7"
             onClick={() => { setFitToWidth(false); setScale(s => Math.max(0.3, +(s - 0.15).toFixed(2))); }}>
             <ZoomOut size={14} />

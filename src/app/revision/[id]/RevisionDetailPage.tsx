@@ -672,6 +672,8 @@ const RevisionDetailPage: React.FC = () => {
             activeTool={activeTool}
             annotationColor={annotationColor}
             showToolbar={true}
+            canAnnotate={canAnnotate}
+            onToggleAnnotating={() => { setAddingAnnotation(v => !v); setPendingAnnotation(null); }}
             onToolChange={setActiveTool}
             onColorChange={setAnnotationColor}
             annotations={solicitud.annotations.map(a => ({
