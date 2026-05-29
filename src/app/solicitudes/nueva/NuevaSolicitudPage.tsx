@@ -228,15 +228,18 @@ const NuevaSolicitudPage: React.FC = () => {
       let solicitud: Solicitud;
       solicitud = await solicitudesApi.create(solicitudData);
 
-      // Enviar correo de nueva solicitud a los revisores (usa reglas configuradas)
+      // Enviar correos
       const SES_URL = (import.meta as any).env?.VITE_SES_LAMBDA_URL as string;
-      if (SES_URL) {
+      if (SES_URL && user?.email) {
         const rule = emailConfig.rules.find(r => r.event === 'solicitud_creada' && r.enabled);
         const extraTo = rule?.toEmails || [];
         const extraCc = rule?.cc || ['nicolas.carreno@alpina.com'];
         const defaultTo = ['nicolas.carreno@alpina.com'];
         const to = [...new Set([...defaultTo, ...extraTo])];
         const token = localStorage.getItem('alpina_id_token');
+        const fechaRevision = new Intl.DateTimeFormat('es-CO', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' }).format(new Date(solicitudData.fechaDeseadaRevision));
+
+        // 1. Correo a revisores (comité)
         fetch(SES_URL, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
@@ -252,24 +255,33 @@ const NuevaSolicitudPage: React.FC = () => {
           }),
         }).catch(console.error);
 
-        // Si está fuera de ciclo, enviar correo informativo al solicitante
-        if (solicitudData.outOfCycle && user?.email) {
-          const fechaRevision = new Intl.DateTimeFormat('es-CO', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' }).format(new Date(solicitudData.fechaDeseadaRevision));
-          fetch(SES_URL, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
-            body: JSON.stringify({
-              template: 'fuera_de_ciclo',
-              to: [user.email],
-              cc: ['nicolas.carreno@alpina.com'],
-              data: {
-                id: solicitud.id, consecutive: solicitud.consecutive, title: solicitud.title,
-                brand: brand.join(', '), solicitanteName: user?.name || '',
-                fechaRevision,
-              },
-            }),
-          }).catch(console.error);
-        }
+        // 2. Correo de confirmación al solicitante
+        // Si está fuera de ciclo → template fuera_de_ciclo
+        // Si está dentro de ciclo → template confirmacion_solicitud (o cambio_estado como fallback)
+        const solicitanteTemplate = solicitudData.outOfCycle ? 'fuera_de_ciclo' : 'cambio_estado';
+        const solicitanteData = solicitudData.outOfCycle
+          ? {
+              id: solicitud.id, consecutive: solicitud.consecutive, title: solicitud.title,
+              brand: brand.join(', '), solicitanteName: user?.name || '',
+              fechaRevision,
+            }
+          : {
+              id: solicitud.id, consecutive: solicitud.consecutive, title: solicitud.title,
+              brand: brand.join(', '), solicitanteName: user?.name || '',
+              status: 'ENVIADA', statusLabel: 'Recibida',
+              nota: `Tu pieza fue recibida exitosamente. Será revisada el ${fechaRevision}.`,
+            };
+
+        fetch(SES_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+          body: JSON.stringify({
+            template: solicitanteTemplate,
+            to: [user.email],
+            cc: [],
+            data: solicitanteData,
+          }),
+        }).catch(console.error);
       }
 
       notify(`Solicitud ${solicitud.consecutive} enviada al comité`, 'success');
