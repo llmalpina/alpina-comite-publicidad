@@ -722,6 +722,16 @@ const RevisionDetailPage: React.FC = () => {
             onToggleAnnotating={() => { setAddingAnnotation(v => !v); setPendingAnnotation(null); }}
             onToolChange={setActiveTool}
             onColorChange={setAnnotationColor}
+            pendingShapeAnnotation={pendingShapeAnnotation}
+            shapeAnnotationText={shapeAnnotationText}
+            onShapeTextChange={setShapeAnnotationText}
+            onShapeSave={handleSaveShapeAnnotation}
+            onShapeCancel={() => { setPendingShapeAnnotation(null); setShapeAnnotationText(''); }}
+            pendingPinAnnotation={!!pendingAnnotation}
+            pinAnnotationText={annotationText}
+            onPinTextChange={setAnnotationText}
+            onPinSave={handleSaveAnnotation}
+            onPinCancel={() => { setPendingAnnotation(null); setAnnotationText(''); }}
             annotations={solicitud.annotations.map(a => ({
               id: a.id, page: a.page, x: a.x, y: a.y,
               x2: a.x2, y2: a.y2, tool: a.tool, color: a.color,

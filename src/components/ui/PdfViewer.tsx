@@ -46,6 +46,18 @@ interface PdfViewerProps {
   onToggleAnnotating?: () => void;
   /** Si el usuario puede anotar */
   canAnnotate?: boolean;
+  /** Modal de texto para anotación de forma — se renderiza dentro del PdfViewer para fullscreen */
+  pendingShapeAnnotation?: any;
+  shapeAnnotationText?: string;
+  onShapeTextChange?: (text: string) => void;
+  onShapeSave?: () => void;
+  onShapeCancel?: () => void;
+  /** Pin annotation modal */
+  pendingPinAnnotation?: boolean;
+  pinAnnotationText?: string;
+  onPinTextChange?: (text: string) => void;
+  onPinSave?: () => void;
+  onPinCancel?: () => void;
 }
 
 const TOOL_COLORS = ['#ef4444', '#f59e0b', '#22c55e', '#3b82f6', '#8b5cf6', '#ec4899'];
@@ -68,6 +80,8 @@ const PdfViewer: React.FC<PdfViewerProps> = ({
   onAnnotationClick, onPageChange, goToPageRef,
   onToolChange, annotationColor = '#ef4444', onColorChange, showToolbar = false,
   onToggleAnnotating, canAnnotate = false,
+  pendingShapeAnnotation, shapeAnnotationText = '', onShapeTextChange, onShapeSave, onShapeCancel,
+  pendingPinAnnotation, pinAnnotationText = '', onPinTextChange, onPinSave, onPinCancel,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const pageRef = useRef<HTMLDivElement>(null);
@@ -573,36 +587,34 @@ const PdfViewer: React.FC<PdfViewerProps> = ({
         </div>
       </div>
 
-      {/* Inline annotation text input — visible in fullscreen */}
-      {isFullscreen && pendingPin && (
-        <div className="absolute bottom-4 left-4 right-4 z-50 bg-white dark:bg-slate-800 border-2 border-yellow-400 rounded-xl shadow-2xl p-4 flex gap-2 items-center">
-          <Pin size={16} className="text-yellow-600 shrink-0" />
-          <span className="text-xs text-slate-500 shrink-0">Pág. {currentPage}:</span>
-          <input
-            type="text"
-            placeholder="Escribe tu comentario y presiona Enter..."
-            className="flex-1 text-sm p-2 border rounded-lg bg-slate-50 dark:bg-slate-900 outline-none focus:ring-2 focus:ring-yellow-400"
-            autoFocus
-            onKeyDown={e => {
-              if (e.key === 'Enter' && (e.target as HTMLInputElement).value.trim()) {
-                // Trigger the annotation save via the existing callback
-                const text = (e.target as HTMLInputElement).value.trim();
-                if (onAnnotationClick) {
-                  // We need to signal the parent to save with text
-                  // For now, dispatch a custom event
-                  const event = new CustomEvent('pdf-annotation-save', { detail: { text, page: currentPage, x: pendingPin.x, y: pendingPin.y } });
-                  document.dispatchEvent(event);
-                }
-                (e.target as HTMLInputElement).value = '';
-              }
-              if (e.key === 'Escape') {
-                // Cancel
-                const event = new CustomEvent('pdf-annotation-cancel');
-                document.dispatchEvent(event);
-              }
-            }}
-          />
-          <button onClick={() => { const event = new CustomEvent('pdf-annotation-cancel'); document.dispatchEvent(event); }} className="text-slate-400 hover:text-red-500 p-1">✗</button>
+      {/* Inline annotation text input — works in fullscreen */}
+      {(pendingShapeAnnotation || pendingPinAnnotation) && (
+        <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/30" onClick={e => { if (e.target === e.currentTarget) { onShapeCancel?.(); onPinCancel?.(); } }}>
+          <div className="bg-white dark:bg-slate-800 rounded-xl shadow-2xl p-5 w-[90%] max-w-sm space-y-3" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 rounded-full flex items-center justify-center shrink-0" style={{ backgroundColor: pendingShapeAnnotation?.color || annotationColor }}>
+                <Pin size={16} className="text-white" />
+              </div>
+              <div>
+                <h3 className="font-bold text-slate-900 dark:text-white text-sm">Agregar comentario</h3>
+                <p className="text-[10px] text-slate-500">Pág. {pendingShapeAnnotation?.page || currentPage} · {pendingShapeAnnotation?.tool || 'pin'}</p>
+              </div>
+            </div>
+            <textarea
+              className="w-full p-3 text-sm border rounded-lg focus:ring-2 focus:ring-blue-400 outline-none min-h-[80px] bg-slate-50 dark:bg-slate-900"
+              placeholder="Describe la observación..."
+              value={pendingShapeAnnotation ? shapeAnnotationText : pinAnnotationText}
+              onChange={e => pendingShapeAnnotation ? onShapeTextChange?.(e.target.value) : onPinTextChange?.(e.target.value)}
+              autoFocus
+              onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); pendingShapeAnnotation ? onShapeSave?.() : onPinSave?.(); } if (e.key === 'Escape') { onShapeCancel?.(); onPinCancel?.(); } }}
+            />
+            <div className="flex gap-2 justify-end">
+              <button onClick={() => { onShapeCancel?.(); onPinCancel?.(); }} className="px-3 py-1.5 text-xs font-semibold text-slate-500 hover:bg-slate-100 rounded-lg">Cancelar</button>
+              <button onClick={() => { pendingShapeAnnotation ? onShapeSave?.() : onPinSave?.(); }} className="px-4 py-1.5 text-xs font-bold text-white rounded-lg" style={{ backgroundColor: pendingShapeAnnotation?.color || annotationColor }}>
+                Guardar
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>
