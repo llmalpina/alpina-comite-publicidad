@@ -50,16 +50,16 @@ interface PdfViewerProps {
 
 const TOOL_COLORS = ['#ef4444', '#f59e0b', '#22c55e', '#3b82f6', '#8b5cf6', '#ec4899'];
 
-const TOOLS: { key: AnnotationTool; icon: React.ElementType; label: string }[] = [
-  { key: 'select', icon: MousePointer2, label: 'Seleccionar' },
-  { key: 'hand', icon: Hand, label: 'Mover' },
-  { key: 'pin', icon: Pin, label: 'Pin' },
-  { key: 'highlight', icon: Highlighter, label: 'Resaltar' },
-  { key: 'rect', icon: Square, label: 'Rectangulo' },
-  { key: 'underline', icon: UnderlineIcon, label: 'Subrayar' },
-  { key: 'strikethrough', icon: Strikethrough, label: 'Tachar' },
-  { key: 'arrow', icon: ArrowRight, label: 'Flecha' },
-  { key: 'freehand', icon: Pencil, label: 'Dibujo libre' },
+const TOOLS: { key: AnnotationTool; icon: React.ElementType; label: string; shortcut: string }[] = [
+  { key: 'select', icon: MousePointer2, label: 'Seleccionar', shortcut: 'V' },
+  { key: 'hand', icon: Hand, label: 'Mover', shortcut: 'M' },
+  { key: 'pin', icon: Pin, label: 'Pin', shortcut: 'P' },
+  { key: 'highlight', icon: Highlighter, label: 'Resaltar', shortcut: 'H' },
+  { key: 'rect', icon: Square, label: 'Rectangulo', shortcut: 'R' },
+  { key: 'underline', icon: UnderlineIcon, label: 'Subrayar', shortcut: 'U' },
+  { key: 'strikethrough', icon: Strikethrough, label: 'Tachar', shortcut: 'S' },
+  { key: 'arrow', icon: ArrowRight, label: 'Flecha', shortcut: 'A' },
+  { key: 'freehand', icon: Pencil, label: 'Dibujo libre', shortcut: 'F' },
 ];
 
 const PdfViewer: React.FC<PdfViewerProps> = ({
@@ -425,11 +425,12 @@ const PdfViewer: React.FC<PdfViewerProps> = ({
           <span className="text-[10px] font-bold text-yellow-700 uppercase tracking-wider mr-1">Herramienta:</span>
           {TOOLS.map(t => (
             <button key={t.key} onClick={() => onToolChange?.(t.key)}
+              title={`${t.label} (${t.shortcut})`}
               className={cn('flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all',
                 activeTool === t.key
                   ? 'bg-[#1e3a5f] text-white shadow-md'
                   : 'bg-white dark:bg-slate-800 text-slate-600 border border-slate-200 hover:border-slate-400')}>
-              <t.icon size={14} /> {t.label}
+              <t.icon size={14} /> {t.label} <kbd className="text-[9px] opacity-60 ml-0.5">{t.shortcut}</kbd>
             </button>
           ))}
           <div className="w-px h-6 bg-yellow-300 mx-1" />
@@ -571,6 +572,39 @@ const PdfViewer: React.FC<PdfViewerProps> = ({
           </Document>
         </div>
       </div>
+
+      {/* Inline annotation text input — visible in fullscreen */}
+      {isFullscreen && pendingPin && (
+        <div className="absolute bottom-4 left-4 right-4 z-50 bg-white dark:bg-slate-800 border-2 border-yellow-400 rounded-xl shadow-2xl p-4 flex gap-2 items-center">
+          <Pin size={16} className="text-yellow-600 shrink-0" />
+          <span className="text-xs text-slate-500 shrink-0">Pág. {currentPage}:</span>
+          <input
+            type="text"
+            placeholder="Escribe tu comentario y presiona Enter..."
+            className="flex-1 text-sm p-2 border rounded-lg bg-slate-50 dark:bg-slate-900 outline-none focus:ring-2 focus:ring-yellow-400"
+            autoFocus
+            onKeyDown={e => {
+              if (e.key === 'Enter' && (e.target as HTMLInputElement).value.trim()) {
+                // Trigger the annotation save via the existing callback
+                const text = (e.target as HTMLInputElement).value.trim();
+                if (onAnnotationClick) {
+                  // We need to signal the parent to save with text
+                  // For now, dispatch a custom event
+                  const event = new CustomEvent('pdf-annotation-save', { detail: { text, page: currentPage, x: pendingPin.x, y: pendingPin.y } });
+                  document.dispatchEvent(event);
+                }
+                (e.target as HTMLInputElement).value = '';
+              }
+              if (e.key === 'Escape') {
+                // Cancel
+                const event = new CustomEvent('pdf-annotation-cancel');
+                document.dispatchEvent(event);
+              }
+            }}
+          />
+          <button onClick={() => { const event = new CustomEvent('pdf-annotation-cancel'); document.dispatchEvent(event); }} className="text-slate-400 hover:text-red-500 p-1">✗</button>
+        </div>
+      )}
     </div>
   );
 };

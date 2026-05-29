@@ -385,6 +385,11 @@ const RevisionDetailPage: React.FC = () => {
     setShapeAnnotationText('');
     setPendingShapeAnnotation(null);
     notify('Anotación agregada', 'success');
+    // Marcar como "revisando"
+    const reviewingField = isARA ? 'araReviewing' : isLegal ? 'legalReviewing' : null;
+    if (reviewingField) {
+      apiFetch(`/solicitudes/${solicitud.id}/status`, { method: 'PATCH', body: JSON.stringify({ [reviewingField]: true }) }).catch(() => {});
+    }
   };
 
   const handleResolveAnnotation = (annId: string) => {
