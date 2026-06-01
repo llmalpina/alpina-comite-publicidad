@@ -293,13 +293,14 @@ async function addSummaryPages(
       });
 
       // Nombre y área
-      currentPage!.drawText(ann.userName, {
+      const displayName = ann.userName || 'Revisor';
+      currentPage!.drawText(displayName, {
         x: MARGIN + 38, y: yPos + 5,
         size: 10, font: fontBold, color: rgb(0.1, 0.1, 0.1),
       });
 
       if (ann.area) {
-        const nameWidth = fontBold.widthOfTextAtSize(ann.userName, 10);
+        const nameWidth = fontBold.widthOfTextAtSize(displayName, 10);
         currentPage!.drawText(`  •  ${ann.area}`, {
           x: MARGIN + 38 + nameWidth, y: yPos + 5,
           size: 9, font, color: rgb(0.4, 0.4, 0.4),
@@ -363,7 +364,8 @@ function addNativeAnnotations(pdfDoc: PDFDocument, annotations: ExportAnnotation
     const { width, height } = page.getSize();
     const pdfX = (ann.x / 100) * width;
     const pdfY = height - (ann.y / 100) * height;
-    const commentText = `[${ann.userName || 'Revisor'}${ann.area ? ' - ' + ann.area : ''}]: ${ann.text || '(sin texto)'}`;
+    const safeText = ann.text || '(sin texto)';
+    const commentText = `[${ann.userName || 'Revisor'}${ann.area ? ' - ' + ann.area : ''}]: ${safeText}`;
 
     try {
       const safeContents = sanitizeText(commentText);

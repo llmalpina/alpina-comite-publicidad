@@ -489,7 +489,7 @@ const RevisionDetailPage: React.FC = () => {
                   solicitud.annotations.map(a => ({
                     id: a.id, page: a.page, x: a.x, y: a.y,
                     x2: a.x2, y2: a.y2,
-                    text: a.text, userName: a.userName, area: a.area,
+                    text: a.text || '(sin texto)', userName: a.userName || 'Revisor', area: a.area || '',
                     tool: a.tool, color: a.color, resolved: a.resolved,
                   })),
                   `${(solicitud.files?.[0]?.name || solicitud.consecutive).replace('.pdf', '')}_comentarios.pdf`
