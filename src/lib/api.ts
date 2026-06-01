@@ -102,6 +102,8 @@ export const usuariosApi = {
     apiFetch<any>('/usuarios', { method: 'POST', body: JSON.stringify(data) }),
   updateRole: (id: string, role: string) =>
     apiFetch<any>(`/usuarios/${id}/rol`, { method: 'PATCH', body: JSON.stringify({ role }) }),
+  updateArea: (id: string, area: string) =>
+    apiFetch<any>(`/usuarios/${id}/area`, { method: 'PATCH', body: JSON.stringify({ area }) }),
   disable: (id: string) =>
     apiFetch<any>(`/usuarios/${id}/disable`, { method: 'PATCH' }),
   resetPassword: (id: string) =>

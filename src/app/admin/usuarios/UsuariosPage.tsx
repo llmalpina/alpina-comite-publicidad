@@ -73,6 +73,21 @@ const UsuariosPage: React.FC = () => {
     } catch (e: any) { notify(e.message, 'error'); }
   };
 
+  const handleAreaChange = async (userId: string, newArea: string) => {
+    if (!newArea) {
+      notify('Selecciona un área válida', 'error');
+      return;
+    }
+    try {
+      await usuariosApi.updateArea(userId, newArea);
+      setUsers(prev => prev.map(u => u.id === userId ? { ...u, area: newArea } : u));
+      notify('Área actualizada correctamente', 'success');
+    } catch (e: any) {
+      console.error('Error al actualizar área:', e);
+      notify(`Error: ${e.message}`, 'error');
+    }
+  };
+
   const handleToggle = async (userId: string) => {
     const target = users.find(u => u.id === userId);
     if (!target) return;
@@ -193,7 +208,18 @@ const UsuariosPage: React.FC = () => {
                           </div>
                         </div>
                       </td>
-                      <td className="p-4 text-sm text-slate-600 dark:text-slate-400">{u.area || '—'}</td>
+                      <td className="p-4">
+                        <select
+                          value={u.area}
+                          onChange={e => handleAreaChange(u.id, e.target.value)}
+                          className={cn('text-xs px-2 py-1 rounded border bg-white dark:bg-slate-700 text-slate-900 dark:text-white cursor-pointer focus:outline-none focus:ring-2 focus:ring-[#1e3a5f]', 
+                            !u.area ? 'border-red-300 bg-red-50 dark:bg-red-900/20' : 'border-slate-300 dark:border-slate-600'
+                          )}
+                        >
+                          <option value="">Selecciona área</option>
+                          {areasActivas.map(a => <option key={a.id} value={a.value}>{a.label}</option>)}
+                        </select>
+                      </td>
                       <td className="p-4">
                         <select
                           value={u.role}
