@@ -363,7 +363,7 @@ function addNativeAnnotations(pdfDoc: PDFDocument, annotations: ExportAnnotation
     const { width, height } = page.getSize();
     const pdfX = (ann.x / 100) * width;
     const pdfY = height - (ann.y / 100) * height;
-    const commentText = `[${ann.userName}${ann.area ? ' - ' + ann.area : ''}]: ${ann.text}`;
+    const commentText = `[${ann.userName || 'Revisor'}${ann.area ? ' - ' + ann.area : ''}]: ${ann.text || '(sin texto)'}`;
 
     try {
       const safeContents = sanitizeText(commentText);
@@ -416,6 +416,7 @@ function getOrCreateAnnotsArray(page: PDFPage, doc: PDFDocument): PDFArray {
 }
 
 function sanitizeText(text: string): string {
+  if (!text) return '';
   return text
     .replace(/[\x00-\x1F\x7F-\x9F]/g, ' ')  // Reemplazar TODOS los caracteres de control (incluye \n, \r, \t)
     .replace(/[^\x20-\x7E\xA0-\xFF]/g, '')   // Eliminar caracteres fuera de WinAnsi (emojis, unicode extendido)
@@ -436,11 +437,13 @@ function parseColorNorm(hex: string): { r: number; g: number; b: number } {
 }
 
 function wrapText(text: string, font: any, fontSize: number, maxWidth: number): string[] {
+  if (!text) return ['(sin texto)'];
   // Reemplazar saltos de línea por espacios y limpiar caracteres no soportados
   const cleanText = text
     .replace(/[\r\n]+/g, ' ')
     .replace(/[^\x20-\x7E\xA0-\xFF]/g, '');
   const words = cleanText.split(' ').filter(w => w.length > 0);
+  if (words.length === 0) return ['(sin texto)'];
   const lines: string[] = [];
   let currentLine = '';
 
@@ -455,7 +458,7 @@ function wrapText(text: string, font: any, fontSize: number, maxWidth: number): 
     }
   }
   if (currentLine) lines.push(currentLine);
-  return lines.length > 0 ? lines : [''];
+  return lines.length > 0 ? lines : ['(sin texto)'];
 }
 
 function extractS3KeyFromUrl(url: string): string | null {
