@@ -5,7 +5,7 @@ import { Button } from '../../components/ui/Button';
 import { Card, CardContent } from '../../components/ui/Card';
 import { Input } from '../../components/ui/Input';
 import { Badge } from '../../components/ui/Badge';
-import { STATUS_LABELS } from '../../lib/constants';
+import { STATUS_LABELS, CONTENT_TYPES } from '../../lib/constants';
 import { formatDate, cn } from '../../lib/utils';
 import { useSolicitudes } from '../../hooks/useSolicitudes';
 import { useAuth } from '../../contexts/AuthContext';
@@ -22,6 +22,7 @@ const RevisionQueuePage: React.FC = () => {
   const [sortAsc, setSortAsc] = useState(false);
   const [activeQueueTab, setActiveQueueTab] = useState<QueueTab>('PENDIENTES');
   const [solicitanteFilter, setSolicitanteFilter] = useState('');
+  const [contentTypeFilter, setContentTypeFilter] = useState('');
 
   const isARA = user?.role === 'REVISOR_ARA' || user?.role === 'ADMIN';
   const isLegal = user?.role === 'REVISOR_LEGAL' || user?.role === 'ADMIN';
@@ -42,11 +43,13 @@ const RevisionQueuePage: React.FC = () => {
     s.title?.toLowerCase().includes(search.toLowerCase()) ||
     s.consecutive?.toLowerCase().includes(search.toLowerCase()) ||
     s.brand?.toLowerCase().includes(search.toLowerCase()) ||
-    s.solicitanteName?.toLowerCase().includes(search.toLowerCase());
+    s.solicitanteName?.toLowerCase().includes(search.toLowerCase()) ||
+    s.contentType?.toLowerCase().includes(search.toLowerCase());
 
   const filterByTab = (s: any) => {
     if (!matchesSearch(s)) return false;
     if (solicitanteFilter && s.solicitanteName !== solicitanteFilter) return false;
+    if (contentTypeFilter && s.contentType !== contentTypeFilter) return false;
     switch (activeQueueTab) {
       case 'PENDIENTES': return ['ENVIADA', 'EN_REVISION'].includes(s.status);
       case 'APROBADAS': return s.status === 'APROBADA';
@@ -135,6 +138,10 @@ const RevisionQueuePage: React.FC = () => {
           <option value="">Todos los solicitantes</option>
           {solicitantes.map(s => <option key={s} value={s}>{s}</option>)}
         </select>
+        <select value={contentTypeFilter} onChange={e => setContentTypeFilter(e.target.value)} className="flex h-10 rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring min-w-[180px]">
+          <option value="">Todos los tipos</option>
+          {CONTENT_TYPES.map(ct => <option key={ct.value} value={ct.value}>{ct.label}</option>)}
+        </select>
       </div>
 
       {loading ? (
@@ -154,9 +161,10 @@ const RevisionQueuePage: React.FC = () => {
       ) : (
         <div className="space-y-3">
           {/* Header con ordenamiento — solo en desktop */}
-          <div className="hidden md:grid md:grid-cols-[1fr_100px_100px_60px_70px_70px_90px] items-center gap-2 px-4 py-2 text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+          <div className="hidden md:grid md:grid-cols-[1fr_100px_120px_100px_60px_70px_70px_90px] items-center gap-2 px-4 py-2 text-[10px] font-bold text-slate-500 uppercase tracking-wider">
             <div>Solicitud</div>
             <div>Marca</div>
+            <div>Tipo</div>
             <button className="flex items-center gap-1 hover:text-slate-700 transition-colors" onClick={() => setSortAsc(v => !v)}>
               {activeQueueTab === 'PENDIENTES' ? 'Recibida' : 'Publicada'} {sortAsc ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
             </button>
@@ -180,7 +188,7 @@ const RevisionQueuePage: React.FC = () => {
                 isOutOfCycle && !isRejected && !isPublished && 'border-l-4 border-l-amber-400'
               )}>
                 <CardContent className="p-0">
-                  <div className="flex flex-col md:grid md:grid-cols-[1fr_100px_100px_60px_70px_70px_90px] md:items-center gap-3 md:gap-2 p-4">
+                  <div className="flex flex-col md:grid md:grid-cols-[1fr_100px_120px_100px_60px_70px_70px_90px] md:items-center gap-3 md:gap-2 p-4">
                     {/* Solicitud */}
                     <div className="flex items-center gap-3 min-w-0">
                       <div className={cn('w-9 h-9 rounded-lg flex items-center justify-center font-bold text-sm border shrink-0',
@@ -207,6 +215,13 @@ const RevisionQueuePage: React.FC = () => {
                     <div className="hidden md:block min-w-0">
                       <p className="text-sm text-slate-700 dark:text-slate-300 truncate">{s.brand}</p>
                       <p className="text-[10px] text-slate-400 truncate">{s.area}</p>
+                    </div>
+
+                    {/* Tipo de contenido */}
+                    <div className="hidden md:block min-w-0">
+                      <p className="text-[10px] font-semibold text-slate-600 dark:text-slate-400 truncate">
+                        {CONTENT_TYPES.find(ct => ct.value === (s as any).contentType)?.label || (s as any).contentType || '—'}
+                      </p>
                     </div>
 
                     {/* Fecha */}

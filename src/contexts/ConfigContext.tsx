@@ -139,11 +139,11 @@ const DEFAULT_ROLES: RoleConfig[] = [
 
 const DEFAULT_SCHEDULE: ScheduleConfig = {
   enabled: true,
-  cutoffHour: 11,
+  cutoffHour: 23,
   cutoffMinute: 45,
   cutoffDay: 3,             // Miércoles
   allowedDays: [1, 2, 3, 4, 5],
-  message: 'El horario de envio de piezas es de lunes a viernes. El corte para el comité del próximo lunes es miércoles a las 11:45 AM.',
+  message: 'El horario de envio de piezas es de lunes a viernes. El corte para el comité del próximo lunes es miércoles a las 11:45 PM.',
   extendedDays: [4, 5],    // Jueves y viernes
   extendedMessage: 'Tu pieza fue recibida después del cierre del miércoles. Será revisada en el comité del lunes de la semana subsiguiente (aprox. 8 días).',
   reviewDay: 1,             // Lunes

@@ -33,7 +33,7 @@ export function formatDate(date: Date | string) {
  */
 export function calculateNextReviewDate(
   cutoffDay: number = 3,
-  cutoffHour: number = 11,
+  cutoffHour: number = 23,
   cutoffMinute: number = 45,
   reviewDay: number = 1
 ): { date: string; outOfCycle: boolean } {

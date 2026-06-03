@@ -423,10 +423,10 @@ const NuevaSolicitudPage: React.FC = () => {
               <div className="space-y-2">
                 <label className="text-sm font-semibold text-slate-700 dark:text-slate-300">Fecha de Revisión</label>
                 {(() => {
-                  const { scheduleConfig } = { scheduleConfig: { cutoffDay: 3, cutoffHour: 11, cutoffMinute: 45, reviewDay: 1 } };
+                  const { scheduleConfig } = { scheduleConfig: { cutoffDay: 3, cutoffHour: 23, cutoffMinute: 45, reviewDay: 1 } };
                   const reviewInfo = calculateNextReviewDate(
                     (emailConfig as any)?.scheduleConfig?.cutoffDay || 3,
-                    (emailConfig as any)?.scheduleConfig?.cutoffHour || 11,
+                    (emailConfig as any)?.scheduleConfig?.cutoffHour || 23,
                     (emailConfig as any)?.scheduleConfig?.cutoffMinute || 45,
                     (emailConfig as any)?.scheduleConfig?.reviewDay || 1
                   );
@@ -447,7 +447,7 @@ const NuevaSolicitudPage: React.FC = () => {
                           <p className="text-xs text-amber-800 font-medium">⚠️ Tu pieza fue enviada después del cierre del miércoles. Será revisada en el comité del lunes de la semana subsiguiente (aprox. 8 días).</p>
                         </div>
                       ) : (
-                        <p className="text-xs text-slate-400">Se revisará el próximo lunes. El corte para este ciclo es miércoles a las 11:45 AM.</p>
+                        <p className="text-xs text-slate-400">Se revisará el próximo lunes. El corte para este ciclo es miércoles a las 11:45 PM.</p>
                       )}
                     </>
                   );
