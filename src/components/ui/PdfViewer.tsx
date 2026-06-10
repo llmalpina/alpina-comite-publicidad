@@ -58,6 +58,8 @@ interface PdfViewerProps {
   onPinTextChange?: (text: string) => void;
   onPinSave?: () => void;
   onPinCancel?: () => void;
+  /** External ref for fullscreen target (e.g., to include comments panel) */
+  fullscreenTargetRef?: React.RefObject<HTMLElement | null>;
 }
 
 const TOOL_COLORS = ['#ef4444', '#f59e0b', '#22c55e', '#3b82f6', '#8b5cf6', '#ec4899'];
@@ -82,6 +84,7 @@ const PdfViewer: React.FC<PdfViewerProps> = ({
   onToggleAnnotating, canAnnotate = false,
   pendingShapeAnnotation, shapeAnnotationText = '', onShapeTextChange, onShapeSave, onShapeCancel,
   pendingPinAnnotation, pinAnnotationText = '', onPinTextChange, onPinSave, onPinCancel,
+  fullscreenTargetRef,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const pageRef = useRef<HTMLDivElement>(null);
@@ -295,12 +298,12 @@ const PdfViewer: React.FC<PdfViewerProps> = ({
         >
           <div className="w-7 h-7 rounded-full flex items-center justify-center shadow-lg hover:scale-125 transition-transform"
             style={{ backgroundColor: color, border: `2px solid ${color}` }}>
-            <Pin size={13} className="text-white" />
+            <span className="text-white text-[10px] font-bold">{annotations.filter(a => !a.resolved).indexOf(ann) + 1}</span>
           </div>
           {(isHovered || isPreview) && !isPreview && (
             <div className="absolute left-10 top-0 w-56 bg-white dark:bg-slate-800 border shadow-xl rounded-lg p-3 z-30 pointer-events-none">
-              <p className="text-xs font-bold text-slate-700 dark:text-slate-200">{ann.userName}</p>
-              {ann.area && <p className="text-[10px] text-slate-500 mb-1">{ann.area} · Pag. {ann.page}</p>}
+              <p className="text-xs font-bold text-slate-700 dark:text-slate-200">#{annotations.filter(a => !a.resolved).indexOf(ann) + 1} — {ann.area || 'Revisor'}</p>
+              {ann.area && <p className="text-[10px] text-slate-500 mb-1">Pag. {ann.page}</p>}
               <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">{ann.text}</p>
             </div>
           )}
@@ -375,8 +378,8 @@ const PdfViewer: React.FC<PdfViewerProps> = ({
           <div className="absolute z-30 pointer-events-none"
             style={{ left: `${(x1 + x2) / 2}%`, top: `${y1}%`, transform: 'translate(-50%, -110%)' }}>
             <div className="bg-white dark:bg-slate-800 border shadow-xl rounded-lg p-3 w-56">
-              <p className="text-xs font-bold text-slate-700 dark:text-slate-200">{ann.userName}</p>
-              {ann.area && <p className="text-[10px] text-slate-500 mb-1">{ann.area} · Pag. {ann.page}</p>}
+              <p className="text-xs font-bold text-slate-700 dark:text-slate-200">#{annotations.filter(a => !a.resolved).indexOf(ann) + 1} — {ann.area || 'Revisor'}</p>
+              <p className="text-[10px] text-slate-500 mb-1">Pag. {ann.page}</p>
               <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">{ann.text}</p>
             </div>
           </div>
@@ -510,7 +513,7 @@ const PdfViewer: React.FC<PdfViewerProps> = ({
           <div className="w-px h-5 bg-slate-300 mx-1" />
           <Button variant="ghost" size="icon" className="h-7 w-7" title="Pantalla completa"
             onClick={() => {
-              const el = containerRef.current?.closest('.pdf-viewer-root') as HTMLElement;
+              const el = fullscreenTargetRef?.current || containerRef.current?.closest('.pdf-viewer-root') as HTMLElement;
               if (!el) return;
               if (document.fullscreenElement) {
                 document.exitFullscreen();

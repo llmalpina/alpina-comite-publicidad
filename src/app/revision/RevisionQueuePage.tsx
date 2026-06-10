@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { Search, Clock, ChevronRight, ChevronUp, ChevronDown, CheckCircle2, Loader2, Eye, RefreshCw, Archive } from 'lucide-react';
+import { Search, Clock, ChevronRight, ChevronUp, ChevronDown, CheckCircle2, Loader2, Eye, RefreshCw, Archive, CheckSquare, Square } from 'lucide-react';
 import { Button } from '../../components/ui/Button';
 import { Card, CardContent } from '../../components/ui/Card';
 import { Input } from '../../components/ui/Input';
@@ -14,6 +14,34 @@ import { apiFetch } from '../../lib/api';
 
 type QueueTab = 'PENDIENTES' | 'APROBADAS' | 'RECHAZADAS' | 'CON_COMENTARIOS' | 'PUBLICADAS' | 'TODAS';
 
+/** Clave en localStorage para guardar las solicitudes vistas/revisadas por usuario */
+const getSeenKey = (userId: string) => `alpina_seen_solicitudes_${userId}`;
+const getCheckedKey = (userId: string) => `alpina_checked_solicitudes_${userId}`;
+
+/** Obtiene IDs de solicitudes que el usuario ya "vio" (entró a la pieza) */
+function getSeenSolicitudes(userId: string): Set<string> {
+  try {
+    const data = localStorage.getItem(getSeenKey(userId));
+    return data ? new Set(JSON.parse(data)) : new Set();
+  } catch { return new Set(); }
+}
+
+/** Obtiene IDs de solicitudes que el usuario marcó como "revisadas" (check manual) */
+function getCheckedSolicitudes(userId: string): Set<string> {
+  try {
+    const data = localStorage.getItem(getCheckedKey(userId));
+    return data ? new Set(JSON.parse(data)) : new Set();
+  } catch { return new Set(); }
+}
+
+function saveSeenSolicitudes(userId: string, seen: Set<string>) {
+  localStorage.setItem(getSeenKey(userId), JSON.stringify([...seen]));
+}
+
+function saveCheckedSolicitudes(userId: string, checked: Set<string>) {
+  localStorage.setItem(getCheckedKey(userId), JSON.stringify([...checked]));
+}
+
 const RevisionQueuePage: React.FC = () => {
   const { solicitudes, loading, refetch } = useSolicitudes();
   const { user } = useAuth();
@@ -23,6 +51,42 @@ const RevisionQueuePage: React.FC = () => {
   const [activeQueueTab, setActiveQueueTab] = useState<QueueTab>('PENDIENTES');
   const [solicitanteFilter, setSolicitanteFilter] = useState('');
   const [contentTypeFilter, setContentTypeFilter] = useState('');
+  const [seenIds, setSeenIds] = useState<Set<string>>(new Set());
+  const [checkedIds, setCheckedIds] = useState<Set<string>>(new Set());
+
+  // Cargar estado de visto/revisado al montar
+  useEffect(() => {
+    if (user?.id) {
+      setSeenIds(getSeenSolicitudes(user.id));
+      setCheckedIds(getCheckedSolicitudes(user.id));
+    }
+  }, [user?.id]);
+
+  // Función para marcar/desmarcar como revisada
+  const toggleChecked = (solicitudId: string) => {
+    if (!user?.id) return;
+    setCheckedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(solicitudId)) {
+        next.delete(solicitudId);
+      } else {
+        next.add(solicitudId);
+      }
+      saveCheckedSolicitudes(user.id, next);
+      return next;
+    });
+  };
+
+  // Al hacer clic en "Revisar", marcar como vista
+  const markAsSeen = (solicitudId: string) => {
+    if (!user?.id) return;
+    setSeenIds(prev => {
+      const next = new Set(prev);
+      next.add(solicitudId);
+      saveSeenSolicitudes(user.id, next);
+      return next;
+    });
+  };
 
   const isARA = user?.role === 'REVISOR_ARA' || user?.role === 'ADMIN';
   const isLegal = user?.role === 'REVISOR_LEGAL' || user?.role === 'ADMIN';
@@ -161,7 +225,8 @@ const RevisionQueuePage: React.FC = () => {
       ) : (
         <div className="space-y-3">
           {/* Header con ordenamiento — solo en desktop */}
-          <div className="hidden md:grid md:grid-cols-[1fr_100px_120px_100px_60px_70px_70px_90px] items-center gap-2 px-4 py-2 text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+          <div className="hidden md:grid md:grid-cols-[auto_1fr_100px_120px_100px_60px_70px_70px_90px] items-center gap-2 px-4 py-2 text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+            <div className="w-7"></div>
             <div>Solicitud</div>
             <div>Marca</div>
             <div>Tipo</div>
@@ -180,15 +245,29 @@ const RevisionQueuePage: React.FC = () => {
             const isPublished = s.status === 'PUBLICADA';
             const isRejected = s.status === 'RECHAZADA';
             const isOutOfCycle = (s as any).outOfCycle === true;
+            const isNew = !seenIds.has(s.id);
+            const isChecked = checkedIds.has(s.id);
 
             return (
               <Card key={s.id} className={cn('hover:shadow-md transition-shadow',
                 isPublished && 'opacity-80',
                 isRejected && 'border-l-4 border-l-red-400 opacity-90',
-                isOutOfCycle && !isRejected && !isPublished && 'border-l-4 border-l-amber-400'
+                isOutOfCycle && !isRejected && !isPublished && 'border-l-4 border-l-amber-400',
+                isNew && !isPublished && 'ring-1 ring-blue-200 bg-blue-50/30 dark:bg-blue-900/10'
               )}>
                 <CardContent className="p-0">
-                  <div className="flex flex-col md:grid md:grid-cols-[1fr_100px_120px_100px_60px_70px_70px_90px] md:items-center gap-3 md:gap-2 p-4">
+                  <div className="flex flex-col md:grid md:grid-cols-[auto_1fr_100px_120px_100px_60px_70px_70px_90px] md:items-center gap-3 md:gap-2 p-4">
+                    {/* Check de revisada */}
+                    <div className="hidden md:flex items-center">
+                      <button
+                        onClick={(e) => { e.preventDefault(); e.stopPropagation(); toggleChecked(s.id); }}
+                        className={cn('p-1 rounded transition-colors', isChecked ? 'text-emerald-500 hover:text-emerald-700' : 'text-slate-300 hover:text-slate-500')}
+                        title={isChecked ? 'Marcada como revisada' : 'Marcar como revisada'}
+                      >
+                        {isChecked ? <CheckSquare size={18} /> : <Square size={18} />}
+                      </button>
+                    </div>
+
                     {/* Solicitud */}
                     <div className="flex items-center gap-3 min-w-0">
                       <div className={cn('w-9 h-9 rounded-lg flex items-center justify-center font-bold text-sm border shrink-0',
@@ -200,14 +279,15 @@ const RevisionQueuePage: React.FC = () => {
                       </div>
                       <div className="min-w-0">
                         <div className="flex items-center gap-2">
-                          <p className="text-sm font-bold text-slate-900 dark:text-white truncate">{s.title}</p>
+                          <p className={cn('text-sm text-slate-900 dark:text-white truncate', isNew && !isPublished ? 'font-black' : 'font-bold')}>{s.title}</p>
+                          {isNew && !isPublished && <span className="w-2 h-2 rounded-full bg-blue-500 shrink-0" title="Nueva" />}
                           {isPublished && <Badge className={STATUS_LABELS['PUBLICADA'].color}>{STATUS_LABELS['PUBLICADA'].label}</Badge>}
                           {isRejected && <Badge className="bg-red-100 text-red-700 text-[9px]">Rechazada</Badge>}
                           {s.status === 'APROBADA' && <Badge className="bg-emerald-100 text-emerald-700 text-[9px]">Aprobada</Badge>}
                           {s.status === 'APROBADA_OBSERVACIONES' && <Badge className="bg-blue-100 text-blue-700 text-[9px]">Con comentarios</Badge>}
                           {isOutOfCycle && !isRejected && !isPublished && <Badge className="bg-amber-100 text-amber-700 text-[9px]">Sig. ciclo</Badge>}
                         </div>
-                        <p className="text-[11px] text-slate-500 truncate">{s.consecutive} · {s.solicitanteName}</p>
+                        <p className={cn('text-[11px] truncate', isNew && !isPublished ? 'text-slate-700 font-semibold' : 'text-slate-500')}>{s.consecutive} · {s.solicitanteName}</p>
                       </div>
                     </div>
 
@@ -268,20 +348,19 @@ const RevisionQueuePage: React.FC = () => {
                     </div>
 
                     {/* Acción */}
-                    {/* Acción */}
                     <div className="flex flex-col gap-1">
                       {isPublished ? (
-                        <Link to={`/revision/${s.id}`}>
+                        <Link to={`/revision/${s.id}`} onClick={() => markAsSeen(s.id)}>
                           <Button variant="outline" size="sm" className="gap-1 w-full text-slate-500"><Eye size={14} /> Ver</Button>
                         </Link>
                       ) : alreadyApproved ? (
-                        <Link to={`/revision/${s.id}`}>
+                        <Link to={`/revision/${s.id}`} onClick={() => markAsSeen(s.id)}>
                           <Button variant="outline" size="sm" className="gap-1 w-full text-emerald-600 border-emerald-200">
                             <CheckCircle2 size={14} /> Aprobada
                           </Button>
                         </Link>
                       ) : (
-                        <Link to={`/revision/${s.id}`}>
+                        <Link to={`/revision/${s.id}`} onClick={() => markAsSeen(s.id)}>
                           <Button size="sm" className="gap-1 w-full">Revisar <ChevronRight size={14} /></Button>
                         </Link>
                       )}
@@ -291,6 +370,15 @@ const RevisionQueuePage: React.FC = () => {
                           <Archive size={12} /> Archivar
                         </Button>
                       )}
+                      {/* Check de revisada (mobile) */}
+                      <button
+                        onClick={(e) => { e.preventDefault(); e.stopPropagation(); toggleChecked(s.id); }}
+                        className={cn('md:hidden flex items-center justify-center gap-1 text-[10px] font-semibold h-7 rounded px-2 transition-colors',
+                          isChecked ? 'text-emerald-600 bg-emerald-50 border border-emerald-200' : 'text-slate-400 bg-slate-50 border border-slate-200 hover:text-slate-600')}
+                      >
+                        {isChecked ? <CheckSquare size={12} /> : <Square size={12} />}
+                        {isChecked ? 'Revisada' : 'Marcar'}
+                      </button>
                     </div>
                   </div>
                 </CardContent>

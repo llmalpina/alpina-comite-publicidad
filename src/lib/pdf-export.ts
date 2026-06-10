@@ -241,6 +241,7 @@ async function addSummaryPages(
   yPos -= 30;
 
   // --- Comentarios por página ---
+  let globalCommentNum = 0;
   for (const pageNum of sortedPages) {
     const pageAnns = byPage.get(pageNum)!;
 
@@ -269,6 +270,7 @@ async function addSummaryPages(
     // Cada comentario
     for (let i = 0; i < pageAnns.length; i++) {
       const ann = pageAnns[i];
+      globalCommentNum++;
       const { r, g, b: blue } = parseColorNorm(ann.color || '#ef4444');
 
       // Calcular altura necesaria
@@ -282,30 +284,22 @@ async function addSummaryPages(
         color: rgb(r, g, blue),
       });
 
-      // Círculo con número
+      // Círculo con número global
       currentPage!.drawCircle({
         x: MARGIN + 20, y: yPos + 5, size: 10,
         color: rgb(r, g, blue),
       });
-      currentPage!.drawText(`${i + 1}`, {
-        x: MARGIN + 16, y: yPos + 1,
+      currentPage!.drawText(`${globalCommentNum}`, {
+        x: MARGIN + (globalCommentNum >= 10 ? 14 : 16), y: yPos + 1,
         size: 9, font: fontBold, color: rgb(1, 1, 1),
       });
 
-      // Nombre y área
-      const displayName = ann.userName || 'Revisor';
+      // Nombre del equipo (no persona) y área
+      const displayName = ann.area || 'Revisor';
       currentPage!.drawText(displayName, {
         x: MARGIN + 38, y: yPos + 5,
         size: 10, font: fontBold, color: rgb(0.1, 0.1, 0.1),
       });
-
-      if (ann.area) {
-        const nameWidth = fontBold.widthOfTextAtSize(displayName, 10);
-        currentPage!.drawText(`  •  ${ann.area}`, {
-          x: MARGIN + 38 + nameWidth, y: yPos + 5,
-          size: 9, font, color: rgb(0.4, 0.4, 0.4),
-        });
-      }
 
       // Posición en la página
       currentPage!.drawText(`Pos: ${Math.round(ann.x)}%, ${Math.round(ann.y)}%`, {
@@ -352,9 +346,27 @@ async function addSummaryPages(
 
 /**
  * Agrega anotaciones nativas al PDF (sticky notes visibles en lectores PDF).
+ * Incluye número de comentario global para trazabilidad.
  */
 function addNativeAnnotations(pdfDoc: PDFDocument, annotations: ExportAnnotation[]): void {
   const pages = pdfDoc.getPages();
+
+  // Crear mapa de numeración global por página (mismo orden que resumen)
+  const byPage = new Map<number, ExportAnnotation[]>();
+  for (const ann of annotations) {
+    const list = byPage.get(ann.page) || [];
+    list.push(ann);
+    byPage.set(ann.page, list);
+  }
+  const sortedPages = [...byPage.keys()].sort((a, b) => a - b);
+  const globalIndex = new Map<string, number>();
+  let counter = 1;
+  for (const pageNum of sortedPages) {
+    const pageAnns = byPage.get(pageNum)!;
+    for (const ann of pageAnns) {
+      globalIndex.set(ann.id, counter++);
+    }
+  }
 
   for (const ann of annotations) {
     const pageIndex = ann.page - 1;
@@ -365,7 +377,10 @@ function addNativeAnnotations(pdfDoc: PDFDocument, annotations: ExportAnnotation
     const pdfX = (ann.x / 100) * width;
     const pdfY = height - (ann.y / 100) * height;
     const safeText = ann.text || '(sin texto)';
-    const commentText = `[${ann.userName || 'Revisor'}${ann.area ? ' - ' + ann.area : ''}]: ${safeText}`;
+    // Mostrar nombre del equipo/área + número de comentario
+    const teamName = ann.area || 'Revisor';
+    const commentNum = globalIndex.get(ann.id) || 0;
+    const commentText = `#${commentNum} [${teamName}]: ${safeText}`;
 
     try {
       const safeContents = sanitizeText(commentText);

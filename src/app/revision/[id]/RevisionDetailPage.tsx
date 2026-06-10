@@ -41,6 +41,15 @@ const RevisionDetailPage: React.FC = () => {
   const [editAnnotationText, setEditAnnotationText] = useState('');
   const currentPdfPageRef = useRef(1);
   const goToPageRef = useRef<((page: number) => void) | null>(null);
+  const fullscreenContainerRef = useRef<HTMLDivElement>(null);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+
+  // Detect fullscreen changes
+  useEffect(() => {
+    const onFsChange = () => setIsFullscreen(!!document.fullscreenElement);
+    document.addEventListener('fullscreenchange', onFsChange);
+    return () => document.removeEventListener('fullscreenchange', onFsChange);
+  }, []);
 
   const loadData = async () => {
     if (!id) return;
@@ -173,9 +182,15 @@ const RevisionDetailPage: React.FC = () => {
     const now = new Date().toISOString();
     const approvalData = { approved: isApproval, by: user?.name || 'Revisor', at: now, nota: actionNote || '' };
 
-    // Construye las aprobaciones actualizadas
-    let updatedARA = solicitud.approvalARA;
-    let updatedLegal = solicitud.approvalLegal;
+    // Recargar la solicitud fresca del backend para tener aprobaciones actualizadas
+    let freshSolicitud = solicitud;
+    try {
+      freshSolicitud = await solicitudesApi.get(solicitud.id);
+    } catch { /* usar la local si falla */ }
+
+    // Construye las aprobaciones actualizadas usando datos frescos
+    let updatedARA = freshSolicitud.approvalARA;
+    let updatedLegal = freshSolicitud.approvalLegal;
     if (isARA) updatedARA = approvalData;
     if (isLegal) updatedLegal = approvalData;
 
@@ -189,8 +204,8 @@ const RevisionDetailPage: React.FC = () => {
       // Ambos revisaron — el tipo del último determina si es con o sin comentarios
       // Si cualquiera de los dos marcó "con comentarios", queda con comentarios
       const otherHadObs = isARA
-        ? solicitud.approvalLegal?.nota?.includes('[CON_COMENTARIOS]')
-        : solicitud.approvalARA?.nota?.includes('[CON_COMENTARIOS]');
+        ? (freshSolicitud.approvalLegal?.nota || '').includes('[CON_COMENTARIOS]')
+        : (freshSolicitud.approvalARA?.nota || '').includes('[CON_COMENTARIOS]');
       newStatus = (type === 'APPROVE_OBS' || otherHadObs) ? 'APROBADA_OBSERVACIONES' : 'APROBADA';
     } else {
       newStatus = 'EN_REVISION';
@@ -675,9 +690,9 @@ const RevisionDetailPage: React.FC = () => {
       )}
 
       {/* Main — en móvil apilado, en desktop lado a lado */}
-      <div className="flex flex-col lg:flex-row gap-4">
+      <div ref={fullscreenContainerRef} className={cn('flex flex-col lg:flex-row gap-4', isFullscreen && 'h-screen bg-white dark:bg-slate-900 p-2')}>
         {/* Visor PDF */}
-        <div className="flex-1 rounded-xl border-2 border-slate-300 dark:border-slate-600 overflow-hidden flex flex-col relative" style={{ minHeight: 'calc(100vh - 180px)' }}>
+        <div className={cn('flex-1 rounded-xl border-2 border-slate-300 dark:border-slate-600 overflow-hidden flex flex-col relative', isFullscreen && 'h-full')} style={isFullscreen ? undefined : { minHeight: 'calc(100vh - 180px)' }}>
           {/* Botón anotar */}
           {canAnnotate && (
             <div className="absolute top-14 right-4 z-20">
@@ -719,6 +734,7 @@ const RevisionDetailPage: React.FC = () => {
             annotationColor={annotationColor}
             showToolbar={true}
             canAnnotate={canAnnotate}
+            fullscreenTargetRef={fullscreenContainerRef}
             onToggleAnnotating={() => { setAddingAnnotation(v => !v); setPendingAnnotation(null); }}
             onToolChange={setActiveTool}
             onColorChange={setAnnotationColor}
@@ -774,8 +790,8 @@ const RevisionDetailPage: React.FC = () => {
         </div>
 
         {/* Panel derecho */}
-        <div className="w-full lg:w-[380px] flex flex-col gap-4 shrink-0">
-          <Card className="flex-1 flex flex-col min-h-0 shadow-md border-none">
+        <div className={cn('w-full lg:w-[380px] flex flex-col gap-4 shrink-0', isFullscreen && 'h-full overflow-hidden')}>
+          <Card className={cn('flex-1 flex flex-col min-h-0 shadow-md border-none', isFullscreen && 'h-full')}>
             {/* Tabs */}
             <div className="flex border-b overflow-x-auto">
               {TABS.map(t => (
@@ -785,7 +801,7 @@ const RevisionDetailPage: React.FC = () => {
               ))}
             </div>
 
-            <CardContent className="flex-1 overflow-y-auto p-4 space-y-4">
+            <CardContent className="flex-1 overflow-y-auto p-4 space-y-4" style={{ maxHeight: isFullscreen ? 'calc(100vh - 120px)' : 'calc(100vh - 350px)' }}>
               {/* IA */}
               {activeTab === 'IA' && (
                 <div className="space-y-4">
@@ -855,10 +871,11 @@ const RevisionDetailPage: React.FC = () => {
                   {solicitud.annotations.filter(a => !a.resolved && (a.version || 1) === solicitud.currentVersion).length > 0 && (
                     <p className="text-[10px] font-bold text-yellow-700 uppercase tracking-wider">Versión actual (v{solicitud.currentVersion})</p>
                   )}
-                  {solicitud.annotations.filter(a => !a.resolved && (a.version || 1) === solicitud.currentVersion).map(ann => (
+                  {solicitud.annotations.filter(a => !a.resolved && (a.version || 1) === solicitud.currentVersion).map((ann, idx) => (
                     <div key={ann.id} className={cn('p-3 border rounded-lg space-y-1', (ann as any).highlighted ? 'bg-yellow-100 border-yellow-300' : 'bg-yellow-50 border-yellow-200')}>
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
+                          <span className="flex items-center justify-center w-5 h-5 rounded-full bg-yellow-500 text-white text-[10px] font-bold shrink-0">{idx + 1}</span>
                           <Pin size={12} className="text-yellow-600" />
                           <span className="text-xs font-bold text-yellow-800">{ann.area || 'Sin área'}</span>
                         </div>
@@ -896,17 +913,18 @@ const RevisionDetailPage: React.FC = () => {
                         </div>
                       </div>
                       {editingAnnotation === ann.id ? (
-                        <div className="flex gap-1 items-center">
-                          <input
-                            type="text"
+                        <div className="space-y-2 mt-1">
+                          <textarea
                             value={editAnnotationText}
                             onChange={e => setEditAnnotationText(e.target.value)}
-                            onKeyDown={e => { if (e.key === 'Enter') handleSaveEditAnnotation(); if (e.key === 'Escape') setEditingAnnotation(null); }}
-                            className="flex-1 text-xs p-1.5 border rounded bg-white dark:bg-slate-900 focus:ring-1 focus:ring-blue-400 outline-none"
+                            onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSaveEditAnnotation(); } if (e.key === 'Escape') setEditingAnnotation(null); }}
+                            className="w-full text-xs p-2.5 border rounded-lg bg-white dark:bg-slate-900 focus:ring-1 focus:ring-blue-400 outline-none min-h-[100px] resize-y"
                             autoFocus
                           />
-                          <button onClick={handleSaveEditAnnotation} className="text-xs text-blue-600 font-bold px-2 py-1 hover:bg-blue-50 rounded">✓</button>
-                          <button onClick={() => setEditingAnnotation(null)} className="text-xs text-slate-400 px-1 py-1 hover:bg-slate-100 rounded">✗</button>
+                          <div className="flex gap-1 justify-end">
+                            <button onClick={() => setEditingAnnotation(null)} className="text-xs text-slate-400 px-2 py-1 hover:bg-slate-100 rounded">Cancelar</button>
+                            <button onClick={handleSaveEditAnnotation} className="text-xs text-blue-600 font-bold px-2 py-1 hover:bg-blue-50 rounded">Guardar</button>
+                          </div>
                         </div>
                       ) : (
                         <p className="text-xs text-yellow-900 leading-relaxed cursor-pointer hover:underline" onClick={() => scrollToAnnotation(ann)}>{ann.text}</p>
@@ -1015,13 +1033,15 @@ const RevisionDetailPage: React.FC = () => {
             )}
           </Card>
 
-          {/* Brief */}
+          {/* Brief — oculto en fullscreen */}
+          {!isFullscreen && (
           <Card className="bg-[#1e3a5f] text-white border-none shadow-lg shrink-0">
             <CardContent className="p-4 flex items-center gap-4">
               <div className="w-12 h-12 bg-white/10 rounded-lg flex items-center justify-center"><FileText size={24} className="text-blue-200" /></div>
               <div><p className="text-[10px] font-bold text-blue-200 uppercase tracking-widest">Brief</p><p className="text-xs line-clamp-2 text-white/80">{solicitud.description}</p></div>
             </CardContent>
           </Card>
+          )}
         </div>
       </div>
     </div>
