@@ -246,6 +246,8 @@ const PdfViewer: React.FC<PdfViewerProps> = ({
     if (activeTool === 'hand' || activeTool === 'select') return;
     if (!annotating || !onAnnotationClick) return;
     if ((e.target as HTMLElement).closest('button')) return;
+    // For highlight tool, let browser handle text selection natively — don't initiate drawing
+    if (activeTool === 'highlight') return;
     const coords = getRelCoords(e);
     if (!coords) return;
 
@@ -268,6 +270,59 @@ const PdfViewer: React.FC<PdfViewerProps> = ({
   };
 
   const handleMouseUp = () => {
+    // Handle highlight tool: detect text selection and create highlight annotation
+    if (annotating && activeTool === 'highlight' && onAnnotationClick) {
+      const selection = window.getSelection();
+      if (selection && selection.toString().trim().length > 0) {
+        const range = selection.getRangeAt(0);
+        const rects = range.getClientRects();
+        if (rects.length > 0) {
+          // Find the page container for the selection
+          const startNode = range.startContainer.parentElement;
+          const pageContainer = startNode?.closest('[data-page]');
+          if (pageContainer) {
+            const pageNum = parseInt(pageContainer.getAttribute('data-page') || '1');
+            const pageEl = pageContainer.querySelector('.react-pdf__Page') || pageContainer;
+            const pageRect = pageEl.getBoundingClientRect();
+
+            // Calculate bounding box of all selection rects relative to the page
+            let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+            for (let i = 0; i < rects.length; i++) {
+              const r = rects[i];
+              const rx = ((r.left - pageRect.left) / pageRect.width) * 100;
+              const ry = ((r.top - pageRect.top) / pageRect.height) * 100;
+              const rx2 = ((r.right - pageRect.left) / pageRect.width) * 100;
+              const ry2 = ((r.bottom - pageRect.top) / pageRect.height) * 100;
+              if (rx < minX) minX = rx;
+              if (ry < minY) minY = ry;
+              if (rx2 > maxX) maxX = rx2;
+              if (ry2 > maxY) maxY = ry2;
+            }
+
+            // Only create if the area is meaningful
+            if (maxX - minX > 0.5 || maxY - minY > 0.5) {
+              const x = Math.round(Math.max(0, minX) * 10) / 10;
+              const y = Math.round(Math.max(0, minY) * 10) / 10;
+              const x2 = Math.round(Math.min(100, maxX) * 10) / 10;
+              const y2 = Math.round(Math.min(100, maxY) * 10) / 10;
+
+              // Update current page
+              if (pageNum !== currentPage) {
+                setCurrentPage(pageNum);
+                onPageChange?.(pageNum);
+              }
+
+              onAnnotationClick(pageNum, x, y, x2, y2, 'highlight', annotationColor);
+              // Clear text selection after creating highlight
+              selection.removeAllRanges();
+              return;
+            }
+          }
+        }
+      }
+      return;
+    }
+
     if (!isDrawing || !drawStart || !drawEnd || !onAnnotationClick) { setIsDrawing(false); return; }
     const dx = Math.abs(drawEnd.x - drawStart.x);
     const dy = Math.abs(drawEnd.y - drawStart.y);
@@ -530,6 +585,7 @@ const PdfViewer: React.FC<PdfViewerProps> = ({
       <div ref={containerRef}
         className={cn('flex-1 overflow-auto bg-slate-200 dark:bg-slate-700',
           activeTool === 'hand' ? 'cursor-grab' :
+          annotating && activeTool === 'highlight' ? 'cursor-text' :
           annotating && activeTool !== 'select' ? 'cursor-crosshair' : '')}
         style={isFullscreen ? { flex: 1, minHeight: 0 } : { maxHeight: 'calc(100vh - 200px)', minHeight: '500px' }}
         onMouseUp={handleMouseUp}
@@ -553,10 +609,11 @@ const PdfViewer: React.FC<PdfViewerProps> = ({
           <Document file={url} onLoadSuccess={onDocumentLoadSuccess} onLoadError={onDocumentLoadError} loading="">
             {Array.from({ length: numPages }, (_, i) => i + 1).map(pageNum => (
               <div key={pageNum} ref={pageNum === currentPage ? pageRef : undefined}
-                className={cn('relative shadow-2xl mb-3', annotating && activeTool !== 'select' && activeTool !== 'hand' && 'select-none')}
+                className={cn('relative shadow-2xl mb-3', annotating && activeTool !== 'select' && activeTool !== 'hand' && activeTool !== 'highlight' && 'select-none')}
                 onMouseDown={handleMouseDown}
                 onMouseMove={handleMouseMove}
                 data-page={pageNum}
+                style={annotating && activeTool === 'highlight' ? { ['--highlight-active' as any]: '1' } : undefined}
               >
                 <Page pageNumber={pageNum}
                   scale={fitToWidth && containerWidth > 0 ? undefined : scale}
