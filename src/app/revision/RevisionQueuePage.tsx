@@ -115,8 +115,17 @@ const RevisionQueuePage: React.FC = () => {
     if (solicitanteFilter && s.solicitanteName !== solicitanteFilter) return false;
     if (contentTypeFilter && s.contentType !== contentTypeFilter) return false;
     switch (activeQueueTab) {
-      case 'PENDIENTES': return ['ENVIADA', 'EN_REVISION'].includes(s.status);
-      case 'APROBADAS': return s.status === 'APROBADA';
+      case 'PENDIENTES': {
+        // Pendientes = ENVIADA o EN_REVISION, pero solo si NO tiene ambas aprobaciones
+        const bothApproved = s.approvalARA?.approved && s.approvalLegal?.approved;
+        if (bothApproved) return false;
+        return ['ENVIADA', 'EN_REVISION', 'CONSOLIDACION'].includes(s.status);
+      }
+      case 'APROBADAS': {
+        // Aprobadas = estado APROBADA o que tenga ambas aprobaciones (por si el status no se actualizó)
+        const bothApproved = s.approvalARA?.approved && s.approvalLegal?.approved;
+        return s.status === 'APROBADA' || (bothApproved && s.status !== 'APROBADA_OBSERVACIONES' && s.status !== 'RECHAZADA' && s.status !== 'PUBLICADA');
+      }
       case 'RECHAZADAS': return s.status === 'RECHAZADA';
       case 'CON_COMENTARIOS': return s.status === 'APROBADA_OBSERVACIONES';
       case 'PUBLICADAS': return s.status === 'PUBLICADA';
@@ -135,8 +144,14 @@ const RevisionQueuePage: React.FC = () => {
 
   // Contadores
   const counts = {
-    PENDIENTES: solicitudes.filter(s => ['ENVIADA', 'EN_REVISION'].includes(s.status)).length,
-    APROBADAS: solicitudes.filter(s => s.status === 'APROBADA').length,
+    PENDIENTES: solicitudes.filter(s => {
+      const bothApproved = (s as any).approvalARA?.approved && (s as any).approvalLegal?.approved;
+      return ['ENVIADA', 'EN_REVISION', 'CONSOLIDACION'].includes(s.status) && !bothApproved;
+    }).length,
+    APROBADAS: solicitudes.filter(s => {
+      const bothApproved = (s as any).approvalARA?.approved && (s as any).approvalLegal?.approved;
+      return s.status === 'APROBADA' || (bothApproved && s.status !== 'APROBADA_OBSERVACIONES' && s.status !== 'RECHAZADA' && s.status !== 'PUBLICADA');
+    }).length,
     RECHAZADAS: solicitudes.filter(s => s.status === 'RECHAZADA').length,
     CON_COMENTARIOS: solicitudes.filter(s => s.status === 'APROBADA_OBSERVACIONES').length,
     PUBLICADAS: solicitudes.filter(s => s.status === 'PUBLICADA').length,
@@ -249,11 +264,11 @@ const RevisionQueuePage: React.FC = () => {
             const isChecked = checkedIds.has(s.id);
 
             return (
-              <Card key={s.id} className={cn('hover:shadow-md transition-shadow',
+              <Card key={s.id} className={cn('hover:shadow-md transition-shadow bg-white dark:bg-slate-800',
                 isPublished && 'opacity-80',
                 isRejected && 'border-l-4 border-l-red-400 opacity-90',
                 isOutOfCycle && !isRejected && !isPublished && 'border-l-4 border-l-amber-400',
-                isNew && !isPublished && 'ring-1 ring-blue-200 bg-blue-50/30 dark:bg-blue-900/10'
+                isNew && !isPublished && 'ring-1 ring-blue-200'
               )}>
                 <CardContent className="p-0">
                   <div className="flex flex-col md:grid md:grid-cols-[auto_1fr_100px_120px_100px_60px_70px_70px_90px] md:items-center gap-3 md:gap-2 p-4">

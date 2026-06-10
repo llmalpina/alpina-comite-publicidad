@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ChevronLeft, MessageSquare, ShieldCheck, CheckCircle2, XCircle, Send, FileText, Pin, PlusCircle, RefreshCw, FileDown, Download } from 'lucide-react';
+import { ChevronLeft, MessageSquare, ShieldCheck, CheckCircle2, XCircle, Send, Pin, PlusCircle, RefreshCw, FileDown, Download } from 'lucide-react';
 import { Button } from '../../../components/ui/Button';
 import { Card, CardContent } from '../../../components/ui/Card';
 import { Badge } from '../../../components/ui/Badge';
@@ -790,7 +790,7 @@ const RevisionDetailPage: React.FC = () => {
         </div>
 
         {/* Panel derecho */}
-        <div className={cn('w-full lg:w-[380px] flex flex-col gap-4 shrink-0', isFullscreen && 'h-full overflow-hidden')}>
+        <div className={cn('w-full lg:w-[380px] flex flex-col shrink-0', isFullscreen && 'h-full overflow-hidden')}>
           <Card className={cn('flex-1 flex flex-col min-h-0 shadow-md border-none', isFullscreen && 'h-full')}>
             {/* Tabs */}
             <div className="flex border-b overflow-x-auto">
@@ -801,7 +801,7 @@ const RevisionDetailPage: React.FC = () => {
               ))}
             </div>
 
-            <CardContent className="flex-1 overflow-y-auto p-4 space-y-4" style={{ maxHeight: isFullscreen ? 'calc(100vh - 120px)' : 'calc(100vh - 350px)' }}>
+            <CardContent className="flex-1 overflow-y-auto p-4 space-y-4" style={{ maxHeight: isFullscreen ? 'calc(100vh - 120px)' : 'calc(100vh - 250px)' }}>
               {/* IA */}
               {activeTab === 'IA' && (
                 <div className="space-y-4">
@@ -1033,15 +1033,7 @@ const RevisionDetailPage: React.FC = () => {
             )}
           </Card>
 
-          {/* Brief — oculto en fullscreen */}
-          {!isFullscreen && (
-          <Card className="bg-[#1e3a5f] text-white border-none shadow-lg shrink-0">
-            <CardContent className="p-4 flex items-center gap-4">
-              <div className="w-12 h-12 bg-white/10 rounded-lg flex items-center justify-center"><FileText size={24} className="text-blue-200" /></div>
-              <div><p className="text-[10px] font-bold text-blue-200 uppercase tracking-widest">Brief</p><p className="text-xs line-clamp-2 text-white/80">{solicitud.description}</p></div>
-            </CardContent>
-          </Card>
-          )}
+          {/* Brief — eliminado para dar más espacio a comentarios */}
         </div>
       </div>
     </div>

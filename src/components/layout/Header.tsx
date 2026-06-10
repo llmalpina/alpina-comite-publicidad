@@ -1,5 +1,4 @@
 import React from 'react';
-import { Bell } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useTheme } from '../../contexts/ThemeContext';
 import { ROLE_LABELS } from '../../lib/constants';
@@ -35,11 +34,6 @@ const Header: React.FC<HeaderProps> = ({ onMenuToggle }) => {
       <div className="flex items-center gap-2">
         <button onClick={toggleDark} className="p-2 rounded-lg text-brand-100 hover:bg-brand-700 dark:hover:bg-slate-800 transition-colors" title={dark ? 'Modo claro' : 'Modo oscuro'}>
           {dark ? '☀️' : '🌙'}
-        </button>
-
-        <button className="relative p-2 rounded-lg text-brand-100 hover:bg-brand-700 dark:hover:bg-slate-800 transition-colors">
-          <Bell size={18} />
-          <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full border-2 border-brand-800 dark:border-slate-950"></span>
         </button>
 
         <div className="flex items-center gap-2 bg-brand-700 dark:bg-slate-800 border border-brand-600 dark:border-slate-700 rounded-lg px-3 py-1.5">
