@@ -54,31 +54,23 @@ export async function exportPdfWithAnnotations(
   // 4. Agregar páginas de resumen al final
   await addSummaryPages(pdfDoc, activeAnnotations, true);
 
-  // 5. Serializar y abrir en nueva pestaña (evita bloqueos de descarga corporativos)
+  // 5. Serializar y descargar con el nombre del archivo original
   const modifiedPdfBytes = await pdfDoc.save();
   const blob = new Blob([modifiedPdfBytes], { type: 'application/pdf' });
   const blobUrl = URL.createObjectURL(blob);
 
-  // Abrir en nueva pestaña — el usuario puede descargar desde ahí o guardar en Drive
-  const newTab = window.open(blobUrl, '_blank');
-  
-  // Si el navegador bloqueó el popup, intentar descarga directa como fallback
-  if (!newTab) {
-    const link = document.createElement('a');
-    link.style.display = 'none';
-    link.href = blobUrl;
-    link.download = fileName || 'documento_con_comentarios.pdf';
-    link.type = 'application/pdf';
-    document.body.appendChild(link);
-    link.click();
-    setTimeout(() => {
-      document.body.removeChild(link);
-      URL.revokeObjectURL(blobUrl);
-    }, 2000);
-  }
-  
-  // No revocar inmediatamente — la pestaña necesita la URL activa
-  setTimeout(() => URL.revokeObjectURL(blobUrl), 120000); // limpiar después de 2 min
+  // Descargar directamente con el nombre correcto
+  const link = document.createElement('a');
+  link.style.display = 'none';
+  link.href = blobUrl;
+  link.download = fileName || 'documento_con_comentarios.pdf';
+  link.type = 'application/pdf';
+  document.body.appendChild(link);
+  link.click();
+  setTimeout(() => {
+    document.body.removeChild(link);
+    URL.revokeObjectURL(blobUrl);
+  }, 2000);
 }
 
 /**
