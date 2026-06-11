@@ -744,7 +744,13 @@ const SolicitudDetailPage: React.FC = () => {
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
                           <Pin size={14} className="text-yellow-600" />
-                          <span className="text-xs font-bold text-yellow-800 dark:text-yellow-300">{ann.area || (ann.userRole === 'REVISOR_ARA' ? 'ARA & Nutrición' : ann.userRole === 'REVISOR_LEGAL' ? 'Legal' : 'Revisor')}</span>
+                          <span className="text-xs font-bold text-yellow-800 dark:text-yellow-300">{
+                            ann.userRole === 'REVISOR_ARA' ? 'Revisor ARA & Nutrición'
+                            : ann.userRole === 'REVISOR_LEGAL' ? 'Revisor Legal'
+                            : ann.area?.toLowerCase().includes('regulat') ? 'Revisor ARA & Nutrición'
+                            : ann.area?.toLowerCase().includes('legal') ? 'Revisor Legal'
+                            : ann.area || 'Revisor'
+                          }</span>
                           <Badge className="bg-yellow-200 text-yellow-800 text-[9px] px-1">{ann.area || (ann.userRole === 'REVISOR_ARA' ? 'ARA' : ann.userRole === 'REVISOR_LEGAL' ? 'Legal' : '')}</Badge>
                         </div>
                         <span className="text-[10px] text-yellow-600 dark:text-yellow-400">Pág. {ann.page}</span>

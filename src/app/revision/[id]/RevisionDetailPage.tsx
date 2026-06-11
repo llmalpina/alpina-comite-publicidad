@@ -939,7 +939,13 @@ const RevisionDetailPage: React.FC = () => {
                         <div className="flex items-center gap-2">
                           <span className="flex items-center justify-center w-5 h-5 rounded-full bg-yellow-500 text-white text-[10px] font-bold shrink-0">{idx + 1}</span>
                           <Pin size={12} className="text-yellow-600" />
-                          <span className="text-xs font-bold text-yellow-800">{ann.area || 'Sin área'}</span>
+                          <span className="text-xs font-bold text-yellow-800">{
+                            ann.userRole === 'REVISOR_ARA' ? 'Revisor ARA & Nutrición'
+                            : ann.userRole === 'REVISOR_LEGAL' ? 'Revisor Legal'
+                            : ann.area?.toLowerCase().includes('regulat') ? 'Revisor ARA & Nutrición'
+                            : ann.area?.toLowerCase().includes('legal') ? 'Revisor Legal'
+                            : ann.area || 'Revisor'
+                          }</span>
                         </div>
                         <div className="flex items-center gap-1">
                           <span className="text-[10px] text-yellow-600">Pág. {ann.page}</span>

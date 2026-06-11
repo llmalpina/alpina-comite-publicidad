@@ -63,6 +63,9 @@ export async function exportPdfWithAnnotations(
   // Usar file-saver (saveAs) — funciona en todos los navegadores incluyendo ambientes corporativos
   const blob = new Blob([new Uint8Array(modifiedPdfBytes)], { type: 'application/pdf' });
   saveAs(blob, outputFileName);
+  
+  // Esperar un momento para que el navegador procese la descarga antes de liberar el spinner
+  await new Promise(r => setTimeout(r, 2000));
 }
 
 /**
@@ -268,7 +271,9 @@ async function addSummaryPages(
       });
 
       // Nombre del equipo (no persona) y área
-      const displayName = ann.area || 'Revisor';
+      const displayName = ann.area?.toLowerCase().includes('regulat') ? 'ARA & Nutricion'
+        : ann.area?.toLowerCase().includes('legal') ? 'Legal'
+        : ann.area || 'Revisor';
       currentPage!.drawText(displayName, {
         x: MARGIN + 38, y: yPos + 5,
         size: 10, font: fontBold, color: rgb(0.1, 0.1, 0.1),
@@ -352,7 +357,9 @@ function addNativeAnnotations(pdfDoc: PDFDocument, annotations: ExportAnnotation
     const pdfY = height - (ann.y / 100) * height;
     const safeText = ann.text || '(sin texto)';
     // Mostrar nombre del equipo/área + número de comentario
-    const teamName = ann.area || 'Revisor';
+    const teamName = ann.area?.toLowerCase().includes('regulat') ? 'ARA & Nutricion'
+      : ann.area?.toLowerCase().includes('legal') ? 'Legal'
+      : ann.area || 'Revisor';
     const commentNum = globalIndex.get(ann.id) || 0;
     const commentText = `#${commentNum} [${teamName}]: ${safeText}`;
 
