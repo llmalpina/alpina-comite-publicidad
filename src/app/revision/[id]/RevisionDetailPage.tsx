@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ChevronLeft, MessageSquare, ShieldCheck, CheckCircle2, XCircle, Send, Pin, PlusCircle, RefreshCw, FileDown, Download } from 'lucide-react';
+import { ChevronLeft, MessageSquare, ShieldCheck, CheckCircle2, XCircle, Send, Pin, PlusCircle, RefreshCw, FileDown, Download, Loader2 } from 'lucide-react';
 import { Button } from '../../../components/ui/Button';
 import { Card, CardContent } from '../../../components/ui/Card';
 import { Badge } from '../../../components/ui/Badge';
@@ -39,6 +39,7 @@ const RevisionDetailPage: React.FC = () => {
   const [refreshing, setRefreshing] = useState(false);
   const [editingAnnotation, setEditingAnnotation] = useState<string | null>(null);
   const [editAnnotationText, setEditAnnotationText] = useState('');
+  const [exportingPdf, setExportingPdf] = useState(false);
   const currentPdfPageRef = useRef(1);
   const goToPageRef = useRef<((page: number) => void) | null>(null);
   const fullscreenContainerRef = useRef<HTMLDivElement>(null);
@@ -540,12 +541,13 @@ const RevisionDetailPage: React.FC = () => {
           <Button
             variant="ghost"
             size="icon"
-            className="text-slate-400 hover:text-emerald-600"
-            disabled={!pdfUrl || solicitud.annotations.length === 0}
-            title="Exportar PDF con comentarios"
+            className={cn("text-slate-400 hover:text-emerald-600", exportingPdf && "animate-pulse")}
+            disabled={!pdfUrl || solicitud.annotations.length === 0 || exportingPdf}
+            title={exportingPdf ? "Generando PDF..." : "Exportar PDF con comentarios"}
             onClick={async () => {
               const s3Key = (solicitud.files?.[0] as any)?.s3Key;
               if (!s3Key && !pdfUrl) { notify('No hay PDF disponible', 'error'); return; }
+              setExportingPdf(true);
               try {
                 notify('Generando PDF con comentarios...', 'info');
                 await exportPdfWithAnnotations(
@@ -561,10 +563,12 @@ const RevisionDetailPage: React.FC = () => {
                 notify('PDF exportado con comentarios', 'success');
               } catch (e: any) {
                 notify(e.message || 'Error al exportar PDF', 'error');
+              } finally {
+                setExportingPdf(false);
               }
             }}
           >
-            <FileDown size={16} />
+            {exportingPdf ? <Loader2 size={16} className="animate-spin" /> : <FileDown size={16} />}
           </Button>
           {/* Indicadores de aprobación */}
           <div className="hidden sm:flex items-center gap-1.5 mr-2">
