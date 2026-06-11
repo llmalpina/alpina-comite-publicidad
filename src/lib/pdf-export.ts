@@ -4,6 +4,7 @@
  * y páginas de resumen con todos los comentarios organizados por página.
  */
 import { PDFDocument, PDFPage, PDFName, PDFArray, PDFString, PDFRef, rgb, StandardFonts } from 'pdf-lib';
+import { saveAs } from 'file-saver';
 
 export interface ExportAnnotation {
   id: string;
@@ -59,32 +60,9 @@ export async function exportPdfWithAnnotations(
   const outputFileName = fileName || 'documento_con_comentarios.pdf';
   console.log('[pdf-export] Descargando como:', outputFileName);
   
-  // Crear blob como PDF real
-  const uint8 = new Uint8Array(modifiedPdfBytes);
-  const blob = new Blob([uint8], { type: 'application/pdf' });
-  
-  // Usar File API para asignar nombre al blob
-  const file = new File([blob], outputFileName, { type: 'application/pdf' });
-  const blobUrl = URL.createObjectURL(file);
-  
-  // Crear link y forzar descarga
-  const link = document.createElement('a');
-  link.href = blobUrl;
-  link.download = outputFileName;
-  link.style.position = 'fixed';
-  link.style.left = '-9999px';
-  link.style.top = '-9999px';
-  document.body.appendChild(link);
-  
-  // Delay para asegurar que el DOM registra el link
-  await new Promise(r => setTimeout(r, 150));
-  link.click();
-  
-  // Limpiar
-  setTimeout(() => {
-    document.body.removeChild(link);
-    URL.revokeObjectURL(blobUrl);
-  }, 10000);
+  // Usar file-saver (saveAs) — funciona en todos los navegadores incluyendo ambientes corporativos
+  const blob = new Blob([new Uint8Array(modifiedPdfBytes)], { type: 'application/pdf' });
+  saveAs(blob, outputFileName);
 }
 
 /**
