@@ -59,22 +59,25 @@ export async function exportPdfWithAnnotations(
   const outputFileName = fileName || 'documento_con_comentarios.pdf';
   console.log('[pdf-export] Descargando como:', outputFileName);
   
-  // Forzar descarga: usar application/octet-stream para que Chrome NO abra el visor PDF
-  const blob = new Blob([new Uint8Array(modifiedPdfBytes)], { type: 'application/octet-stream' });
-  const blobUrl = URL.createObjectURL(blob);
+  // Crear blob como PDF real
+  const uint8 = new Uint8Array(modifiedPdfBytes);
+  const blob = new Blob([uint8], { type: 'application/pdf' });
   
-  // Crear iframe oculto con el enlace de descarga (método más confiable en Chrome)
+  // Usar File API para asignar nombre al blob
+  const file = new File([blob], outputFileName, { type: 'application/pdf' });
+  const blobUrl = URL.createObjectURL(file);
+  
+  // Crear link y forzar descarga
   const link = document.createElement('a');
-  link.setAttribute('href', blobUrl);
-  link.setAttribute('download', outputFileName);
-  link.setAttribute('target', '_self');
+  link.href = blobUrl;
+  link.download = outputFileName;
   link.style.position = 'fixed';
   link.style.left = '-9999px';
   link.style.top = '-9999px';
   document.body.appendChild(link);
   
-  // Pequeño delay para que el DOM se actualice
-  await new Promise(r => setTimeout(r, 100));
+  // Delay para asegurar que el DOM registra el link
+  await new Promise(r => setTimeout(r, 150));
   link.click();
   
   // Limpiar
@@ -129,23 +132,12 @@ async function downloadPdfFresh(pdfUrlOrKey: string): Promise<ArrayBuffer> {
     throw new Error('El servidor no devolvió una URL de descarga válida.');
   }
 
-  // Descargar el PDF usando XMLHttpRequest (más compatible con CORS de S3 que fetch)
-  return new Promise<ArrayBuffer>((resolve, reject) => {
-    const xhr = new XMLHttpRequest();
-    xhr.open('GET', presignData.url, true);
-    xhr.responseType = 'arraybuffer';
-    xhr.onload = () => {
-      if (xhr.status >= 200 && xhr.status < 300) {
-        resolve(xhr.response as ArrayBuffer);
-      } else {
-        reject(new Error(`Error al descargar PDF (${xhr.status})`));
-      }
-    };
-    xhr.onerror = () => reject(new Error('Error de red al descargar el PDF. Verifica tu conexión.'));
-    xhr.ontimeout = () => reject(new Error('Timeout al descargar el PDF.'));
-    xhr.timeout = 60000;
-    xhr.send();
-  });
+  // Descargar el PDF usando fetch (no XHR que puede gatillar descarga por Content-Disposition)
+  const pdfRes = await fetch(presignData.url, { mode: 'cors' });
+  if (!pdfRes.ok) {
+    throw new Error(`Error al descargar PDF (${pdfRes.status})`);
+  }
+  return await pdfRes.arrayBuffer();
 }
 
 /**
