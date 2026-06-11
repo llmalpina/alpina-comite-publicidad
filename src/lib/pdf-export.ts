@@ -58,24 +58,29 @@ export async function exportPdfWithAnnotations(
   const modifiedPdfBytes = await pdfDoc.save();
   const outputFileName = fileName || 'documento_con_comentarios.pdf';
   
-  // Crear blob como PDF
-  const blob = new Blob([new Uint8Array(modifiedPdfBytes)], { type: 'application/pdf' });
-  
-  // Método confiable: crear un <a> con download attribute y forzar click
+  // Forzar descarga: usar application/octet-stream para que Chrome NO abra el visor PDF
+  const blob = new Blob([new Uint8Array(modifiedPdfBytes)], { type: 'application/octet-stream' });
   const blobUrl = URL.createObjectURL(blob);
+  
+  // Crear iframe oculto con el enlace de descarga (método más confiable en Chrome)
   const link = document.createElement('a');
-  link.href = blobUrl;
-  link.download = outputFileName;
-  link.style.display = 'none';
-  // Agregar al DOM es necesario para Firefox
+  link.setAttribute('href', blobUrl);
+  link.setAttribute('download', outputFileName);
+  link.setAttribute('target', '_self');
+  link.style.position = 'fixed';
+  link.style.left = '-9999px';
+  link.style.top = '-9999px';
   document.body.appendChild(link);
-  // Dispatch un MouseEvent real para máxima compatibilidad
-  link.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, view: window }));
-  // Limpiar después de un delay
+  
+  // Pequeño delay para que el DOM se actualice
+  await new Promise(r => setTimeout(r, 100));
+  link.click();
+  
+  // Limpiar
   setTimeout(() => {
     document.body.removeChild(link);
     URL.revokeObjectURL(blobUrl);
-  }, 5000);
+  }, 10000);
 }
 
 /**
