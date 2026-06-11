@@ -525,16 +525,24 @@ const RevisionDetailPage: React.FC = () => {
           <Button variant="ghost" size="icon" onClick={async () => {
             if (!pdfUrl) return;
             try {
-              const res = await fetch(pdfUrl);
-              const blob = await res.blob();
-              const dlBlob = new Blob([blob], { type: 'application/octet-stream' });
+              // Usar XMLHttpRequest para compatibilidad cross-origin con S3
+              const pdfBytes = await new Promise<ArrayBuffer>((resolve, reject) => {
+                const xhr = new XMLHttpRequest();
+                xhr.open('GET', pdfUrl, true);
+                xhr.responseType = 'arraybuffer';
+                xhr.onload = () => xhr.status >= 200 && xhr.status < 300 ? resolve(xhr.response) : reject(new Error('Error'));
+                xhr.onerror = () => reject(new Error('Error de red'));
+                xhr.send();
+              });
+              const blob = new Blob([pdfBytes], { type: 'application/pdf' });
+              const blobUrl = URL.createObjectURL(blob);
               const a = document.createElement('a');
-              a.href = URL.createObjectURL(dlBlob);
+              a.href = blobUrl;
               a.download = solicitud.files?.[0]?.name || `${solicitud.consecutive || 'documento'}.pdf`;
+              a.style.display = 'none';
               document.body.appendChild(a);
-              a.click();
-              document.body.removeChild(a);
-              setTimeout(() => URL.revokeObjectURL(a.href), 3000);
+              a.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, view: window }));
+              setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(blobUrl); }, 5000);
             } catch { window.open(pdfUrl, '_blank'); }
           }} disabled={!pdfUrl} className="text-slate-400 hover:text-blue-600" title="Descargar PDF original">
             <Download size={16} />

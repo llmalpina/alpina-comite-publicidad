@@ -56,21 +56,26 @@ export async function exportPdfWithAnnotations(
 
   // 5. Serializar y descargar con el nombre del archivo original
   const modifiedPdfBytes = await pdfDoc.save();
-  // Usar octet-stream para forzar descarga (evitar que Chrome abra el PDF viewer)
-  const blob = new Blob([modifiedPdfBytes as unknown as BlobPart], { type: 'application/octet-stream' });
+  const outputFileName = fileName || 'documento_con_comentarios.pdf';
+  
+  // Crear blob como PDF
+  const blob = new Blob([new Uint8Array(modifiedPdfBytes)], { type: 'application/pdf' });
+  
+  // Método confiable: crear un <a> con download attribute y forzar click
   const blobUrl = URL.createObjectURL(blob);
-
-  // Descargar directamente con el nombre correcto
   const link = document.createElement('a');
-  link.style.display = 'none';
   link.href = blobUrl;
-  link.download = fileName || 'documento_con_comentarios.pdf';
+  link.download = outputFileName;
+  link.style.display = 'none';
+  // Agregar al DOM es necesario para Firefox
   document.body.appendChild(link);
-  link.click();
+  // Dispatch un MouseEvent real para máxima compatibilidad
+  link.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, view: window }));
+  // Limpiar después de un delay
   setTimeout(() => {
     document.body.removeChild(link);
     URL.revokeObjectURL(blobUrl);
-  }, 3000);
+  }, 5000);
 }
 
 /**
