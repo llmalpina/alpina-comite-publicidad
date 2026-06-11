@@ -57,6 +57,7 @@ export async function exportPdfWithAnnotations(
   // 5. Serializar y descargar con el nombre del archivo original
   const modifiedPdfBytes = await pdfDoc.save();
   const outputFileName = fileName || 'documento_con_comentarios.pdf';
+  console.log('[pdf-export] Descargando como:', outputFileName);
   
   // Forzar descarga: usar application/octet-stream para que Chrome NO abra el visor PDF
   const blob = new Blob([new Uint8Array(modifiedPdfBytes)], { type: 'application/octet-stream' });

@@ -538,7 +538,7 @@ const RevisionDetailPage: React.FC = () => {
               const blobUrl = URL.createObjectURL(blob);
               const a = document.createElement('a');
               a.href = blobUrl;
-              a.download = solicitud.files?.[0]?.name || `${solicitud.consecutive || 'documento'}.pdf`;
+              a.download = (solicitud.files?.[0]?.name && !solicitud.files[0].name.match(/^[0-9a-f-]{36}/) ? solicitud.files[0].name : `${solicitud.title || solicitud.consecutive || 'documento'}.pdf`);
               a.style.display = 'none';
               document.body.appendChild(a);
               a.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, view: window }));
@@ -567,7 +567,7 @@ const RevisionDetailPage: React.FC = () => {
                     text: a.text || '(sin texto)', userName: a.userName || 'Revisor', area: a.area || '',
                     tool: a.tool, color: a.color, resolved: a.resolved,
                   })),
-                  `${(solicitud.files?.[0]?.name || solicitud.consecutive).replace('.pdf', '')}_comentarios.pdf`
+                  `${(solicitud.files?.[0]?.name && !solicitud.files[0].name.match(/^[0-9a-f-]{36}/) ? solicitud.files[0].name.replace('.pdf', '') : solicitud.title || solicitud.consecutive)}_comentarios.pdf`
                 );
                 notify('PDF exportado con comentarios', 'success');
               } catch (e: any) {
