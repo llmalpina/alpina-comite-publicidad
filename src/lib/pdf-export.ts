@@ -56,7 +56,8 @@ export async function exportPdfWithAnnotations(
 
   // 5. Serializar y descargar con el nombre del archivo original
   const modifiedPdfBytes = await pdfDoc.save();
-  const blob = new Blob([modifiedPdfBytes], { type: 'application/pdf' });
+  // Usar octet-stream para forzar descarga (evitar que Chrome abra el PDF viewer)
+  const blob = new Blob([modifiedPdfBytes as unknown as BlobPart], { type: 'application/octet-stream' });
   const blobUrl = URL.createObjectURL(blob);
 
   // Descargar directamente con el nombre correcto
@@ -64,13 +65,12 @@ export async function exportPdfWithAnnotations(
   link.style.display = 'none';
   link.href = blobUrl;
   link.download = fileName || 'documento_con_comentarios.pdf';
-  link.type = 'application/pdf';
   document.body.appendChild(link);
   link.click();
   setTimeout(() => {
     document.body.removeChild(link);
     URL.revokeObjectURL(blobUrl);
-  }, 2000);
+  }, 3000);
 }
 
 /**
@@ -362,9 +362,10 @@ function addNativeAnnotations(pdfDoc: PDFDocument, annotations: ExportAnnotation
 
   for (const ann of annotations) {
     const pageIndex = ann.page - 1;
-    if (pageIndex < 0 || pageIndex >= pages.length) continue;
+    if (!ann.page || pageIndex < 0 || pageIndex >= pages.length) continue;
 
     const page = pages[pageIndex];
+    if (!page) continue;
     const { width, height } = page.getSize();
     const pdfX = (ann.x / 100) * width;
     const pdfY = height - (ann.y / 100) * height;

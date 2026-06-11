@@ -527,13 +527,14 @@ const RevisionDetailPage: React.FC = () => {
             try {
               const res = await fetch(pdfUrl);
               const blob = await res.blob();
+              const dlBlob = new Blob([blob], { type: 'application/octet-stream' });
               const a = document.createElement('a');
-              a.href = URL.createObjectURL(blob);
+              a.href = URL.createObjectURL(dlBlob);
               a.download = solicitud.files?.[0]?.name || `${solicitud.consecutive || 'documento'}.pdf`;
               document.body.appendChild(a);
               a.click();
               document.body.removeChild(a);
-              URL.revokeObjectURL(a.href);
+              setTimeout(() => URL.revokeObjectURL(a.href), 3000);
             } catch { window.open(pdfUrl, '_blank'); }
           }} disabled={!pdfUrl} className="text-slate-400 hover:text-blue-600" title="Descargar PDF original">
             <Download size={16} />
