@@ -346,6 +346,42 @@ const RevisionDetailPage: React.FC = () => {
     if (reviewingField) {
       apiFetch(`/solicitudes/${solicitud.id}/status`, { method: 'PATCH', body: JSON.stringify({ [reviewingField]: true }) }).catch(() => {});
     }
+
+    // Enviar notificación por correo del nuevo comentario a revisores y solicitante
+    const SES_URL = (import.meta as any).env?.VITE_SES_LAMBDA_URL as string;
+    if (SES_URL) {
+      const token = localStorage.getItem('alpina_id_token');
+      const solicitanteEmail = (solicitud as any).solicitanteEmail;
+      const solicitanteNombre = (!solicitud.solicitanteName || solicitud.solicitanteName === 'Usuario')
+        ? (solicitanteEmail?.split('@')[0]?.replace(/\./g, ' ') || 'Solicitante')
+        : solicitud.solicitanteName;
+      // Destinatarios: solicitante + otros revisores (regla de correo si existe)
+      const rule = emailConfig.rules.find(r => r.event === 'comentario_agregado' && r.enabled);
+      const extraTo = rule?.toEmails || [];
+      const extraCc = rule?.cc || [];
+      const to = solicitanteEmail ? [solicitanteEmail, ...extraTo] : extraTo.length > 0 ? extraTo : [];
+      if (to.length > 0 || extraCc.length > 0) {
+        fetch(SES_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+          body: JSON.stringify({
+            template: 'nuevo_comentario',
+            to: to.length > 0 ? to : extraCc,
+            cc: to.length > 0 ? extraCc : undefined,
+            data: {
+              id: solicitud.id,
+              consecutive: solicitud.consecutive,
+              title: solicitud.title,
+              brand: solicitud.brand,
+              solicitanteName: solicitanteNombre,
+              commentAuthor: user.name,
+              commentArea: user.area || '',
+              commentText: comment.trim(),
+            },
+          }),
+        }).catch(console.error);
+      }
+    }
   };
 
   const handleSaveAnnotation = () => {
@@ -485,7 +521,20 @@ const RevisionDetailPage: React.FC = () => {
             <RefreshCw size={16} className={refreshing ? 'animate-spin' : ''} />
           </Button>
           {/* Botones descarga PDF */}
-          <Button variant="ghost" size="icon" onClick={() => pdfUrl && window.open(pdfUrl, '_blank')} disabled={!pdfUrl} className="text-slate-400 hover:text-blue-600" title="Descargar PDF original">
+          <Button variant="ghost" size="icon" onClick={async () => {
+            if (!pdfUrl) return;
+            try {
+              const res = await fetch(pdfUrl);
+              const blob = await res.blob();
+              const a = document.createElement('a');
+              a.href = URL.createObjectURL(blob);
+              a.download = solicitud.files?.[0]?.name || `${solicitud.consecutive || 'documento'}.pdf`;
+              document.body.appendChild(a);
+              a.click();
+              document.body.removeChild(a);
+              URL.revokeObjectURL(a.href);
+            } catch { window.open(pdfUrl, '_blank'); }
+          }} disabled={!pdfUrl} className="text-slate-400 hover:text-blue-600" title="Descargar PDF original">
             <Download size={16} />
           </Button>
           <Button

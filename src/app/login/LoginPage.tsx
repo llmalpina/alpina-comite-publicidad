@@ -1,10 +1,14 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 
 const LoginPage: React.FC = () => {
   const { login, completeNewPassword } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
+
+  // Deep link: si el usuario viene redirigido de una página protegida, guardar la ruta destino
+  const redirectTo = (location.state as any)?.from?.pathname || '/dashboard';
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -29,7 +33,7 @@ const LoginPage: React.FC = () => {
         setCognitoSession(result.session || '');
         setNeedsNewPassword(true);
       } else {
-        navigate('/dashboard');
+        navigate(redirectTo);
       }
     } catch (err: any) {
       const msg = err.message || 'Error al iniciar sesión';
@@ -56,7 +60,7 @@ const LoginPage: React.FC = () => {
     setError('');
     try {
       await completeNewPassword(email.trim(), newPassword, cognitoSession);
-      navigate('/dashboard');
+      navigate(redirectTo);
     } catch (err: any) {
       setError(err.message || 'Error al cambiar la contraseña');
     } finally {

@@ -554,7 +554,20 @@ const SolicitudDetailPage: React.FC = () => {
                     Volver a v{solicitud.currentVersion}
                   </Button>
                 )}
-                <Button variant="ghost" size="sm" className="gap-2 text-blue-600" onClick={() => pdfUrl && window.open(pdfUrl, '_blank')} disabled={!pdfUrl}>
+                <Button variant="ghost" size="sm" className="gap-2 text-blue-600" onClick={async () => {
+                  if (!pdfUrl) return;
+                  try {
+                    const res = await fetch(pdfUrl);
+                    const blob = await res.blob();
+                    const a = document.createElement('a');
+                    a.href = URL.createObjectURL(blob);
+                    a.download = solicitud.files?.[0]?.name || `${solicitud.consecutive || 'documento'}.pdf`;
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    URL.revokeObjectURL(a.href);
+                  } catch { window.open(pdfUrl, '_blank'); }
+                }} disabled={!pdfUrl}>
                   <Download size={16} /> Descargar
                 </Button>
                 <Button

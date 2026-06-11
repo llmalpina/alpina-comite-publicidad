@@ -9,7 +9,8 @@ export type RequestStatus =
   | 'APROBADA' 
   | 'APROBADA_OBSERVACIONES'
   | 'RECHAZADA'
-  | 'PUBLICADA';
+  | 'PUBLICADA'
+  | 'CANCELADA';
 
 export type ContentType = 
   | 'PARRILLA_DIGITAL'

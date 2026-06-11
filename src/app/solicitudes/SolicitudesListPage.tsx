@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { Link } from "react-router-dom";
-import { PlusCircle, Search, Eye, Loader2, FileText, X, ChevronUp, ChevronDown, Archive } from "lucide-react";
+import { PlusCircle, Search, Eye, Loader2, FileText, X, ChevronUp, ChevronDown, Archive, XCircle } from "lucide-react";
 import { Button } from "../../components/ui/Button";
 import { Card, CardContent } from "../../components/ui/Card";
 import { Input } from "../../components/ui/Input";
@@ -61,6 +61,14 @@ const SolicitudesPage: React.FC = () => {
     if (!confirm('¿Archivar esta solicitud? No se eliminará, solo se ocultará de la lista.')) return;
     try {
       await apiFetch(`/solicitudes/${solicitudId}/status`, { method: 'PATCH', body: JSON.stringify({ active: 0 }) });
+      setSolicitudes(prev => prev.filter(s => s.id !== solicitudId));
+    } catch {}
+  };
+
+  const handleCancel = async (solicitudId: string) => {
+    if (!confirm('¿Cancelar esta solicitud? Esta acción no se puede deshacer.')) return;
+    try {
+      await apiFetch(`/solicitudes/${solicitudId}/status`, { method: 'PATCH', body: JSON.stringify({ status: 'CANCELADA', active: 0 }) });
       setSolicitudes(prev => prev.filter(s => s.id !== solicitudId));
     } catch {}
   };
@@ -192,6 +200,14 @@ const SolicitudesPage: React.FC = () => {
                       <Button variant="ghost" size="sm" className="w-full gap-1 text-red-500 hover:bg-red-50 text-xs"
                         onClick={(e) => { e.preventDefault(); handleArchive(solicitud.id); }}>
                         <Archive size={14} /> Archivar
+                      </Button>
+                    )}
+                    {/* Cancelar: solo para el dueño de la solicitud en estados iniciales */}
+                    {(solicitud.solicitanteId === user?.id || solicitud.solicitanteName === user?.name) &&
+                     (solicitud.status === 'BORRADOR' || solicitud.status === 'ENVIADA' || solicitud.status === 'EN_REVISION') && (
+                      <Button variant="ghost" size="sm" className="w-full gap-1 text-red-600 hover:bg-red-50 text-xs"
+                        onClick={(e) => { e.preventDefault(); handleCancel(solicitud.id); }}>
+                        <XCircle size={14} /> Cancelar
                       </Button>
                     )}
                   </div>

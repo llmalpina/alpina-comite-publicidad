@@ -28,6 +28,7 @@ export const STATUS_LABELS: Record<RequestStatus, { label: string; color: string
   APROBADA_OBSERVACIONES:{ label: 'Con comentarios',   color: 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-800 dark:text-emerald-400' },
   RECHAZADA:             { label: 'Rechazada',          color: 'bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-400' },
   PUBLICADA:             { label: 'Publicada',          color: 'bg-violet-100 dark:bg-violet-900/30 text-violet-800 dark:text-violet-400' },
+  CANCELADA:             { label: 'Cancelada',          color: 'bg-gray-100 dark:bg-gray-900/30 text-gray-800 dark:text-gray-400' },
 };
 
 export const ROLE_LABELS: Record<UserRole, string> = {
