@@ -351,7 +351,7 @@ const RevisionDetailPage: React.FC = () => {
     setComment('');
     notify('Comentario agregado', 'success');
     // Persiste en API
-    comentariosApi.create(solicitud.id, { text: comment.trim(), userName: user.name, userRole: user.role, area: user.area || '' }).catch(console.error);
+    comentariosApi.create(solicitud.id, { text: comment.trim(), userName: user.name, userRole: user.role, area: user.area || '', userId: user.id }).catch(console.error);
     // Marcar como "revisando" en la solicitud
     const reviewingField = isARA ? 'araReviewing' : isLegal ? 'legalReviewing' : null;
     if (reviewingField) {
@@ -425,6 +425,7 @@ const RevisionDetailPage: React.FC = () => {
       userName: user.name,
       userRole: user.role,
       area: user.area || '',
+      userId: user.id,
     }).catch(console.error).finally(() => setSavingAnnotation(false));
     setAnnotationText('');
     setPendingAnnotation(null);
@@ -444,6 +445,7 @@ const RevisionDetailPage: React.FC = () => {
     anotacionesApi.create(solicitud.id, {
       text: ann.text, page: ann.page, x: ann.x, y: ann.y,
       userName: user.name, userRole: user.role, area: user.area || '',
+      userId: user.id,
       x2: ann.x2, y2: ann.y2, tool: ann.tool, color: ann.color, points: ann.points,
     } as any).catch(console.error).finally(() => setSavingAnnotation(false));
     setShapeAnnotationText('');
