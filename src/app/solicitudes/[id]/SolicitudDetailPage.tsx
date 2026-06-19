@@ -749,7 +749,7 @@ const SolicitudDetailPage: React.FC = () => {
                             : ann.userRole === 'REVISOR_LEGAL' ? 'Revisor Legal'
                             : ann.area?.toLowerCase().includes('regulat') ? 'Revisor ARA & Nutrición'
                             : ann.area?.toLowerCase().includes('legal') ? 'Revisor Legal'
-                            : ann.area || 'Revisor'
+                            : ann.area ? `Revisor ${ann.area}` : 'Comité'
                           }</span>
                           <Badge className="bg-yellow-200 text-yellow-800 text-[9px] px-1">{ann.area || (ann.userRole === 'REVISOR_ARA' ? 'ARA' : ann.userRole === 'REVISOR_LEGAL' ? 'Legal' : '')}</Badge>
                         </div>

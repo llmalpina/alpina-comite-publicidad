@@ -40,6 +40,7 @@ const RevisionDetailPage: React.FC = () => {
   const [editingAnnotation, setEditingAnnotation] = useState<string | null>(null);
   const [editAnnotationText, setEditAnnotationText] = useState('');
   const [exportingPdf, setExportingPdf] = useState(false);
+  const [savingAnnotation, setSavingAnnotation] = useState(false);
   const currentPdfPageRef = useRef(1);
   const goToPageRef = useRef<((page: number) => void) | null>(null);
   const fullscreenContainerRef = useRef<HTMLDivElement>(null);
@@ -386,7 +387,8 @@ const RevisionDetailPage: React.FC = () => {
   };
 
   const handleSaveAnnotation = () => {
-    if (!pendingAnnotation || !annotationText.trim() || !user) return;
+    if (!pendingAnnotation || !annotationText.trim() || !user || savingAnnotation) return;
+    setSavingAnnotation(true);
     const ann: PdfAnnotation = {
       id: Date.now().toString(),
       solicitudId: solicitud.id,
@@ -414,7 +416,7 @@ const RevisionDetailPage: React.FC = () => {
       userName: user.name,
       userRole: user.role,
       area: user.area || '',
-    }).catch(console.error);
+    }).catch(console.error).finally(() => setSavingAnnotation(false));
     setAnnotationText('');
     setPendingAnnotation(null);
     setAddingAnnotation(false);
@@ -423,7 +425,8 @@ const RevisionDetailPage: React.FC = () => {
   };
 
   const handleSaveShapeAnnotation = () => {
-    if (!pendingShapeAnnotation || !user) return;
+    if (!pendingShapeAnnotation || !user || savingAnnotation) return;
+    setSavingAnnotation(true);
     const ann = { ...pendingShapeAnnotation, text: shapeAnnotationText.trim() || `Anotación ${pendingShapeAnnotation.tool}` };
     setSolicitud(prev => {
       if (!prev) return prev;
@@ -433,7 +436,7 @@ const RevisionDetailPage: React.FC = () => {
       text: ann.text, page: ann.page, x: ann.x, y: ann.y,
       userName: user.name, userRole: user.role, area: user.area || '',
       x2: ann.x2, y2: ann.y2, tool: ann.tool, color: ann.color, points: ann.points,
-    } as any).catch(console.error);
+    } as any).catch(console.error).finally(() => setSavingAnnotation(false));
     setShapeAnnotationText('');
     setPendingShapeAnnotation(null);
     notify('Anotación agregada', 'success');
