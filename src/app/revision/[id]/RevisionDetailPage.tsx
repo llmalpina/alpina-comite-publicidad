@@ -495,8 +495,8 @@ const RevisionDetailPage: React.FC = () => {
   };
 
   const scrollToAnnotation = (ann: PdfAnnotation) => {
-    goToPageRef.current?.(ann.page);
-    notify(`Página ${ann.page} — ${ann.text.substring(0, 50)}${ann.text.length > 50 ? '...' : ''}`, 'info');
+    if (ann.page) goToPageRef.current?.(ann.page);
+    notify(`Página ${ann.page || '?'} — ${ann.text.substring(0, 50)}${ann.text.length > 50 ? '...' : ''}`, 'info');
   };
 
   const TABS: { key: PanelTab; label: string }[] = [
@@ -951,7 +951,7 @@ const RevisionDetailPage: React.FC = () => {
                           }</span>
                         </div>
                         <div className="flex items-center gap-1">
-                          <span className="text-[10px] text-yellow-600">Pág. {ann.page}</span>
+                          <span className="text-[10px] text-yellow-600">Pág. {ann.page || '?'}</span>
                           {canAnnotate && (
                             <button onClick={async () => {
                               const newVal = !(ann as any).highlighted;
