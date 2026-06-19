@@ -63,7 +63,16 @@ const RevisionDetailPage: React.FC = () => {
           anotacionesApi.list(id),
         ]);
         s.comments = comentarios || s.comments || [];
-        s.annotations = anotaciones || s.annotations || [];
+        // Filtrar anotaciones: excluir registros fantasma (sin page) y deduplicar por texto+página
+        const rawAnns = anotaciones || s.annotations || [];
+        const validAnns = rawAnns.filter((a: any) => a.page != null && a.text);
+        const seen = new Set<string>();
+        s.annotations = validAnns.filter((a: any) => {
+          const key = `${a.page}|${a.x}|${a.y}|${a.text}`;
+          if (seen.has(key)) return false;
+          seen.add(key);
+          return true;
+        });
       } catch { /* usa los que vienen en el objeto */ }
 
       try {
