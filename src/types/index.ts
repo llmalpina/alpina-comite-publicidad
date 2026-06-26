@@ -88,6 +88,8 @@ export interface Comment {
   /** Para CRUD de comentarios */
   editedBy?: string;
   editedAt?: string;
+  /** S3 key de imagen adjunta */
+  imageKey?: string;
 }
 
 /** Tipo de herramienta de anotación */
@@ -119,6 +121,8 @@ export interface PdfAnnotation {
   resolvedAt?: string;
   /** Puntos para freehand */
   points?: { x: number; y: number }[];
+  /** S3 key de imagen adjunta */
+  imageKey?: string;
 }
 
 export interface Solicitud {

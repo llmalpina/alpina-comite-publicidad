@@ -42,7 +42,7 @@ export const solicitudesApi = {
 
 export const comentariosApi = {
   list: (solicitudId: string) => apiFetch<any[]>(`/solicitudes/${solicitudId}/comentarios`),
-  create: (solicitudId: string, data: { text: string; userName?: string; userRole?: string; area?: string }) =>
+  create: (solicitudId: string, data: { text: string; userName?: string; userRole?: string; area?: string; imageKey?: string }) =>
     apiFetch<any>(`/solicitudes/${solicitudId}/comentarios`, { method: 'POST', body: JSON.stringify(data) }),
 };
 
@@ -132,4 +132,62 @@ export async function uploadFileToS3(presignedUrl: string, file: File): Promise<
     headers: { 'Content-Type': 'application/pdf' },
     body: file,
   });
+}
+
+// ─── Image Upload for Comments/Annotations ────────────────────────────────────
+
+/**
+ * Upload an image to S3 for a comment/annotation.
+ * Returns the S3 key for the uploaded image.
+ */
+export async function uploadCommentImage(solicitudId: string, file: File): Promise<string> {
+  const token = localStorage.getItem('alpina_id_token');
+  const ext = file.name.split('.').pop() || 'png';
+  const fileName = `comment_${Date.now()}.${ext}`;
+  
+  // Get presigned URL for image upload
+  const presignRes = await fetch(PRESIGN_URL, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+    body: JSON.stringify({
+      action: 'upload-image',
+      solicitudId,
+      fileName,
+      contentType: file.type || 'image/png',
+    }),
+  });
+  
+  if (!presignRes.ok) throw new Error('Error al obtener URL de subida');
+  const { url, key } = await presignRes.json();
+  
+  // Upload the image
+  const uploadRes = await fetch(url, {
+    method: 'PUT',
+    headers: { 'Content-Type': file.type || 'image/png' },
+    body: file,
+  });
+  
+  if (!uploadRes.ok) throw new Error('Error al subir imagen');
+  return key;
+}
+
+/**
+ * Get a presigned download URL for an image by its S3 key.
+ */
+export async function getImageUrl(key: string): Promise<string> {
+  const token = localStorage.getItem('alpina_id_token');
+  const res = await fetch(PRESIGN_URL, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+    body: JSON.stringify({ action: 'download', key }),
+  });
+  if (!res.ok) throw new Error('Error al obtener URL de imagen');
+  const data = await res.json();
+  return data.url;
 }

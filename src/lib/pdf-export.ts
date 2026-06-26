@@ -19,6 +19,8 @@ export interface ExportAnnotation {
   tool?: string;
   color?: string;
   resolved?: boolean;
+  imageKey?: string;
+  imageUrl?: string;
 }
 
 /**
@@ -295,6 +297,45 @@ async function addSummaryPages(
         textY -= 14;
       }
 
+      // Imagen adjunta (si existe)
+      if (ann.imageUrl) {
+        try {
+          const imgBytes = await fetchImageBytes(ann.imageUrl);
+          if (imgBytes) {
+            let embeddedImg;
+            if (ann.imageUrl.includes('.png') || (ann.imageUrl.includes('image/png'))) {
+              embeddedImg = await pdfDoc.embedPng(imgBytes);
+            } else {
+              embeddedImg = await pdfDoc.embedJpg(imgBytes);
+            }
+            // Scale to fit within content width, max height 150
+            const maxImgWidth = CONTENT_WIDTH - 60;
+            const maxImgHeight = 150;
+            const aspectRatio = embeddedImg.width / embeddedImg.height;
+            let imgW = Math.min(maxImgWidth, embeddedImg.width);
+            let imgH = imgW / aspectRatio;
+            if (imgH > maxImgHeight) { imgH = maxImgHeight; imgW = imgH * aspectRatio; }
+            
+            checkSpace(imgH + 20);
+            textY -= 8;
+            currentPage!.drawImage(embeddedImg, {
+              x: MARGIN + 38,
+              y: textY - imgH,
+              width: imgW,
+              height: imgH,
+            });
+            textY -= imgH + 10;
+          }
+        } catch (imgErr) {
+          console.warn('[pdf-export] Error embedding image:', imgErr);
+          currentPage!.drawText('[Imagen no disponible]', {
+            x: MARGIN + 38, y: textY - 14,
+            size: 9, font, color: rgb(0.5, 0.5, 0.5),
+          });
+          textY -= 20;
+        }
+      }
+
       yPos = textY - 15;
 
       // Separador entre comentarios
@@ -465,6 +506,20 @@ function extractS3KeyFromUrl(url: string): string | null {
     const path = decodeURIComponent(parsed.pathname.replace(/^\//, ''));
     if (path) return path;
     return null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Fetch image bytes from a URL for embedding in PDF.
+ */
+async function fetchImageBytes(url: string): Promise<Uint8Array | null> {
+  try {
+    const res = await fetch(url, { mode: 'cors' });
+    if (!res.ok) return null;
+    const buffer = await res.arrayBuffer();
+    return new Uint8Array(buffer);
   } catch {
     return null;
   }

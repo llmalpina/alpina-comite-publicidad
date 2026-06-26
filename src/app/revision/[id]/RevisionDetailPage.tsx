@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ChevronLeft, MessageSquare, ShieldCheck, CheckCircle2, XCircle, Send, Pin, PlusCircle, RefreshCw, FileDown, Download, Loader2 } from 'lucide-react';
+import { ChevronLeft, MessageSquare, ShieldCheck, CheckCircle2, XCircle, Send, Pin, PlusCircle, RefreshCw, FileDown, Download, Loader2, Image as ImageIcon } from 'lucide-react';
 import { Button } from '../../../components/ui/Button';
 import { Card, CardContent } from '../../../components/ui/Card';
 import { Badge } from '../../../components/ui/Badge';
@@ -9,7 +9,7 @@ import { useNotifications } from '../../../contexts/NotificationContext';
 import { useConfig } from '../../../contexts/ConfigContext';
 import { cn, formatDate } from '../../../lib/utils';
 import { Solicitud, Comment, PdfAnnotation, AnnotationTool } from '../../../types';
-import { solicitudesApi, comentariosApi, anotacionesApi, versionesApi, apiFetch } from '../../../lib/api';
+import { solicitudesApi, comentariosApi, anotacionesApi, versionesApi, apiFetch, uploadCommentImage, getImageUrl } from '../../../lib/api';
 import PdfViewer from '../../../components/ui/PdfViewer';
 import { FormattedText } from '../../../components/ui/FormattedText';
 import { exportPdfWithAnnotations } from '../../../lib/pdf-export';
@@ -62,6 +62,11 @@ const RevisionDetailPage: React.FC = () => {
   const [editAnnotationText, setEditAnnotationText] = useState('');
   const [exportingPdf, setExportingPdf] = useState(false);
   const [savingAnnotation, setSavingAnnotation] = useState(false);
+  const [pendingImage, setPendingImage] = useState<File | null>(null);
+  const [pendingImagePreview, setPendingImagePreview] = useState<string | null>(null);
+  const [uploadingImage, setUploadingImage] = useState(false);
+  const [imageUrls, setImageUrls] = useState<Record<string, string>>({});
+  const imageInputRef = useRef<HTMLInputElement>(null);
   const currentPdfPageRef = useRef(1);
   const goToPageRef = useRef<((page: number) => void) | null>(null);
   const fullscreenContainerRef = useRef<HTMLDivElement>(null);
@@ -156,6 +161,42 @@ const RevisionDetailPage: React.FC = () => {
     await loadData();
     setRefreshing(false);
     notify('Datos actualizados', 'success');
+  };
+
+  // Load image URLs for comments/annotations that have images
+  useEffect(() => {
+    if (!solicitud) return;
+    const allItems = [...solicitud.comments, ...solicitud.annotations];
+    const keysToLoad = allItems.filter(i => (i as any).imageKey && !imageUrls[(i as any).imageKey]).map(i => (i as any).imageKey as string);
+    if (keysToLoad.length === 0) return;
+    keysToLoad.forEach(key => {
+      getImageUrl(key).then(url => setImageUrls(prev => ({ ...prev, [key]: url }))).catch(() => {});
+    });
+  }, [solicitud?.comments.length, solicitud?.annotations.length]);
+
+  const handleImageSelect = (file: File) => {
+    if (!file.type.startsWith('image/')) { notify('Solo se permiten imágenes', 'error'); return; }
+    if (file.size > 10 * 1024 * 1024) { notify('La imagen no puede pesar más de 10MB', 'error'); return; }
+    setPendingImage(file);
+    const reader = new FileReader();
+    reader.onload = (e) => setPendingImagePreview(e.target?.result as string);
+    reader.readAsDataURL(file);
+  };
+
+  const handlePaste = (e: React.ClipboardEvent) => {
+    const items = e.clipboardData.items;
+    for (let i = 0; i < items.length; i++) {
+      if (items[i].type.startsWith('image/')) {
+        const file = items[i].getAsFile();
+        if (file) { handleImageSelect(file); e.preventDefault(); }
+        break;
+      }
+    }
+  };
+
+  const clearPendingImage = () => {
+    setPendingImage(null);
+    setPendingImagePreview(null);
   };
 
   const loadVersionPdf = async (s3Key: string, versionNum: number) => {
@@ -357,8 +398,22 @@ const RevisionDetailPage: React.FC = () => {
     navigate('/revision');
   };
 
-  const handleAddComment = () => {
-    if (!comment.trim() || !user) return;
+  const handleAddComment = async () => {
+    if ((!comment.trim() && !pendingImage) || !user) return;
+    
+    let imageKey: string | undefined;
+    if (pendingImage) {
+      setUploadingImage(true);
+      try {
+        imageKey = await uploadCommentImage(solicitud.id, pendingImage);
+      } catch (e: any) {
+        notify(e.message || 'Error al subir imagen', 'error');
+        setUploadingImage(false);
+        return;
+      }
+      setUploadingImage(false);
+    }
+    
     const newComment: Comment = {
       id: Date.now().toString(),
       userId: user.id,
@@ -367,16 +422,24 @@ const RevisionDetailPage: React.FC = () => {
       text: comment.trim(),
       createdAt: new Date().toISOString(),
       area: user.area,
+      imageKey,
     };
     setSolicitud(prev => {
       if (!prev) return prev;
       const updated = { ...prev, comments: [...prev.comments, newComment] };
       return updated;
     });
+    
+    // Load the image URL immediately for display
+    if (imageKey && pendingImagePreview) {
+      setImageUrls(prev => ({ ...prev, [imageKey!]: pendingImagePreview! }));
+    }
+    
     setComment('');
+    clearPendingImage();
     notify('Comentario agregado', 'success');
     // Persiste en API
-    comentariosApi.create(solicitud.id, { text: comment.trim(), userName: user.name, userRole: user.role, area: user.area || '', userId: user.id }).catch(console.error);
+    comentariosApi.create(solicitud.id, { text: comment.trim(), userName: user.name, userRole: user.role, area: user.area || '', imageKey }).catch(console.error);
     // Marcar como "revisando" en la solicitud
     const reviewingField = isARA ? 'araReviewing' : isLegal ? 'legalReviewing' : null;
     if (reviewingField) {
@@ -611,6 +674,8 @@ const RevisionDetailPage: React.FC = () => {
                     x2: a.x2, y2: a.y2,
                     text: a.text || '(sin texto)', userName: a.userName || 'Revisor', area: a.area || '',
                     tool: a.tool, color: a.color, resolved: a.resolved,
+                    imageKey: a.imageKey,
+                    imageUrl: a.imageKey ? imageUrls[a.imageKey] : undefined,
                   })),
                   `${(solicitud.files?.[0]?.name && !solicitud.files[0].name.match(/^[0-9a-f-]{36}/) ? solicitud.files[0].name.replace('.pdf', '') : solicitud.title || solicitud.consecutive)}_comentarios.pdf`
                 );
@@ -956,7 +1021,24 @@ const RevisionDetailPage: React.FC = () => {
                           </button>
                         )}
                       </div>
-                      <div className="ml-9 p-3 bg-slate-50 dark:bg-slate-800 border rounded-lg text-xs text-slate-600 dark:text-slate-400 leading-relaxed"><FormattedText text={c.text} /></div>
+                      <div className="ml-9 p-3 bg-slate-50 dark:bg-slate-800 border rounded-lg text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
+                        {c.text && <FormattedText text={c.text} />}
+                        {(c as any).imageKey && imageUrls[(c as any).imageKey] && (
+                          <div className="mt-2">
+                            <img
+                              src={imageUrls[(c as any).imageKey]}
+                              alt="Imagen adjunta"
+                              className="max-w-full max-h-48 rounded-lg border border-slate-200 cursor-pointer hover:opacity-90 transition-opacity"
+                              onClick={() => window.open(imageUrls[(c as any).imageKey], '_blank')}
+                            />
+                          </div>
+                        )}
+                        {(c as any).imageKey && !imageUrls[(c as any).imageKey] && (
+                          <div className="mt-2 flex items-center gap-1 text-[10px] text-slate-400">
+                            <Loader2 size={10} className="animate-spin" /> Cargando imagen...
+                          </div>
+                        )}
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -1045,7 +1127,12 @@ const RevisionDetailPage: React.FC = () => {
                           </div>
                         </div>
                       ) : (
-                      <p className="text-xs text-yellow-900 leading-relaxed cursor-pointer hover:underline" onClick={() => scrollToAnnotation(ann)}><FormattedText text={ann.text} /></p>
+                        <>
+                          <p className="text-xs text-yellow-900 leading-relaxed cursor-pointer hover:underline" onClick={() => scrollToAnnotation(ann)}><FormattedText text={ann.text} /></p>
+                          {(ann as any).imageKey && imageUrls[(ann as any).imageKey] && (
+                            <img src={imageUrls[(ann as any).imageKey]} alt="Imagen" className="mt-1.5 max-w-full max-h-32 rounded-lg border border-yellow-200 cursor-pointer hover:opacity-90" onClick={() => window.open(imageUrls[(ann as any).imageKey], '_blank')} />
+                          )}
+                        </>
                       )}
                       <p className="text-[10px] text-yellow-500">{formatDate(ann.createdAt)}</p>
                     </div>
@@ -1150,8 +1237,28 @@ const RevisionDetailPage: React.FC = () => {
                 {activeTab === 'COMENTARIOS' && (
                   <div className="relative">
                     <MiniFormatBar textareaRef={commentTextareaRef} onChange={setComment} />
-                    <textarea ref={commentTextareaRef} className="w-full p-3 pr-10 text-xs border rounded-lg focus:ring-1 focus:ring-blue-500 outline-none min-h-[80px] bg-white dark:bg-slate-800" placeholder="Escribe tu comentario... (selecciona texto y usa B/I/U/S para formato)" value={comment} onChange={e => setComment(e.target.value)} />
-                    <Button size="icon" className="absolute bottom-3 right-3 h-7 w-7 rounded-full" disabled={!comment.trim()} onClick={handleAddComment}><Send size={14} /></Button>
+                    <textarea ref={commentTextareaRef} className="w-full p-3 pr-10 text-xs border rounded-lg focus:ring-1 focus:ring-blue-500 outline-none min-h-[80px] bg-white dark:bg-slate-800" placeholder="Escribe tu comentario... (Ctrl+V para pegar imagen)" value={comment} onChange={e => setComment(e.target.value)} onPaste={handlePaste} />
+                    {/* Image preview */}
+                    {pendingImagePreview && (
+                      <div className="relative mt-1 mb-1 inline-block">
+                        <img src={pendingImagePreview} alt="Preview" className="max-h-20 rounded-lg border border-blue-200" />
+                        <button onClick={clearPendingImage} className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-red-500 text-white rounded-full flex items-center justify-center text-[10px] hover:bg-red-600 shadow">✕</button>
+                      </div>
+                    )}
+                    {uploadingImage && (
+                      <div className="flex items-center gap-1 text-[10px] text-blue-500 mt-1">
+                        <Loader2 size={10} className="animate-spin" /> Subiendo imagen...
+                      </div>
+                    )}
+                    <div className="flex items-center justify-between mt-1">
+                      <div className="flex items-center gap-1">
+                        <input ref={imageInputRef} type="file" accept="image/*" className="hidden" onChange={e => { if (e.target.files?.[0]) handleImageSelect(e.target.files[0]); e.target.value = ''; }} />
+                        <button onClick={() => imageInputRef.current?.click()} className="flex items-center gap-1 px-2 py-1 text-[10px] text-slate-500 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors" title="Adjuntar imagen (captura de video, pantallazo, etc.)">
+                          <ImageIcon size={12} /> Adjuntar imagen
+                        </button>
+                      </div>
+                      <Button size="icon" className="h-7 w-7 rounded-full" disabled={(!comment.trim() && !pendingImage) || uploadingImage} onClick={handleAddComment}><Send size={14} /></Button>
+                    </div>
                   </div>
                 )}
                 {activeTab === 'ANOTACIONES' && pendingAnnotation && (
