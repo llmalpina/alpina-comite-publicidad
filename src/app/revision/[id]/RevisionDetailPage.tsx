@@ -483,16 +483,24 @@ const RevisionDetailPage: React.FC = () => {
     }
   };
 
-  const handleSaveAnnotation = () => {
-    if (!pendingAnnotation || !annotationText.trim() || !user || savingAnnotation) return;
+  const handleSaveAnnotation = async () => {
+    if (!pendingAnnotation || (!annotationText.trim() && !pendingImage) || !user || savingAnnotation) return;
     setSavingAnnotation(true);
+    
+    let imageKey: string | undefined;
+    if (pendingImage) {
+      setUploadingImage(true);
+      try { imageKey = await uploadCommentImage(solicitud.id, pendingImage); } catch (e: any) { notify(e.message || 'Error al subir imagen', 'error'); setUploadingImage(false); setSavingAnnotation(false); return; }
+      setUploadingImage(false);
+    }
+    
     const ann: PdfAnnotation = {
       id: Date.now().toString(),
       solicitudId: solicitud.id,
       userId: user.id,
       userName: user.name,
       userRole: user.role,
-      text: annotationText.trim(),
+      text: annotationText.trim() || (imageKey ? '(ver imagen adjunta)' : ''),
       page: currentPdfPageRef.current,
       x: pendingAnnotation.x,
       y: pendingAnnotation.y,
@@ -500,13 +508,15 @@ const RevisionDetailPage: React.FC = () => {
       area: user.area,
       version: solicitud.currentVersion,
       resolved: false,
+      imageKey,
     };
     setSolicitud(prev => {
       if (!prev) return prev;
       return { ...prev, annotations: [...prev.annotations, ann] };
     });
+    if (imageKey && pendingImagePreview) setImageUrls(prev => ({ ...prev, [imageKey!]: pendingImagePreview! }));
     anotacionesApi.create(solicitud.id, {
-      text: annotationText.trim(),
+      text: ann.text,
       page: currentPdfPageRef.current,
       x: pendingAnnotation.x,
       y: pendingAnnotation.y,
@@ -514,10 +524,12 @@ const RevisionDetailPage: React.FC = () => {
       userRole: user.role,
       area: user.area || '',
       userId: user.id,
-    }).catch(console.error).finally(() => setSavingAnnotation(false));
+      imageKey,
+    } as any).catch(console.error).finally(() => setSavingAnnotation(false));
     setAnnotationText('');
     setPendingAnnotation(null);
     setAddingAnnotation(false);
+    clearPendingImage();
     notify('Anotación agregada al PDF', 'success');
     setActiveTab('ANOTACIONES');
   };
@@ -1235,7 +1247,7 @@ const RevisionDetailPage: React.FC = () => {
             </CardContent>
 
             {/* Input comentario / anotación */}
-            {(activeTab === 'COMENTARIOS' || (activeTab === 'ANOTACIONES' && pendingAnnotation)) && (
+            {(activeTab === 'COMENTARIOS' || (activeTab === 'ANOTACIONES' && (pendingAnnotation || canEditAnnotations))) && (
               <div className="p-4 border-t bg-slate-50 dark:bg-slate-800">
                 {activeTab === 'COMENTARIOS' && (
                   <div className="relative">
@@ -1268,11 +1280,70 @@ const RevisionDetailPage: React.FC = () => {
                   <div className="space-y-2">
                     <p className="text-xs font-semibold text-yellow-700 dark:text-yellow-400 flex items-center gap-1"><Pin size={12} /> Anotación en posición {Math.round(pendingAnnotation.x)}%, {Math.round(pendingAnnotation.y)}%</p>
                     <MiniFormatBar textareaRef={annotationTextareaRef} onChange={setAnnotationText} />
-                    <textarea ref={annotationTextareaRef} className="w-full p-3 text-xs border border-yellow-300 rounded-lg focus:ring-1 focus:ring-yellow-400 outline-none min-h-[70px] bg-white dark:bg-slate-800" placeholder="Escribe la observación para este punto del PDF..." value={annotationText} onChange={e => setAnnotationText(e.target.value)} />
-                    <div className="flex gap-2">
-                      <Button size="sm" variant="outline" className="flex-1" onClick={() => { setPendingAnnotation(null); setAnnotationText(''); }}>Cancelar</Button>
-                      <Button size="sm" className="flex-1 bg-yellow-500 hover:bg-yellow-600 text-white gap-1" disabled={!annotationText.trim()} onClick={handleSaveAnnotation}><Pin size={14} /> Guardar</Button>
+                    <textarea ref={annotationTextareaRef} className="w-full p-3 text-xs border border-yellow-300 rounded-lg focus:ring-1 focus:ring-yellow-400 outline-none min-h-[70px] bg-white dark:bg-slate-800" placeholder="Escribe la observación para este punto del PDF..." value={annotationText} onChange={e => setAnnotationText(e.target.value)} onPaste={handlePaste} />
+                    {/* Image preview */}
+                    {pendingImagePreview && (
+                      <div className="relative inline-block">
+                        <img src={pendingImagePreview} alt="Preview" className="max-h-20 rounded-lg border border-yellow-200" />
+                        <button onClick={clearPendingImage} className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-red-500 text-white rounded-full flex items-center justify-center text-[10px] hover:bg-red-600 shadow">✕</button>
+                      </div>
+                    )}
+                    <div className="flex items-center gap-2">
+                      <input ref={imageInputRef} type="file" accept="image/*" className="hidden" onChange={e => { if (e.target.files?.[0]) handleImageSelect(e.target.files[0]); e.target.value = ''; }} />
+                      <button onClick={() => imageInputRef.current?.click()} className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium text-slate-600 hover:text-blue-600 hover:bg-blue-50 border border-slate-200 rounded-lg transition-colors" title="Adjuntar imagen (captura de video, pantallazo, etc.)">
+                        <ImageIcon size={14} /> 📷 Adjuntar imagen
+                      </button>
                     </div>
+                    <div className="flex gap-2">
+                      <Button size="sm" variant="outline" className="flex-1" onClick={() => { setPendingAnnotation(null); setAnnotationText(''); clearPendingImage(); }}>Cancelar</Button>
+                      <Button size="sm" className="flex-1 bg-yellow-500 hover:bg-yellow-600 text-white gap-1" disabled={(!annotationText.trim() && !pendingImage) || uploadingImage} onClick={handleSaveAnnotation}><Pin size={14} /> {uploadingImage ? 'Subiendo...' : 'Guardar'}</Button>
+                    </div>
+                  </div>
+                )}
+                {activeTab === 'ANOTACIONES' && !pendingAnnotation && canEditAnnotations && (
+                  <div className="space-y-2">
+                    <p className="text-[10px] text-slate-500">Haz clic en el PDF para anotar, o adjunta una imagen:</p>
+                    <div className="flex items-center gap-2">
+                      <input ref={imageInputRef} type="file" accept="image/*" className="hidden" onChange={e => { if (e.target.files?.[0]) handleImageSelect(e.target.files[0]); e.target.value = ''; }} />
+                      <button onClick={() => imageInputRef.current?.click()} className="flex items-center gap-1.5 px-3 py-2 text-xs font-medium text-yellow-700 hover:text-yellow-800 hover:bg-yellow-50 border border-yellow-300 rounded-lg transition-colors w-full justify-center">
+                        <ImageIcon size={14} /> 📷 Adjuntar imagen a anotación
+                      </button>
+                    </div>
+                    {pendingImagePreview && (
+                      <div className="space-y-2">
+                        <div className="relative inline-block">
+                          <img src={pendingImagePreview} alt="Preview" className="max-h-24 rounded-lg border border-yellow-200" />
+                          <button onClick={clearPendingImage} className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-red-500 text-white rounded-full flex items-center justify-center text-[10px] hover:bg-red-600 shadow">✕</button>
+                        </div>
+                        <textarea className="w-full p-2.5 text-xs border border-yellow-300 rounded-lg focus:ring-1 focus:ring-yellow-400 outline-none min-h-[50px] bg-white dark:bg-slate-800" placeholder="Comentario sobre la imagen (ej: en este frame cambiar X)..." value={annotationText} onChange={e => setAnnotationText(e.target.value)} />
+                        <Button size="sm" className="w-full bg-yellow-500 hover:bg-yellow-600 text-white gap-1" disabled={uploadingImage} onClick={async () => {
+                          // Create annotation at center of current page with the image
+                          if (!user || savingAnnotation) return;
+                          setSavingAnnotation(true);
+                          let imageKey: string | undefined;
+                          if (pendingImage) {
+                            setUploadingImage(true);
+                            try { imageKey = await uploadCommentImage(solicitud.id, pendingImage); } catch (e: any) { notify(e.message || 'Error', 'error'); setUploadingImage(false); setSavingAnnotation(false); return; }
+                            setUploadingImage(false);
+                          }
+                          const ann: PdfAnnotation = {
+                            id: Date.now().toString(), solicitudId: solicitud.id,
+                            userId: user.id, userName: user.name, userRole: user.role,
+                            text: annotationText.trim() || '(ver imagen adjunta)',
+                            page: currentPdfPageRef.current, x: 50, y: 50,
+                            createdAt: new Date().toISOString(), area: user.area,
+                            version: solicitud.currentVersion, resolved: false, imageKey,
+                          };
+                          setSolicitud(prev => prev ? { ...prev, annotations: [...prev.annotations, ann] } : prev);
+                          if (imageKey && pendingImagePreview) setImageUrls(prev => ({ ...prev, [imageKey!]: pendingImagePreview! }));
+                          anotacionesApi.create(solicitud.id, { text: ann.text, page: ann.page, x: ann.x, y: ann.y, userName: user.name, userRole: user.role, area: user.area || '', imageKey } as any).catch(console.error).finally(() => setSavingAnnotation(false));
+                          setAnnotationText(''); clearPendingImage();
+                          notify('Anotación con imagen agregada', 'success');
+                        }}>
+                          <ImageIcon size={14} /> {uploadingImage ? 'Subiendo...' : 'Guardar anotación con imagen'}
+                        </Button>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
