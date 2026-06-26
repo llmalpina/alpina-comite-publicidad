@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ChevronLeft, Clock, CheckCircle2, MessageSquare, FileText, Download, FileDown, History, Upload, X, Pin, XCircle, RefreshCw } from 'lucide-react';
+import { ChevronLeft, Clock, CheckCircle2, MessageSquare, FileText, Download, FileDown, History, Upload, X, Pin, XCircle, RefreshCw, Image as ImageIcon } from 'lucide-react';
 import { Button } from '../../../components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '../../../components/ui/Card';
 import { Badge } from '../../../components/ui/Badge';
@@ -10,7 +10,7 @@ import { Solicitud, Comment, DocumentVersion } from '../../../types';
 import { useAuth } from '../../../contexts/AuthContext';
 import { useNotifications } from '../../../contexts/NotificationContext';
 import { solicitudesApi } from '../../../lib/api';
-import { comentariosApi, versionesApi, anotacionesApi } from '../../../lib/api';
+import { comentariosApi, versionesApi, anotacionesApi, uploadCommentImage, getImageUrl } from '../../../lib/api';
 import PdfViewer from '../../../components/ui/PdfViewer';
 import { exportPdfWithAnnotations } from '../../../lib/pdf-export';
 import { useDropzone } from 'react-dropzone';
@@ -34,6 +34,11 @@ const SolicitudDetailPage: React.FC = () => {
   const [viewingVersion, setViewingVersion] = useState<number | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const goToPageRef = useRef<((page: number) => void) | null>(null);
+  const [pendingImage, setPendingImage] = useState<File | null>(null);
+  const [pendingImagePreview, setPendingImagePreview] = useState<string | null>(null);
+  const [uploadingImage, setUploadingImage] = useState(false);
+  const [imageUrls, setImageUrls] = useState<Record<string, string>>({});
+  const imageInputRef = useRef<HTMLInputElement>(null);
 
   const { getRootProps: getVersionRootProps, getInputProps: getVersionInputProps, isDragActive: isVersionDragActive } = useDropzone({
     onDrop: (accepted: File[]) => {
@@ -127,6 +132,38 @@ const SolicitudDetailPage: React.FC = () => {
     setRefreshing(false);
     notify('Datos actualizados', 'success');
   };
+
+  // Load image URLs for comments that have images
+  useEffect(() => {
+    if (!solicitud) return;
+    const keysToLoad = solicitud.comments.filter(c => (c as any).imageKey && !imageUrls[(c as any).imageKey]).map(c => (c as any).imageKey as string);
+    if (keysToLoad.length === 0) return;
+    keysToLoad.forEach(key => {
+      getImageUrl(key).then(url => setImageUrls(prev => ({ ...prev, [key]: url }))).catch(() => {});
+    });
+  }, [solicitud?.comments.length]);
+
+  const handleImageSelect = (file: File) => {
+    if (!file.type.startsWith('image/')) { notify('Solo se permiten imágenes', 'error'); return; }
+    if (file.size > 10 * 1024 * 1024) { notify('Máximo 10MB', 'error'); return; }
+    setPendingImage(file);
+    const reader = new FileReader();
+    reader.onload = (e) => setPendingImagePreview(e.target?.result as string);
+    reader.readAsDataURL(file);
+  };
+
+  const handlePaste = (e: React.ClipboardEvent) => {
+    const items = e.clipboardData.items;
+    for (let i = 0; i < items.length; i++) {
+      if (items[i].type.startsWith('image/')) {
+        const file = items[i].getAsFile();
+        if (file) { handleImageSelect(file); e.preventDefault(); }
+        break;
+      }
+    }
+  };
+
+  const clearPendingImage = () => { setPendingImage(null); setPendingImagePreview(null); };
 
   if (!solicitud) return <div>Cargando...</div>;
 
@@ -241,21 +278,31 @@ const SolicitudDetailPage: React.FC = () => {
   };
 
   const handleAddComment = async () => {
-    if (!newComment.trim() || !user) return;
+    if ((!newComment.trim() && !pendingImage) || !user) return;
+    let imageKey: string | undefined;
+    if (pendingImage) {
+      setUploadingImage(true);
+      try { imageKey = await uploadCommentImage(solicitud!.id, pendingImage); } catch (e: any) { notify(e.message || 'Error al subir imagen', 'error'); setUploadingImage(false); return; }
+      setUploadingImage(false);
+    }
     try {
       const saved = await comentariosApi.create(solicitud!.id, {
         text: newComment.trim(),
         userName: user.name,
         userRole: user.role,
         area: user.area || '',
+        imageKey,
       });
       const comment: Comment = {
         id: saved.id || Date.now().toString(),
         userId: user.id, userName: user.name, userRole: user.role,
         text: newComment.trim(), createdAt: saved.createdAt || new Date().toISOString(), area: user.area,
+        imageKey,
       };
       setSolicitud(prev => prev ? { ...prev, comments: [...prev.comments, comment] } : prev);
+      if (imageKey && pendingImagePreview) setImageUrls(prev => ({ ...prev, [imageKey!]: pendingImagePreview! }));
       setNewComment('');
+      clearPendingImage();
       notify('Comentario agregado', 'success');
     } catch (e: any) { notify(e.message, 'error'); }
   };
@@ -578,7 +625,7 @@ const SolicitudDetailPage: React.FC = () => {
                     const blobUrl = URL.createObjectURL(blob);
                     const a = document.createElement('a');
                     a.href = blobUrl;
-                    a.download = (solicitud.files?.[0]?.name && !solicitud.files[0].name.match(/^[0-9a-f-]{36}/) ? solicitud.files[0].name : `${solicitud.title || solicitud.consecutive || 'documento'}.pdf`);
+                    a.download = `${solicitud.consecutive}_${solicitud.createdAt ? new Date(solicitud.createdAt).toISOString().slice(0, 10) : ''}_${solicitud.files?.[0]?.name && !solicitud.files[0].name.match(/^[0-9a-f-]{36}/) ? solicitud.files[0].name : (solicitud.title || 'documento') + '.pdf'}`;
                     a.style.display = 'none';
                     document.body.appendChild(a);
                     a.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, view: window }));
@@ -605,7 +652,7 @@ const SolicitudDetailPage: React.FC = () => {
                           text: a.text || '(sin texto)', userName: a.userName || 'Revisor', area: a.area || '',
                           tool: a.tool, color: a.color, resolved: a.resolved,
                         })),
-                        `${(solicitud.files?.[0]?.name && !solicitud.files[0].name.match(/^[0-9a-f-]{36}/) ? solicitud.files[0].name.replace('.pdf', '') : solicitud.title || solicitud.consecutive)}_comentarios.pdf`
+                        `${solicitud.consecutive}_${solicitud.createdAt ? new Date(solicitud.createdAt).toISOString().slice(0, 10) : ''}${solicitud.files?.[0]?.name && !solicitud.files[0].name.match(/^[0-9a-f-]{36}/) ? '_' + solicitud.files[0].name.replace('.pdf', '') : '_' + (solicitud.title || 'documento')}_comentarios.pdf`
                       );
                       notify('PDF exportado con comentarios', 'success');
                     } catch (e: any) {
@@ -709,14 +756,35 @@ const SolicitudDetailPage: React.FC = () => {
                         </div>
                         <div className="ml-9 p-3 bg-slate-50 dark:bg-slate-800 rounded-lg text-sm text-slate-700 dark:text-slate-300 border leading-relaxed break-words overflow-hidden">
                           {c.text}
+                          {(c as any).imageKey && imageUrls[(c as any).imageKey] && (
+                            <div className="mt-2">
+                              <img src={imageUrls[(c as any).imageKey]} alt="Imagen adjunta" className="max-w-full max-h-48 rounded-lg border border-slate-200 cursor-pointer hover:opacity-90" onClick={() => window.open(imageUrls[(c as any).imageKey], '_blank')} />
+                            </div>
+                          )}
                         </div>
                       </div>
                     ))}
                   </div>
                   {canComment && (
                     <div className="pt-3 border-t space-y-2">
-                      <textarea className="w-full p-3 text-sm border rounded-lg focus:ring-1 focus:ring-blue-500 outline-none min-h-[80px] bg-white dark:bg-slate-800" placeholder="Escribe un comentario..." value={newComment} onChange={e => setNewComment(e.target.value)} />
-                      <Button size="sm" className="w-full" onClick={handleAddComment} disabled={!newComment.trim()}>Agregar Comentario</Button>
+                      <textarea className="w-full p-3 text-sm border rounded-lg focus:ring-1 focus:ring-blue-500 outline-none min-h-[80px] bg-white dark:bg-slate-800" placeholder="Escribe un comentario... (Ctrl+V para pegar imagen)" value={newComment} onChange={e => setNewComment(e.target.value)} onPaste={handlePaste} />
+                      {pendingImagePreview && (
+                        <div className="relative inline-block">
+                          <img src={pendingImagePreview} alt="Preview" className="max-h-20 rounded-lg border border-blue-200" />
+                          <button onClick={clearPendingImage} className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-red-500 text-white rounded-full flex items-center justify-center text-[10px] hover:bg-red-600 shadow">✕</button>
+                        </div>
+                      )}
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-1">
+                          <input ref={imageInputRef} type="file" accept="image/*" className="hidden" onChange={e => { if (e.target.files?.[0]) handleImageSelect(e.target.files[0]); e.target.value = ''; }} />
+                          <button onClick={() => imageInputRef.current?.click()} className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium text-slate-600 hover:text-blue-600 hover:bg-blue-50 border border-slate-200 rounded-lg transition-colors">
+                            <ImageIcon size={14} /> 📷 Adjuntar imagen
+                          </button>
+                        </div>
+                        <Button size="sm" onClick={handleAddComment} disabled={(!newComment.trim() && !pendingImage) || uploadingImage}>
+                          {uploadingImage ? 'Subiendo...' : 'Agregar Comentario'}
+                        </Button>
+                      </div>
                     </div>
                   )}
                 </>
