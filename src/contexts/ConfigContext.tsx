@@ -166,7 +166,7 @@ const DEFAULT_EMAIL: EmailConfig = {
   fromName:     'Comité Publicidad Alpina',
   rules: [
     {
-      id: 'rule-1', system: true, enabled: true,
+      id: 'rule-1', system: true, enabled: false,
       event: 'solicitud_creada',
       label: 'Nueva solicitud creada',
       description: 'Cuando un solicitante crea una solicitud, notifica a los revisores.',

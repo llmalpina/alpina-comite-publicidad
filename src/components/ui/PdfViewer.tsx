@@ -64,6 +64,32 @@ interface PdfViewerProps {
 
 const TOOL_COLORS = ['#ef4444', '#f59e0b', '#22c55e', '#3b82f6', '#8b5cf6', '#ec4899'];
 
+// Helper to wrap selected text in a textarea with formatting markers
+function applyFormat(textarea: HTMLTextAreaElement, prefix: string, suffix: string, onChange: (val: string) => void) {
+  const start = textarea.selectionStart;
+  const end = textarea.selectionEnd;
+  const text = textarea.value;
+  const selected = text.substring(start, end);
+  const newText = text.substring(0, start) + prefix + selected + suffix + text.substring(end);
+  onChange(newText);
+  // Restore selection after React re-render
+  setTimeout(() => {
+    textarea.selectionStart = start + prefix.length;
+    textarea.selectionEnd = end + prefix.length;
+    textarea.focus();
+  }, 0);
+}
+
+const FormatToolbar: React.FC<{ textareaRef: React.RefObject<HTMLTextAreaElement | null>; onChange: (val: string) => void }> = ({ textareaRef, onChange }) => (
+  <div className="flex items-center gap-1 mb-1">
+    <button type="button" onClick={() => textareaRef.current && applyFormat(textareaRef.current, '**', '**', onChange)} className="px-1.5 py-0.5 text-xs font-bold border rounded hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300" title="Negrita (Ctrl+B)">B</button>
+    <button type="button" onClick={() => textareaRef.current && applyFormat(textareaRef.current, '_', '_', onChange)} className="px-1.5 py-0.5 text-xs italic border rounded hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300" title="Cursiva (Ctrl+I)">I</button>
+    <button type="button" onClick={() => textareaRef.current && applyFormat(textareaRef.current, '__', '__', onChange)} className="px-1.5 py-0.5 text-xs underline border rounded hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300" title="Subrayar">U</button>
+    <button type="button" onClick={() => textareaRef.current && applyFormat(textareaRef.current, '~~', '~~', onChange)} className="px-1.5 py-0.5 text-xs line-through border rounded hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300" title="Tachar">S</button>
+    <span className="text-[9px] text-slate-400 ml-1">Selecciona texto y aplica formato</span>
+  </div>
+);
+
 const TOOLS: { key: AnnotationTool; icon: React.ElementType; label: string; shortcut: string }[] = [
   { key: 'select', icon: MousePointer2, label: 'Seleccionar', shortcut: 'V' },
   { key: 'hand', icon: Hand, label: 'Mover', shortcut: 'M' },
@@ -99,10 +125,11 @@ const PdfViewer: React.FC<PdfViewerProps> = ({
 
   // Drawing state
   const [isDrawing, setIsDrawing] = useState(false);
-  const [drawStart, setDrawStart] = useState<{ x: number; y: number } | null>(null);
+  const [drawStart, setDrawStart] = useState<{ x: number; y: number; page: number } | null>(null);
   const [drawEnd, setDrawEnd] = useState<{ x: number; y: number } | null>(null);
   const [freehandPoints, setFreehandPoints] = useState<{ x: number; y: number }[]>([]);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const annotationTextareaRef = useRef<HTMLTextAreaElement>(null);
 
   // Pan (hand tool) — uses refs for smooth performance, no re-renders
   const isPanningRef = useRef(false);
@@ -225,7 +252,7 @@ const PdfViewer: React.FC<PdfViewerProps> = ({
   }, []);
 
   // Get relative coords from mouse event
-  const getRelCoords = (e: React.MouseEvent): { x: number; y: number } | null => {
+  const getRelCoords = (e: React.MouseEvent): { x: number; y: number; page: number } | null => {
     const target = (e.target as HTMLElement).closest('[data-page]');
     if (!target) return null;
     const pageNum = parseInt(target.getAttribute('data-page') || '1');
@@ -239,7 +266,7 @@ const PdfViewer: React.FC<PdfViewerProps> = ({
       setCurrentPage(pageNum);
       onPageChange?.(pageNum);
     }
-    return { x: Math.round(x * 10) / 10, y: Math.round(y * 10) / 10 };
+    return { x: Math.round(x * 10) / 10, y: Math.round(y * 10) / 10, page: pageNum };
   };
 
   const handleMouseDown = (e: React.MouseEvent) => {
@@ -252,7 +279,7 @@ const PdfViewer: React.FC<PdfViewerProps> = ({
     if (!coords) return;
 
     if (activeTool === 'pin') {
-      onAnnotationClick(currentPage, coords.x, coords.y, undefined, undefined, 'pin', annotationColor);
+      onAnnotationClick(coords.page, coords.x, coords.y, undefined, undefined, 'pin', annotationColor);
       return;
     }
     setIsDrawing(true);
@@ -329,7 +356,7 @@ const PdfViewer: React.FC<PdfViewerProps> = ({
     if (dx < 1 && dy < 1 && activeTool !== 'freehand') { setIsDrawing(false); setDrawStart(null); setDrawEnd(null); return; }
 
     onAnnotationClick(
-      currentPage, drawStart.x, drawStart.y, drawEnd.x, drawEnd.y,
+      drawStart.page, drawStart.x, drawStart.y, drawEnd.x, drawEnd.y,
       activeTool, annotationColor,
       activeTool === 'freehand' ? freehandPoints : undefined
     );
@@ -660,13 +687,21 @@ const PdfViewer: React.FC<PdfViewerProps> = ({
                 <p className="text-[10px] text-slate-500">Pág. {pendingShapeAnnotation?.page || currentPage} · {pendingShapeAnnotation?.tool || 'pin'}</p>
               </div>
             </div>
+            <FormatToolbar textareaRef={annotationTextareaRef} onChange={val => pendingShapeAnnotation ? onShapeTextChange?.(val) : onPinTextChange?.(val)} />
             <textarea
+              ref={annotationTextareaRef}
               className="w-full p-3 text-sm border rounded-lg focus:ring-2 focus:ring-blue-400 outline-none min-h-[80px] bg-slate-50 dark:bg-slate-900"
               placeholder="Describe la observación..."
               value={pendingShapeAnnotation ? shapeAnnotationText : pinAnnotationText}
               onChange={e => pendingShapeAnnotation ? onShapeTextChange?.(e.target.value) : onPinTextChange?.(e.target.value)}
               autoFocus
-              onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); pendingShapeAnnotation ? onShapeSave?.() : onPinSave?.(); } if (e.key === 'Escape') { onShapeCancel?.(); onPinCancel?.(); } }}
+              onKeyDown={e => {
+                // Ctrl+B / Ctrl+I shortcuts
+                if (e.ctrlKey && e.key === 'b') { e.preventDefault(); annotationTextareaRef.current && applyFormat(annotationTextareaRef.current, '**', '**', val => pendingShapeAnnotation ? onShapeTextChange?.(val) : onPinTextChange?.(val)); return; }
+                if (e.ctrlKey && e.key === 'i') { e.preventDefault(); annotationTextareaRef.current && applyFormat(annotationTextareaRef.current, '_', '_', val => pendingShapeAnnotation ? onShapeTextChange?.(val) : onPinTextChange?.(val)); return; }
+                if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); pendingShapeAnnotation ? onShapeSave?.() : onPinSave?.(); }
+                if (e.key === 'Escape') { onShapeCancel?.(); onPinCancel?.(); }
+              }}
             />
             <div className="flex gap-2 justify-end">
               <button onClick={() => { onShapeCancel?.(); onPinCancel?.(); }} className="px-3 py-1.5 text-xs font-semibold text-slate-500 hover:bg-slate-100 rounded-lg">Cancelar</button>

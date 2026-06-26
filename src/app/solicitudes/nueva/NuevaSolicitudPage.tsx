@@ -232,28 +232,30 @@ const NuevaSolicitudPage: React.FC = () => {
       const SES_URL = (import.meta as any).env?.VITE_SES_LAMBDA_URL as string;
       if (SES_URL && user?.email) {
         const rule = emailConfig.rules.find(r => r.event === 'solicitud_creada' && r.enabled);
-        const extraTo = rule?.toEmails || [];
-        const extraCc = rule?.cc || ['nicolas.carreno@alpina.com'];
-        const defaultTo = ['nicolas.carreno@alpina.com'];
-        const to = [...new Set([...defaultTo, ...extraTo])];
         const token = localStorage.getItem('alpina_id_token');
         const fechaRevision = new Intl.DateTimeFormat('es-CO', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' }).format(new Date(solicitudData.fechaDeseadaRevision));
 
-        // 1. Correo a revisores (comité)
-        fetch(SES_URL, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
-          body: JSON.stringify({
-            template: 'nueva_solicitud',
-            to,
-            cc: extraCc,
-            data: {
+        // 1. Correo a revisores (comité) — solo si la regla está habilitada
+        if (rule) {
+          const extraTo = rule.toEmails || [];
+          const extraCc = rule.cc || ['nicolas.carreno@alpina.com'];
+          const defaultTo = ['nicolas.carreno@alpina.com'];
+          const to = [...new Set([...defaultTo, ...extraTo])];
+          fetch(SES_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+            body: JSON.stringify({
+              template: 'nueva_solicitud',
+              to,
+              cc: extraCc,
+              data: {
               id: solicitud.id, consecutive: solicitud.consecutive, title: solicitud.title,
               brand: brand.join(', '), area: user?.area || '', solicitanteName: user?.name || '',
               deadline: solicitudData.deadline,
             },
           }),
         }).catch(console.error);
+        } // end if (rule)
 
         // 2. Correo de confirmación al solicitante
         // Si está fuera de ciclo → template fuera_de_ciclo

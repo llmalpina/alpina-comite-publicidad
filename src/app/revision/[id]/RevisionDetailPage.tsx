@@ -11,9 +11,30 @@ import { cn, formatDate } from '../../../lib/utils';
 import { Solicitud, Comment, PdfAnnotation, AnnotationTool } from '../../../types';
 import { solicitudesApi, comentariosApi, anotacionesApi, versionesApi, apiFetch } from '../../../lib/api';
 import PdfViewer from '../../../components/ui/PdfViewer';
+import { FormattedText } from '../../../components/ui/FormattedText';
 import { exportPdfWithAnnotations } from '../../../lib/pdf-export';
 
 type PanelTab = 'IA' | 'COMENTARIOS' | 'ANOTACIONES' | 'VERSIONES';
+
+// Helper to wrap selected text with formatting markers
+function applyTextFormat(textarea: HTMLTextAreaElement, prefix: string, suffix: string, setter: (val: string) => void) {
+  const start = textarea.selectionStart;
+  const end = textarea.selectionEnd;
+  const text = textarea.value;
+  const selected = text.substring(start, end);
+  const newText = text.substring(0, start) + prefix + selected + suffix + text.substring(end);
+  setter(newText);
+  setTimeout(() => { textarea.selectionStart = start + prefix.length; textarea.selectionEnd = end + prefix.length; textarea.focus(); }, 0);
+}
+
+const MiniFormatBar: React.FC<{ textareaRef: React.RefObject<HTMLTextAreaElement | null>; onChange: (val: string) => void }> = ({ textareaRef, onChange }) => (
+  <div className="flex items-center gap-1 mb-1.5">
+    <button type="button" onClick={() => textareaRef.current && applyTextFormat(textareaRef.current, '**', '**', onChange)} className="px-1.5 py-0.5 text-[10px] font-bold border rounded hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-500" title="Negrita">B</button>
+    <button type="button" onClick={() => textareaRef.current && applyTextFormat(textareaRef.current, '_', '_', onChange)} className="px-1.5 py-0.5 text-[10px] italic border rounded hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-500" title="Cursiva">I</button>
+    <button type="button" onClick={() => textareaRef.current && applyTextFormat(textareaRef.current, '__', '__', onChange)} className="px-1.5 py-0.5 text-[10px] underline border rounded hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-500" title="Subrayar">U</button>
+    <button type="button" onClick={() => textareaRef.current && applyTextFormat(textareaRef.current, '~~', '~~', onChange)} className="px-1.5 py-0.5 text-[10px] line-through border rounded hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-500" title="Tachar">S</button>
+  </div>
+);
 
 const RevisionDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -44,6 +65,8 @@ const RevisionDetailPage: React.FC = () => {
   const currentPdfPageRef = useRef(1);
   const goToPageRef = useRef<((page: number) => void) | null>(null);
   const fullscreenContainerRef = useRef<HTMLDivElement>(null);
+  const commentTextareaRef = useRef<HTMLTextAreaElement>(null);
+  const annotationTextareaRef = useRef<HTMLTextAreaElement>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
 
   // Detect fullscreen changes
@@ -170,6 +193,8 @@ const RevisionDetailPage: React.FC = () => {
   const canAnnotate = user?.role === 'REVISOR_ARA' || user?.role === 'REVISOR_LEGAL' || user?.role === 'ADMIN';
   const isARA = user?.role === 'REVISOR_ARA' || user?.role === 'ADMIN';
   const isLegal = user?.role === 'REVISOR_LEGAL' || user?.role === 'ADMIN';
+  const isApproved = solicitud.status === 'APROBADA' || solicitud.status === 'APROBADA_OBSERVACIONES' || solicitud.status === 'RECHAZADA' || solicitud.status === 'PUBLICADA';
+  const canEditAnnotations = canAnnotate && !isApproved;
 
   // Determina si este revisor ya aprobó
   const myApproval = isARA ? solicitud.approvalARA : isLegal ? solicitud.approvalLegal : null;
@@ -459,6 +484,7 @@ const RevisionDetailPage: React.FC = () => {
   };
 
   const handleResolveAnnotation = (annId: string) => {
+    const ann = solicitud.annotations.find(a => a.id === annId);
     setSolicitud(prev => {
       if (!prev) return prev;
       return {
@@ -468,6 +494,9 @@ const RevisionDetailPage: React.FC = () => {
         ),
       };
     });
+    // Persist to backend
+    const sk = (ann as any)?.sk || `anotaciones#${(ann as any)?.createdAt || ''}#${annId}`;
+    apiFetch(`/solicitudes/${solicitud.id}/anotaciones`, { method: 'PATCH', body: JSON.stringify({ sk, active: false }) }).catch(console.error);
     notify('Anotación marcada como resuelta', 'success');
   };
 
@@ -527,7 +556,7 @@ const RevisionDetailPage: React.FC = () => {
               <h1 className="text-lg font-bold text-slate-900 dark:text-white">{solicitud.title}</h1>
               <Badge className="bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 text-[10px]">v{solicitud.currentVersion}</Badge>
             </div>
-            <p className="text-xs text-slate-500 dark:text-slate-400">{solicitud.consecutive} · {solicitud.brand} · {solicitud.solicitanteName}</p>
+            <p className="text-xs text-slate-500 dark:text-slate-400">{solicitud.consecutive} · {solicitud.brand} · {solicitud.solicitanteName} · <span className="text-slate-400">Creada: {formatDate(solicitud.createdAt)}</span></p>
           </div>
         </div>
         <div className="flex items-center gap-2">
@@ -552,7 +581,9 @@ const RevisionDetailPage: React.FC = () => {
               const blobUrl = URL.createObjectURL(blob);
               const a = document.createElement('a');
               a.href = blobUrl;
-              a.download = (solicitud.files?.[0]?.name && !solicitud.files[0].name.match(/^[0-9a-f-]{36}/) ? solicitud.files[0].name : `${solicitud.title || solicitud.consecutive || 'documento'}.pdf`);
+              const createdDate = solicitud.createdAt ? new Date(solicitud.createdAt).toISOString().slice(0, 10) : '';
+              const baseFileName = solicitud.files?.[0]?.name && !solicitud.files[0].name.match(/^[0-9a-f-]{36}/) ? solicitud.files[0].name.replace(/\.pdf$/i, '') : (solicitud.title || 'documento');
+              a.download = `${solicitud.consecutive}_${createdDate}_${baseFileName}.pdf`;
               a.style.display = 'none';
               document.body.appendChild(a);
               a.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, view: window }));
@@ -770,8 +801,8 @@ const RevisionDetailPage: React.FC = () => {
         {/* Visor PDF */}
         <div className={cn('flex-1 rounded-xl border-2 border-slate-300 dark:border-slate-600 overflow-hidden flex flex-col relative', isFullscreen && 'h-full')} style={isFullscreen ? undefined : { minHeight: 'calc(100vh - 180px)' }}>
           {/* Botón anotar */}
-          {canAnnotate && (
-            <div className="absolute top-14 right-4 z-20">
+          {canEditAnnotations && (
+            <div className="absolute top-14 left-4 z-20">
               <Button
                 variant={addingAnnotation ? 'default' : 'outline'}
                 size="sm"
@@ -809,7 +840,7 @@ const RevisionDetailPage: React.FC = () => {
             activeTool={activeTool}
             annotationColor={annotationColor}
             showToolbar={true}
-            canAnnotate={canAnnotate}
+            canAnnotate={canEditAnnotations}
             fullscreenTargetRef={fullscreenContainerRef}
             onToggleAnnotating={() => { setAddingAnnotation(v => !v); setPendingAnnotation(null); }}
             onToolChange={setActiveTool}
@@ -925,7 +956,7 @@ const RevisionDetailPage: React.FC = () => {
                           </button>
                         )}
                       </div>
-                      <div className="ml-9 p-3 bg-slate-50 dark:bg-slate-800 border rounded-lg text-xs text-slate-600 dark:text-slate-400 leading-relaxed">{c.text}</div>
+                      <div className="ml-9 p-3 bg-slate-50 dark:bg-slate-800 border rounded-lg text-xs text-slate-600 dark:text-slate-400 leading-relaxed"><FormattedText text={c.text} /></div>
                     </div>
                   ))}
                 </div>
@@ -934,10 +965,15 @@ const RevisionDetailPage: React.FC = () => {
               {/* Anotaciones PDF */}
               {activeTab === 'ANOTACIONES' && (
                 <div className="space-y-3">
-                  {canAnnotate && (
+                  {canEditAnnotations && (
                     <button onClick={() => { setAddingAnnotation(true); }} className="w-full flex items-center justify-center gap-2 p-2.5 border-2 border-dashed border-yellow-300 rounded-lg text-xs font-semibold text-yellow-700 hover:bg-yellow-50 transition-colors">
                       <PlusCircle size={16} /> Agregar anotación en el PDF
                     </button>
+                  )}
+                  {isApproved && canAnnotate && (
+                    <div className="p-2.5 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-500 text-center">
+                      🔒 La pieza ya fue revisada. Las anotaciones están bloqueadas. Usa el Blog para comunicar errores.
+                    </div>
                   )}
                   {solicitud.annotations.length === 0 && (
                     <div className="text-center py-8 opacity-30"><Pin size={32} className="mx-auto mb-2" /><p className="text-xs">Sin anotaciones.</p></div>
@@ -982,12 +1018,12 @@ const RevisionDetailPage: React.FC = () => {
                               <CheckCircle2 size={14} />
                             </button>
                           )}
-                          {(ann.userId === user?.id || ann.userName === user?.name || user?.role === 'ADMIN' || canAnnotate) && (
+                          {canEditAnnotations && (ann.userId === user?.id || ann.userName === user?.name || user?.role === 'ADMIN' || canAnnotate) && (
                             <button onClick={() => handleEditAnnotation(ann.id)} className="p-1 hover:bg-blue-100 text-blue-400 rounded transition-colors" title="Editar anotación">
                               <MessageSquare size={12} />
                             </button>
                           )}
-                          {(ann.userId === user?.id || ann.userName === user?.name || user?.role === 'ADMIN' || canAnnotate) && (
+                          {canEditAnnotations && (ann.userId === user?.id || ann.userName === user?.name || user?.role === 'ADMIN' || canAnnotate) && (
                             <button onClick={() => handleDeleteAnnotation(ann.id)} className="p-1 hover:bg-red-100 text-red-400 rounded transition-colors" title="Eliminar anotación">
                               <XCircle size={14} />
                             </button>
@@ -1009,7 +1045,7 @@ const RevisionDetailPage: React.FC = () => {
                           </div>
                         </div>
                       ) : (
-                        <p className="text-xs text-yellow-900 leading-relaxed cursor-pointer hover:underline" onClick={() => scrollToAnnotation(ann)}>{ann.text}</p>
+                      <p className="text-xs text-yellow-900 leading-relaxed cursor-pointer hover:underline" onClick={() => scrollToAnnotation(ann)}><FormattedText text={ann.text} /></p>
                       )}
                       <p className="text-[10px] text-yellow-500">{formatDate(ann.createdAt)}</p>
                     </div>
@@ -1036,7 +1072,7 @@ const RevisionDetailPage: React.FC = () => {
                           )}
                         </div>
                       </div>
-                      <p className="text-xs text-slate-500 leading-relaxed cursor-pointer hover:underline" onClick={() => scrollToAnnotation(ann)}>{ann.text}</p>
+                      <p className="text-xs text-slate-500 leading-relaxed cursor-pointer hover:underline" onClick={() => scrollToAnnotation(ann)}><FormattedText text={ann.text} /></p>
                     </div>
                   ))}
 
@@ -1045,16 +1081,32 @@ const RevisionDetailPage: React.FC = () => {
                     <p className="text-[10px] font-bold text-emerald-500 uppercase tracking-wider mt-4">Resueltas ✓</p>
                   )}
                   {solicitud.annotations.filter(a => a.resolved).map(ann => (
-                    <div key={ann.id} className="p-3 bg-emerald-50 border border-emerald-200 rounded-lg space-y-1 opacity-60">
+                    <div key={ann.id} className="p-3 bg-emerald-50 border border-emerald-200 rounded-lg space-y-1 opacity-60 hover:opacity-100 transition-opacity">
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
                           <CheckCircle2 size={12} className="text-emerald-500" />
                           <span className="text-xs font-bold text-emerald-700 line-through">{ann.area || 'Sin área'}</span>
                           <Badge className="bg-emerald-200 text-emerald-700 text-[9px] px-1">v{ann.version || 1}</Badge>
                         </div>
-                        <span className="text-[10px] text-emerald-500">Resuelta</span>
+                        <div className="flex items-center gap-1">
+                          <span className="text-[10px] text-emerald-500">Resuelta</span>
+                          {canAnnotate && (
+                            <button onClick={() => {
+                              setSolicitud(prev => {
+                                if (!prev) return prev;
+                                return { ...prev, annotations: prev.annotations.map(a => a.id === ann.id ? { ...a, resolved: false, resolvedBy: undefined, resolvedAt: undefined } : a) };
+                              });
+                              // Persistir en backend
+                              const sk = (ann as any)?.sk || `anotaciones#${(ann as any)?.createdAt || ''}#${ann.id}`;
+                              apiFetch(`/solicitudes/${solicitud.id}/anotaciones`, { method: 'PATCH', body: JSON.stringify({ sk, active: true }) }).catch(console.error);
+                              notify('Anotación reabierta', 'info');
+                            }} className="p-1 hover:bg-yellow-100 text-yellow-600 rounded transition-colors" title="Reabrir anotación">
+                              <RefreshCw size={12} />
+                            </button>
+                          )}
+                        </div>
                       </div>
-                      <p className="text-xs text-emerald-600 leading-relaxed line-through">{ann.text}</p>
+                      <p className="text-xs text-emerald-600 leading-relaxed line-through"><FormattedText text={ann.text} /></p>
                     </div>
                   ))}
                 </div>
@@ -1097,14 +1149,16 @@ const RevisionDetailPage: React.FC = () => {
               <div className="p-4 border-t bg-slate-50 dark:bg-slate-800">
                 {activeTab === 'COMENTARIOS' && (
                   <div className="relative">
-                    <textarea className="w-full p-3 pr-10 text-xs border rounded-lg focus:ring-1 focus:ring-blue-500 outline-none min-h-[80px] bg-white dark:bg-slate-800" placeholder="Escribe tu comentario..." value={comment} onChange={e => setComment(e.target.value)} />
+                    <MiniFormatBar textareaRef={commentTextareaRef} onChange={setComment} />
+                    <textarea ref={commentTextareaRef} className="w-full p-3 pr-10 text-xs border rounded-lg focus:ring-1 focus:ring-blue-500 outline-none min-h-[80px] bg-white dark:bg-slate-800" placeholder="Escribe tu comentario... (selecciona texto y usa B/I/U/S para formato)" value={comment} onChange={e => setComment(e.target.value)} />
                     <Button size="icon" className="absolute bottom-3 right-3 h-7 w-7 rounded-full" disabled={!comment.trim()} onClick={handleAddComment}><Send size={14} /></Button>
                   </div>
                 )}
                 {activeTab === 'ANOTACIONES' && pendingAnnotation && (
                   <div className="space-y-2">
                     <p className="text-xs font-semibold text-yellow-700 dark:text-yellow-400 flex items-center gap-1"><Pin size={12} /> Anotación en posición {Math.round(pendingAnnotation.x)}%, {Math.round(pendingAnnotation.y)}%</p>
-                    <textarea className="w-full p-3 text-xs border border-yellow-300 rounded-lg focus:ring-1 focus:ring-yellow-400 outline-none min-h-[70px] bg-white dark:bg-slate-800" placeholder="Escribe la observación para este punto del PDF..." value={annotationText} onChange={e => setAnnotationText(e.target.value)} />
+                    <MiniFormatBar textareaRef={annotationTextareaRef} onChange={setAnnotationText} />
+                    <textarea ref={annotationTextareaRef} className="w-full p-3 text-xs border border-yellow-300 rounded-lg focus:ring-1 focus:ring-yellow-400 outline-none min-h-[70px] bg-white dark:bg-slate-800" placeholder="Escribe la observación para este punto del PDF..." value={annotationText} onChange={e => setAnnotationText(e.target.value)} />
                     <div className="flex gap-2">
                       <Button size="sm" variant="outline" className="flex-1" onClick={() => { setPendingAnnotation(null); setAnnotationText(''); }}>Cancelar</Button>
                       <Button size="sm" className="flex-1 bg-yellow-500 hover:bg-yellow-600 text-white gap-1" disabled={!annotationText.trim()} onClick={handleSaveAnnotation}><Pin size={14} /> Guardar</Button>
