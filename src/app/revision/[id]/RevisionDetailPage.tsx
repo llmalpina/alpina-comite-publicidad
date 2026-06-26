@@ -677,7 +677,7 @@ const RevisionDetailPage: React.FC = () => {
                     imageKey: a.imageKey,
                     imageUrl: a.imageKey ? imageUrls[a.imageKey] : undefined,
                   })),
-                  `${(solicitud.files?.[0]?.name && !solicitud.files[0].name.match(/^[0-9a-f-]{36}/) ? solicitud.files[0].name.replace('.pdf', '') : solicitud.title || solicitud.consecutive)}_comentarios.pdf`
+                  `${solicitud.consecutive}_${solicitud.createdAt ? new Date(solicitud.createdAt).toISOString().slice(0, 10) : ''}${solicitud.files?.[0]?.name && !solicitud.files[0].name.match(/^[0-9a-f-]{36}/) ? '_' + solicitud.files[0].name.replace('.pdf', '') : '_' + (solicitud.title || 'documento')}_comentarios.pdf`
                 );
                 notify('PDF exportado con comentarios', 'success');
               } catch (e: any) {
@@ -866,21 +866,22 @@ const RevisionDetailPage: React.FC = () => {
         {/* Visor PDF */}
         <div className={cn('flex-1 rounded-xl border-2 border-slate-300 dark:border-slate-600 overflow-hidden flex flex-col relative', isFullscreen && 'h-full')} style={isFullscreen ? undefined : { minHeight: 'calc(100vh - 180px)' }}>
           {/* Botón anotar */}
-          {canEditAnnotations && (
+          {/* Botón anotar - solo se muestra cuando NO está anotando (el toolbar del PdfViewer ya tiene el control cuando está activo) */}
+          {canEditAnnotations && !addingAnnotation && (
             <div className="absolute top-14 left-4 z-20">
               <Button
-                variant={addingAnnotation ? 'default' : 'outline'}
+                variant="outline"
                 size="sm"
-                className={cn('gap-1 text-xs shadow', addingAnnotation && 'bg-yellow-500 hover:bg-yellow-600 text-white border-yellow-500')}
-                onClick={() => { setAddingAnnotation(v => !v); setPendingAnnotation(null); }}
+                className="gap-1 text-xs shadow"
+                onClick={() => { setAddingAnnotation(true); setPendingAnnotation(null); }}
               >
-                <Pin size={14} /> {addingAnnotation ? 'Cancelar anotación' : 'Anotar en PDF'}
+                <Pin size={14} /> Anotar en PDF
               </Button>
             </div>
           )}
 
           {addingAnnotation && (
-            <div className="absolute top-24 left-1/2 -translate-x-1/2 z-20 bg-yellow-50 border border-yellow-300 rounded-lg px-4 py-2 text-xs text-yellow-800 font-medium shadow">
+            <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-20 bg-yellow-50 border border-yellow-300 rounded-lg px-4 py-2 text-xs text-yellow-800 font-medium shadow">
               Haz clic en el PDF para colocar una anotación
             </div>
           )}
@@ -1114,7 +1115,9 @@ const RevisionDetailPage: React.FC = () => {
                       </div>
                       {editingAnnotation === ann.id ? (
                         <div className="space-y-2 mt-1">
+                          <MiniFormatBar textareaRef={annotationTextareaRef} onChange={setEditAnnotationText} />
                           <textarea
+                            ref={annotationTextareaRef}
                             value={editAnnotationText}
                             onChange={e => setEditAnnotationText(e.target.value)}
                             onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSaveEditAnnotation(); } if (e.key === 'Escape') setEditingAnnotation(null); }}
@@ -1253,8 +1256,8 @@ const RevisionDetailPage: React.FC = () => {
                     <div className="flex items-center justify-between mt-1">
                       <div className="flex items-center gap-1">
                         <input ref={imageInputRef} type="file" accept="image/*" className="hidden" onChange={e => { if (e.target.files?.[0]) handleImageSelect(e.target.files[0]); e.target.value = ''; }} />
-                        <button onClick={() => imageInputRef.current?.click()} className="flex items-center gap-1 px-2 py-1 text-[10px] text-slate-500 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors" title="Adjuntar imagen (captura de video, pantallazo, etc.)">
-                          <ImageIcon size={12} /> Adjuntar imagen
+                        <button onClick={() => imageInputRef.current?.click()} className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium text-slate-600 hover:text-blue-600 hover:bg-blue-50 border border-slate-200 rounded-lg transition-colors" title="Adjuntar imagen (captura de video, pantallazo, etc.)">
+                          <ImageIcon size={14} /> 📷 Adjuntar imagen
                         </button>
                       </div>
                       <Button size="icon" className="h-7 w-7 rounded-full" disabled={(!comment.trim() && !pendingImage) || uploadingImage} onClick={handleAddComment}><Send size={14} /></Button>
