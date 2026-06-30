@@ -259,8 +259,8 @@ const NuevaSolicitudPage: React.FC = () => {
 
         // 2. Correo de confirmación al solicitante
         // Si está fuera de ciclo → template fuera_de_ciclo
-        // Si está dentro de ciclo → template confirmacion_solicitud (o cambio_estado como fallback)
-        const solicitanteTemplate = solicitudData.outOfCycle ? 'fuera_de_ciclo' : 'cambio_estado';
+        // Si está dentro de ciclo → template confirmacion_solicitud
+        const solicitanteTemplate = solicitudData.outOfCycle ? 'fuera_de_ciclo' : 'confirmacion_solicitud';
         const solicitanteData = solicitudData.outOfCycle
           ? {
               id: solicitud.id, consecutive: solicitud.consecutive, title: solicitud.title,
@@ -270,8 +270,7 @@ const NuevaSolicitudPage: React.FC = () => {
           : {
               id: solicitud.id, consecutive: solicitud.consecutive, title: solicitud.title,
               brand: brand.join(', '), solicitanteName: user?.name || '',
-              status: 'ENVIADA', statusLabel: 'Recibida',
-              nota: `Tu pieza fue recibida exitosamente. Será revisada el ${fechaRevision}.`,
+              fechaRevision,
             };
 
         fetch(SES_URL, {
