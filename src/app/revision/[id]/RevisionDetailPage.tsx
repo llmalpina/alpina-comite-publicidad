@@ -234,8 +234,10 @@ const RevisionDetailPage: React.FC = () => {
   const canAnnotate = hasPermission(user?.role || '', 'agregar_anotacion_pdf');
   const isARA = user?.role === 'REVISOR_ARA' || user?.role === 'ADMIN';
   const isLegal = user?.role === 'REVISOR_LEGAL' || user?.role === 'ADMIN';
+  const isSolicitante = user?.role === 'SOLICITANTE';
   const isApproved = solicitud.status === 'APROBADA' || solicitud.status === 'APROBADA_OBSERVACIONES' || solicitud.status === 'RECHAZADA' || solicitud.status === 'PUBLICADA';
-  const canEditAnnotations = canAnnotate && !isApproved;
+  // Solicitantes pueden anotar siempre; revisores solo mientras no esté aprobada
+  const canEditAnnotations = canAnnotate && (isSolicitante || !isApproved);
 
   // Determina si este revisor ya aprobó
   const myApproval = isARA ? solicitud.approvalARA : isLegal ? solicitud.approvalLegal : null;
