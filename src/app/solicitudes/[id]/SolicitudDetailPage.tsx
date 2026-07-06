@@ -719,9 +719,17 @@ const SolicitudDetailPage: React.FC = () => {
                 }))}
                 goToPageRef={goToPageRef}
                 canAnnotate={canAnnotate}
+                annotating={addingAnnotation}
+                showToolbar={true}
                 onToggleAnnotating={() => { setAddingAnnotation(v => !v); setPendingAnnotation(null); }}
-                onAnnotationClick={(x, y) => { if (addingAnnotation) setPendingAnnotation({ x, y }); }}
+                onAnnotationClick={(page, x, y) => { if (addingAnnotation) { setPendingAnnotation({ x, y }); currentPdfPageRef.current = page; } }}
                 onPageChange={(page) => { currentPdfPageRef.current = page; }}
+                pendingPin={pendingAnnotation}
+                pendingPinAnnotation={!!pendingAnnotation}
+                pinAnnotationText={annotationText}
+                onPinTextChange={setAnnotationText}
+                onPinSave={handleSaveAnnotation}
+                onPinCancel={() => { setPendingAnnotation(null); setAnnotationText(''); }}
               />
             </CardContent>
           </Card>
@@ -841,12 +849,6 @@ const SolicitudDetailPage: React.FC = () => {
               {/* Anotaciones PDF con filtro por área */}
               {activeTab === 'anotaciones' && (
                 <div className="space-y-3 max-h-96 overflow-y-auto pr-1">
-                  {/* Botón agregar anotación (solo si tiene permiso) */}
-                  {canAnnotate && (
-                    <button onClick={() => setAddingAnnotation(true)} className="w-full flex items-center justify-center gap-2 p-2.5 border-2 border-dashed border-yellow-300 rounded-lg text-xs font-semibold text-yellow-700 hover:bg-yellow-50 transition-colors">
-                      <Pin size={16} /> Agregar anotación en el PDF
-                    </button>
-                  )}
                   {/* Input anotación pendiente */}
                   {canAnnotate && pendingAnnotation && (
                     <div className="p-3 bg-yellow-50 border border-yellow-300 rounded-lg space-y-2">
