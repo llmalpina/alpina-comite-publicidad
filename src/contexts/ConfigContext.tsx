@@ -131,7 +131,7 @@ export const ALL_PERMISSIONS: PermissionKey[] = [
 ];
 
 const DEFAULT_ROLES: RoleConfig[] = [
-  { id: 'SOLICITANTE',   name: 'SOLICITANTE',   label: 'Solicitante',   color: 'bg-blue-100 text-blue-700',   editable: false, permissions: ['crear_solicitud', 'ver_solicitudes_propias', 'agregar_comentario', 'subir_version'] },
+  { id: 'SOLICITANTE',   name: 'SOLICITANTE',   label: 'Solicitante',   color: 'bg-blue-100 text-blue-700',   editable: false, permissions: ['crear_solicitud', 'ver_solicitudes_propias', 'agregar_comentario', 'subir_version', 'agregar_anotacion_pdf'] },
   { id: 'REVISOR_ARA',   name: 'REVISOR_ARA',   label: 'Revisor ARA',   color: 'bg-purple-100 text-purple-700', editable: false, permissions: ['ver_todas_solicitudes', 'revisar_solicitud', 'aprobar_rechazar', 'agregar_comentario', 'agregar_anotacion_pdf'] },
   { id: 'REVISOR_LEGAL', name: 'REVISOR_LEGAL', label: 'Revisor Legal', color: 'bg-amber-100 text-amber-700',  editable: false, permissions: ['ver_todas_solicitudes', 'revisar_solicitud', 'aprobar_rechazar', 'agregar_comentario', 'agregar_anotacion_pdf'] },
   { id: 'ADMIN',         name: 'ADMIN',         label: 'Administrador', color: 'bg-slate-200 text-slate-700',  editable: false, permissions: ALL_PERMISSIONS },
