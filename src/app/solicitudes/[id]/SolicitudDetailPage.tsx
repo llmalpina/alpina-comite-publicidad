@@ -45,6 +45,8 @@ const SolicitudDetailPage: React.FC = () => {
   const [pendingAnnotation, setPendingAnnotation] = useState<{ x: number; y: number } | null>(null);
   const [annotationText, setAnnotationText] = useState('');
   const [savingAnnotation, setSavingAnnotation] = useState(false);
+  const [editingAnnotation, setEditingAnnotation] = useState<string | null>(null);
+  const [editAnnotationText, setEditAnnotationText] = useState('');
   const currentPdfPageRef = useRef(1);
 
   const { getRootProps: getVersionRootProps, getInputProps: getVersionInputProps, isDragActive: isVersionDragActive } = useDropzone({
@@ -140,15 +142,17 @@ const SolicitudDetailPage: React.FC = () => {
     notify('Datos actualizados', 'success');
   };
 
-  // Load image URLs for comments that have images
+  // Load image URLs for comments and annotations that have images
   useEffect(() => {
     if (!solicitud) return;
-    const keysToLoad = solicitud.comments.filter(c => (c as any).imageKey && !imageUrls[(c as any).imageKey]).map(c => (c as any).imageKey as string);
+    const commentKeys = solicitud.comments.filter(c => (c as any).imageKey && !imageUrls[(c as any).imageKey]).map(c => (c as any).imageKey as string);
+    const annotationKeys = solicitud.annotations.filter(a => (a as any).imageKey && !imageUrls[(a as any).imageKey]).map(a => (a as any).imageKey as string);
+    const keysToLoad = [...new Set([...commentKeys, ...annotationKeys])];
     if (keysToLoad.length === 0) return;
     keysToLoad.forEach(key => {
       getImageUrl(key).then(url => setImageUrls(prev => ({ ...prev, [key]: url }))).catch(() => {});
     });
-  }, [solicitud?.comments.length]);
+  }, [solicitud?.comments.length, solicitud?.annotations.length]);
 
   const handleImageSelect = (file: File) => {
     if (!file.type.startsWith('image/')) { notify('Solo se permiten imágenes', 'error'); return; }
@@ -241,15 +245,23 @@ const SolicitudDetailPage: React.FC = () => {
 
   // --- Guardar anotación ---
   const handleSaveAnnotation = async () => {
-    if (!pendingAnnotation || !annotationText.trim() || !user || !solicitud || savingAnnotation) return;
+    if (!pendingAnnotation || (!annotationText.trim() && !pendingImage) || !user || !solicitud || savingAnnotation) return;
     setSavingAnnotation(true);
+
+    let imageKey: string | undefined;
+    if (pendingImage) {
+      setUploadingImage(true);
+      try { imageKey = await uploadCommentImage(solicitud.id, pendingImage); } catch (e: any) { notify(e.message || 'Error al subir imagen', 'error'); setUploadingImage(false); setSavingAnnotation(false); return; }
+      setUploadingImage(false);
+    }
+
     const ann = {
       id: Date.now().toString(),
       solicitudId: solicitud.id,
       userId: user.id,
       userName: user.name,
       userRole: user.role,
-      text: annotationText.trim(),
+      text: annotationText.trim() || (imageKey ? '(ver imagen adjunta)' : ''),
       page: currentPdfPageRef.current,
       x: pendingAnnotation.x,
       y: pendingAnnotation.y,
@@ -257,20 +269,56 @@ const SolicitudDetailPage: React.FC = () => {
       area: user.area,
       version: solicitud.currentVersion,
       resolved: false,
+      imageKey,
     };
     setSolicitud(prev => {
       if (!prev) return prev;
       return { ...prev, annotations: [...prev.annotations, ann] };
     });
+    if (imageKey && pendingImagePreview) setImageUrls(prev => ({ ...prev, [imageKey!]: pendingImagePreview! }));
     anotacionesApi.create(solicitud.id, {
       text: ann.text, page: ann.page, x: ann.x, y: ann.y,
-      userName: user.name, userRole: user.role, area: user.area || '', userId: user.id,
+      userName: user.name, userRole: user.role, area: user.area || '', userId: user.id, imageKey,
     } as any).catch(console.error).finally(() => setSavingAnnotation(false));
     setAnnotationText('');
     setPendingAnnotation(null);
     setAddingAnnotation(false);
+    clearPendingImage();
     notify('Anotación agregada al PDF', 'success');
     setActiveTab('anotaciones');
+  };
+
+  const handleEditAnnotation = (annId: string) => {
+    const ann = solicitud.annotations.find(a => a.id === annId);
+    if (!ann) return;
+    setEditingAnnotation(annId);
+    setEditAnnotationText(ann.text);
+  };
+
+  const handleSaveEditAnnotation = () => {
+    if (!editingAnnotation || !editAnnotationText.trim() || !solicitud) return;
+    const ann = solicitud.annotations.find(a => a.id === editingAnnotation);
+    setSolicitud(prev => {
+      if (!prev) return prev;
+      return { ...prev, annotations: prev.annotations.map(a => a.id === editingAnnotation ? { ...a, text: editAnnotationText.trim() } : a) };
+    });
+    const sk = (ann as any)?.sk || `anotaciones#${(ann as any)?.createdAt || ''}#${editingAnnotation}`;
+    anotacionesApi.update(solicitud.id, sk, editAnnotationText.trim()).catch(console.error);
+    setEditingAnnotation(null);
+    setEditAnnotationText('');
+    notify('Anotación actualizada', 'success');
+  };
+
+  const handleDeleteAnnotation = (annId: string) => {
+    if (!solicitud) return;
+    const ann = solicitud.annotations.find(a => a.id === annId);
+    setSolicitud(prev => {
+      if (!prev) return prev;
+      return { ...prev, annotations: prev.annotations.filter(a => a.id !== annId) };
+    });
+    const sk = (ann as any)?.sk || `anotaciones#${(ann as any)?.createdAt || ''}#${annId}`;
+    anotacionesApi.delete(solicitud.id, sk).catch(console.error);
+    notify('Anotación eliminada', 'info');
   };
 
   // --- Filtro de anotaciones por área ---
@@ -861,12 +909,22 @@ const SolicitudDetailPage: React.FC = () => {
                         rows={3}
                         autoFocus
                       />
-                      <div className="flex gap-2">
-                        <Button size="sm" onClick={handleSaveAnnotation} disabled={!annotationText.trim() || savingAnnotation}>
+                      {pendingImagePreview && (
+                        <div className="relative inline-block">
+                          <img src={pendingImagePreview} alt="Preview" className="max-h-20 rounded border" />
+                          <button onClick={clearPendingImage} className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full w-4 h-4 flex items-center justify-center text-[10px]">×</button>
+                        </div>
+                      )}
+                      <div className="flex gap-2 items-center">
+                        <Button size="sm" onClick={handleSaveAnnotation} disabled={(!annotationText.trim() && !pendingImage) || savingAnnotation}>
                           {savingAnnotation ? 'Guardando...' : 'Guardar'}
                         </Button>
-                        <Button size="sm" variant="ghost" onClick={() => { setPendingAnnotation(null); setAnnotationText(''); }}>Cancelar</Button>
+                        <button type="button" onClick={() => imageInputRef.current?.click()} className="p-1.5 hover:bg-yellow-100 rounded transition-colors" title="Adjuntar imagen">
+                          <ImageIcon size={16} className="text-yellow-700" />
+                        </button>
+                        <Button size="sm" variant="ghost" onClick={() => { setPendingAnnotation(null); setAnnotationText(''); clearPendingImage(); }}>Cancelar</Button>
                       </div>
+                      <input ref={imageInputRef} type="file" accept="image/*" className="hidden" onChange={e => { if (e.target.files?.[0]) { const f = e.target.files[0]; if (f.size > 10*1024*1024) { notify('Máximo 10MB', 'error'); return; } setPendingImage(f); const reader = new FileReader(); reader.onload = ev => setPendingImagePreview(ev.target?.result as string); reader.readAsDataURL(f); } }} />
                     </div>
                   )}
                   {canAnnotate && addingAnnotation && !pendingAnnotation && (
@@ -898,22 +956,49 @@ const SolicitudDetailPage: React.FC = () => {
                     <div className="text-center py-8 opacity-40"><Pin size={32} className="mx-auto mb-2" /><p className="text-xs">Sin anotaciones{annotationAreaFilter !== 'TODOS' ? ` de ${annotationAreaFilter}` : ''}.</p></div>
                   )}
                   {filteredAnnotations.map(ann => (
-                    <div key={ann.id} onClick={() => goToPageRef.current?.(ann.page)} className="p-3 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg space-y-1 cursor-pointer hover:bg-yellow-100 dark:hover:bg-yellow-900/30 transition-colors" title="Click para ir a la página de la anotación">
+                    <div key={ann.id} className="p-3 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg space-y-1">
                       <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 cursor-pointer" onClick={() => goToPageRef.current?.(ann.page)}>
                           <Pin size={14} className="text-yellow-600" />
                           <span className="text-xs font-bold text-yellow-800 dark:text-yellow-300">{
                             ann.userRole === 'REVISOR_ARA' ? 'Revisor ARA & Nutrición'
                             : ann.userRole === 'REVISOR_LEGAL' ? 'Revisor Legal'
                             : ann.area?.toLowerCase().includes('regulat') ? 'Revisor ARA & Nutrición'
                             : ann.area?.toLowerCase().includes('legal') ? 'Revisor Legal'
-                            : ann.area ? `Revisor ${ann.area}` : 'Comité'
+                            : ann.userName || (ann.area ? `Revisor ${ann.area}` : 'Comité')
                           }</span>
                           <Badge className="bg-yellow-200 text-yellow-800 text-[9px] px-1">{ann.area || (ann.userRole === 'REVISOR_ARA' ? 'ARA' : ann.userRole === 'REVISOR_LEGAL' ? 'Legal' : '')}</Badge>
                         </div>
-                        <span className="text-[10px] text-yellow-600 dark:text-yellow-400">Pág. {ann.page}</span>
+                        <div className="flex items-center gap-1">
+                          <span className="text-[10px] text-yellow-600 dark:text-yellow-400">Pág. {ann.page}</span>
+                          {canAnnotate && (ann.userId === user?.id || ann.userName === user?.name) && (
+                            <>
+                              <button onClick={(e) => { e.stopPropagation(); handleEditAnnotation(ann.id); }} className="p-1 hover:bg-blue-100 text-blue-400 rounded transition-colors" title="Editar">
+                                <MessageSquare size={12} />
+                              </button>
+                              <button onClick={(e) => { e.stopPropagation(); handleDeleteAnnotation(ann.id); }} className="p-1 hover:bg-red-100 text-red-400 rounded transition-colors" title="Eliminar">
+                                <XCircle size={14} />
+                              </button>
+                            </>
+                          )}
+                        </div>
                       </div>
-                      <p className="text-xs text-yellow-900 dark:text-yellow-200 leading-relaxed break-words">{ann.text}</p>
+                      {editingAnnotation === ann.id ? (
+                        <div className="space-y-2">
+                          <textarea value={editAnnotationText} onChange={e => setEditAnnotationText(e.target.value)} className="w-full border rounded-lg p-2 text-sm resize-none focus:ring-2 focus:ring-yellow-400" rows={2} autoFocus />
+                          <div className="flex gap-2">
+                            <Button size="sm" onClick={handleSaveEditAnnotation} disabled={!editAnnotationText.trim()}>Guardar</Button>
+                            <Button size="sm" variant="ghost" onClick={() => setEditingAnnotation(null)}>Cancelar</Button>
+                          </div>
+                        </div>
+                      ) : (
+                        <>
+                          <p className="text-xs text-yellow-900 dark:text-yellow-200 leading-relaxed break-words">{ann.text}</p>
+                          {(ann as any).imageKey && imageUrls[(ann as any).imageKey] && (
+                            <img src={imageUrls[(ann as any).imageKey]} alt="Adjunto" className="mt-2 max-h-32 rounded-lg border" />
+                          )}
+                        </>
+                      )}
                       <p className="text-[10px] text-yellow-500 dark:text-yellow-500">{formatDate(ann.createdAt)}</p>
                     </div>
                   ))}
