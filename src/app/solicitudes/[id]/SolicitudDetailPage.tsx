@@ -9,6 +9,7 @@ import { formatDate, cn } from '../../../lib/utils';
 import { Solicitud, Comment, DocumentVersion } from '../../../types';
 import { useAuth } from '../../../contexts/AuthContext';
 import { useNotifications } from '../../../contexts/NotificationContext';
+import { useConfig } from '../../../contexts/ConfigContext';
 import { solicitudesApi } from '../../../lib/api';
 import { comentariosApi, versionesApi, anotacionesApi, uploadCommentImage, getImageUrl } from '../../../lib/api';
 import PdfViewer from '../../../components/ui/PdfViewer';
@@ -19,6 +20,7 @@ const SolicitudDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const { user } = useAuth();
   const { notify } = useNotifications();
+  const { hasPermission } = useConfig();
   const navigate = useNavigate();
   const [solicitud, setSolicitud] = useState<Solicitud | null>(null);
   const [newComment, setNewComment] = useState('');
@@ -39,6 +41,11 @@ const SolicitudDetailPage: React.FC = () => {
   const [uploadingImage, setUploadingImage] = useState(false);
   const [imageUrls, setImageUrls] = useState<Record<string, string>>({});
   const imageInputRef = useRef<HTMLInputElement>(null);
+  const [addingAnnotation, setAddingAnnotation] = useState(false);
+  const [pendingAnnotation, setPendingAnnotation] = useState<{ x: number; y: number } | null>(null);
+  const [annotationText, setAnnotationText] = useState('');
+  const [savingAnnotation, setSavingAnnotation] = useState(false);
+  const currentPdfPageRef = useRef(1);
 
   const { getRootProps: getVersionRootProps, getInputProps: getVersionInputProps, isDragActive: isVersionDragActive } = useDropzone({
     onDrop: (accepted: File[]) => {
@@ -228,6 +235,43 @@ const SolicitudDetailPage: React.FC = () => {
     const role = (c.userRole || '').toUpperCase();
     return area.includes('LEGAL') || role === 'REVISOR_LEGAL';
   }).length;
+
+  // --- Permiso de anotación desde configuración ---
+  const canAnnotate = hasPermission(user?.role || '', 'agregar_anotacion_pdf');
+
+  // --- Guardar anotación ---
+  const handleSaveAnnotation = async () => {
+    if (!pendingAnnotation || !annotationText.trim() || !user || !solicitud || savingAnnotation) return;
+    setSavingAnnotation(true);
+    const ann = {
+      id: Date.now().toString(),
+      solicitudId: solicitud.id,
+      userId: user.id,
+      userName: user.name,
+      userRole: user.role,
+      text: annotationText.trim(),
+      page: currentPdfPageRef.current,
+      x: pendingAnnotation.x,
+      y: pendingAnnotation.y,
+      createdAt: new Date().toISOString(),
+      area: user.area,
+      version: solicitud.currentVersion,
+      resolved: false,
+    };
+    setSolicitud(prev => {
+      if (!prev) return prev;
+      return { ...prev, annotations: [...prev.annotations, ann] };
+    });
+    anotacionesApi.create(solicitud.id, {
+      text: ann.text, page: ann.page, x: ann.x, y: ann.y,
+      userName: user.name, userRole: user.role, area: user.area || '', userId: user.id,
+    } as any).catch(console.error).finally(() => setSavingAnnotation(false));
+    setAnnotationText('');
+    setPendingAnnotation(null);
+    setAddingAnnotation(false);
+    notify('Anotación agregada al PDF', 'success');
+    setActiveTab('anotaciones');
+  };
 
   // --- Filtro de anotaciones por área ---
   const isAraAnnotation = (a: { area?: string; userRole?: string }) => {
@@ -674,6 +718,10 @@ const SolicitudDetailPage: React.FC = () => {
                   text: a.text, userName: a.userName, area: a.area,
                 }))}
                 goToPageRef={goToPageRef}
+                canAnnotate={canAnnotate}
+                onToggleAnnotating={() => { setAddingAnnotation(v => !v); setPendingAnnotation(null); }}
+                onAnnotationClick={(x, y) => { if (addingAnnotation) setPendingAnnotation({ x, y }); }}
+                onPageChange={(page) => { currentPdfPageRef.current = page; }}
               />
             </CardContent>
           </Card>
@@ -793,6 +841,37 @@ const SolicitudDetailPage: React.FC = () => {
               {/* Anotaciones PDF con filtro por área */}
               {activeTab === 'anotaciones' && (
                 <div className="space-y-3 max-h-96 overflow-y-auto pr-1">
+                  {/* Botón agregar anotación (solo si tiene permiso) */}
+                  {canAnnotate && (
+                    <button onClick={() => setAddingAnnotation(true)} className="w-full flex items-center justify-center gap-2 p-2.5 border-2 border-dashed border-yellow-300 rounded-lg text-xs font-semibold text-yellow-700 hover:bg-yellow-50 transition-colors">
+                      <Pin size={16} /> Agregar anotación en el PDF
+                    </button>
+                  )}
+                  {/* Input anotación pendiente */}
+                  {canAnnotate && pendingAnnotation && (
+                    <div className="p-3 bg-yellow-50 border border-yellow-300 rounded-lg space-y-2">
+                      <p className="text-[11px] font-bold text-yellow-800">📌 Anotación en Pág. {currentPdfPageRef.current}</p>
+                      <textarea
+                        value={annotationText}
+                        onChange={e => setAnnotationText(e.target.value)}
+                        placeholder="Escribe tu observación..."
+                        className="w-full border rounded-lg p-2 text-sm resize-none focus:ring-2 focus:ring-yellow-400"
+                        rows={3}
+                        autoFocus
+                      />
+                      <div className="flex gap-2">
+                        <Button size="sm" onClick={handleSaveAnnotation} disabled={!annotationText.trim() || savingAnnotation}>
+                          {savingAnnotation ? 'Guardando...' : 'Guardar'}
+                        </Button>
+                        <Button size="sm" variant="ghost" onClick={() => { setPendingAnnotation(null); setAnnotationText(''); }}>Cancelar</Button>
+                      </div>
+                    </div>
+                  )}
+                  {canAnnotate && addingAnnotation && !pendingAnnotation && (
+                    <div className="p-2.5 bg-yellow-50 border border-yellow-200 rounded-lg text-xs text-yellow-700 text-center">
+                      👆 Haz clic en el PDF para colocar la anotación
+                    </div>
+                  )}
                   {/* Filtro por área */}
                   <div className="flex gap-1 p-1 bg-slate-100 dark:bg-slate-800 rounded-lg">
                     {([

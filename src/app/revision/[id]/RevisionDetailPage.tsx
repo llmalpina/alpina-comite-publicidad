@@ -40,7 +40,7 @@ const RevisionDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const { user } = useAuth();
   const { notify } = useNotifications();
-  const { emailConfig } = useConfig();
+  const { emailConfig, hasPermission } = useConfig();
   const navigate = useNavigate();
   const [solicitud, setSolicitud] = useState<Solicitud | null>(null);
   const [loading, setLoading] = useState(true);
@@ -231,7 +231,7 @@ const RevisionDetailPage: React.FC = () => {
 
   if (!solicitud) return <div className="p-8 text-slate-500">Solicitud no encontrada.</div>;
 
-  const canAnnotate = user?.role === 'REVISOR_ARA' || user?.role === 'REVISOR_LEGAL' || user?.role === 'ADMIN';
+  const canAnnotate = hasPermission(user?.role || '', 'agregar_anotacion_pdf');
   const isARA = user?.role === 'REVISOR_ARA' || user?.role === 'ADMIN';
   const isLegal = user?.role === 'REVISOR_LEGAL' || user?.role === 'ADMIN';
   const isApproved = solicitud.status === 'APROBADA' || solicitud.status === 'APROBADA_OBSERVACIONES' || solicitud.status === 'RECHAZADA' || solicitud.status === 'PUBLICADA';
