@@ -14,7 +14,7 @@ import { useConfig } from "../../contexts/ConfigContext";
 import { RequestStatus } from "../../types";
 
 const STATUS_FILTER_OPTIONS: { value: RequestStatus | ""; label: string }[] = [
-  { value: "", label: "Todos los estados" },
+  { value: "", label: "Solicitudes abiertas" },
   { value: "ENVIADA", label: "Enviada" },
   { value: "EN_REVISION", label: "En Revision" },
   { value: "APROBADA", label: "Sin comentarios" },

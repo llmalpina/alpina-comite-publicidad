@@ -56,9 +56,11 @@ const DashboardPage: React.FC = () => {
       const d = new Date(s.createdAt);
       const matchDate = d >= threshold;
       const matchBrand = !brandFilter || s.brand === brandFilter;
-      return matchDate && matchBrand;
+      // Solicitantes solo ven sus propias piezas
+      const matchUser = user?.role === 'SOLICITANTE' ? (s.solicitanteId === user?.id || s.solicitanteName === user?.name || s.solicitanteEmail === user?.email) : true;
+      return matchDate && matchBrand && matchUser;
     });
-  }, [solicitudes, dateRange, brandFilter]);
+  }, [solicitudes, dateRange, brandFilter, user]);
 
   // Stats
   const total = filtered.length;
