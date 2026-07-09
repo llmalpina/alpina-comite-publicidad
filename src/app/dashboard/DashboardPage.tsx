@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { FileText, CheckCircle2, XCircle, Clock, TrendingUp, ArrowRight, PlusCircle, Loader2, Filter, Calendar, MessageSquare } from 'lucide-react';
+import { FileText, CheckCircle2, XCircle, Clock, TrendingUp, ArrowRight, PlusCircle, Loader2, Filter, Calendar, MessageSquare, Layers } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useConfig } from '../../contexts/ConfigContext';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/Card';
@@ -64,6 +64,7 @@ const DashboardPage: React.FC = () => {
 
   // Stats
   const total = filtered.length;
+  const totalPiezas = filtered.reduce((acc, s) => acc + ((s as any).numeroPiezas || 1), 0);
   const sinComentarios = filtered.filter(s => s.status === 'APROBADA').length;
   const conComentarios = filtered.filter(s => s.status === 'APROBADA_OBSERVACIONES').length;
   const rechazadas = filtered.filter(s => s.status === 'RECHAZADA').length;
@@ -136,7 +137,8 @@ const DashboardPage: React.FC = () => {
   [filtered]);
 
   const stats = [
-    { label: 'Total piezas', value: total, icon: FileText, color: 'text-[#1e3a5f]', bg: 'bg-blue-50 dark:bg-blue-900/20', border: 'border-blue-100' },
+    { label: 'Total solicitudes', value: total, icon: FileText, color: 'text-[#1e3a5f]', bg: 'bg-blue-50 dark:bg-blue-900/20', border: 'border-blue-100' },
+    { label: 'Total piezas', value: totalPiezas, icon: Layers, color: 'text-indigo-600', bg: 'bg-indigo-50 dark:bg-indigo-900/20', border: 'border-indigo-100' },
     { label: 'Sin comentarios', value: sinComentarios, icon: CheckCircle2, color: 'text-emerald-600', bg: 'bg-emerald-50 dark:bg-emerald-900/20', border: 'border-emerald-100' },
     { label: 'Con comentarios', value: conComentarios, icon: MessageSquare, color: 'text-sky-600', bg: 'bg-sky-50 dark:bg-sky-900/20', border: 'border-sky-100' },
     { label: 'Rechazadas', value: rechazadas, icon: XCircle, color: 'text-red-600', bg: 'bg-red-50 dark:bg-red-900/20', border: 'border-red-100' },
@@ -195,7 +197,7 @@ const DashboardPage: React.FC = () => {
       ) : (
         <>
           {/* KPIs */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-7 gap-3">
             {stats.map((stat, i) => (
               <Card key={i} className={cn('border', stat.border)}>
                 <CardContent className="p-3 sm:p-4">

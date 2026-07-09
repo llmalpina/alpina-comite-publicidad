@@ -792,6 +792,7 @@ const SolicitudDetailPage: React.FC = () => {
                 <div><p className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">Solicitante</p><p className="text-sm font-medium text-slate-800 dark:text-slate-200">{solicitud.solicitanteName}</p></div>
                 <div><p className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">Área</p><p className="text-sm font-medium text-slate-800 dark:text-slate-200">{solicitud.area}</p></div>
                 <div><p className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">Fecha Límite</p><p className="text-sm font-medium text-slate-800 dark:text-slate-200">{formatDate(solicitud.deadline)}</p></div>
+                <div><p className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">Número de piezas</p><p className="text-sm font-medium text-slate-800 dark:text-slate-200">{solicitud.numeroPiezas || 1}</p></div>
               </div>
               <div className="pt-4 border-t">
                 <p className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-2">Descripción / Brief</p>

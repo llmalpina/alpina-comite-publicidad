@@ -45,6 +45,7 @@ const NuevaSolicitudPage: React.FC = () => {
   const [channel] = useState('');
   const [description, setDescription] = useState('');
   const [deadline, setDeadline] = useState('');
+  const [numeroPiezas, setNumeroPiezas] = useState(1);
 
   const marcasActivas = maestros.marcas.filter(m => m.activo);
   const tiposActivos = maestros.tiposContenido.filter(t => t.activo);
@@ -223,6 +224,7 @@ const NuevaSolicitudPage: React.FC = () => {
         solicitanteName: user?.name || '',
         solicitanteEmail: user?.email || '',
         area: user?.area || '',
+        numeroPiezas,
       };
 
       let solicitud: Solicitud;
@@ -385,6 +387,11 @@ const NuevaSolicitudPage: React.FC = () => {
                     <option value="">Selecciona tipo</option>
                     {tiposActivos.map(t => <option key={t.id} value={t.value}>{t.label}</option>)}
                   </select>
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-semibold text-slate-700 dark:text-slate-300">Número de piezas en el PDF *</label>
+                  <Input type="number" min={1} required value={numeroPiezas} onChange={e => setNumeroPiezas(Math.max(1, parseInt(e.target.value) || 1))} />
+                  <p className="text-xs text-slate-400">¿Cuántas piezas/artes contiene tu archivo PDF?</p>
                 </div>
               </div>
               <div className="space-y-2">

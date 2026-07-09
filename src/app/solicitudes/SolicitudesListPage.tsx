@@ -143,7 +143,14 @@ const SolicitudesPage: React.FC = () => {
                           {solicitud.brand?.[0] || "?"}
                         </div>
                         <div>
-                          <h3 className="font-bold text-slate-900 dark:text-white">{solicitud.title}</h3>
+                          <h3 className="font-bold text-slate-900 dark:text-white">
+                            {solicitud.title}
+                            {((solicitud as any).numeroPiezas || 1) > 1 && (
+                              <span className="ml-2 inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-indigo-100 text-indigo-700 border border-indigo-200">
+                                {(solicitud as any).numeroPiezas} piezas
+                              </span>
+                            )}
+                          </h3>
                           <p className="text-xs text-slate-500">{solicitud.consecutive} · {solicitud.brand}</p>
                         </div>
                       </div>

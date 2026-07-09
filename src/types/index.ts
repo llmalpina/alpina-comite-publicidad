@@ -157,6 +157,8 @@ export interface Solicitud {
   approvalLegal?: { approved: boolean; by: string; at: string; nota?: string };
   /** Motivo del rechazo (si aplica) */
   rejectionReason?: string;
+  /** Número de piezas/ads contenidas en el PDF */
+  numeroPiezas?: number;
 }
 
 export interface AreaBudget {
