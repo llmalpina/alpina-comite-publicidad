@@ -372,6 +372,10 @@ const RevisionDetailPage: React.FC = () => {
         const eventName = newStatus === 'RECHAZADA' ? 'solicitud_rechazada' : newStatus === 'APROBADA_OBSERVACIONES' ? 'solicitud_con_observaciones' : 'solicitud_aprobada';
         const { to, cc } = getEmailsForEvent(eventName);
         const token = localStorage.getItem('alpina_id_token');
+        
+        // Para rechazo, el motivo es la primera línea de actionNote
+        const motivo_rechazo = newStatus === 'RECHAZADA' ? (actionNote.split('\n')[0] || '') : '';
+        
         fetch(SES_URL, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
@@ -382,6 +386,7 @@ const RevisionDetailPage: React.FC = () => {
               brand: solicitud.brand, solicitanteName: solicitanteNombre,
               status: newStatus, statusLabel: statusLabels[newStatus] || newStatus,
               nota: actionNote || '',
+              motivo_rechazo: motivo_rechazo,
             },
           }),
         }).catch(console.error);
