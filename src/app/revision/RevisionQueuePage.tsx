@@ -293,9 +293,11 @@ const RevisionQueuePage: React.FC = () => {
                         {s.brand?.[0] || '?'}
                       </div>
                       <div className="min-w-0">
-                        <div className="flex items-center gap-2">
-                          <p className={cn('text-sm text-slate-900 dark:text-white truncate', isNew && !isPublished ? 'font-black' : 'font-bold')}>{s.title}</p>
+                        <div className="flex flex-wrap items-center gap-1">
+                          <p className={cn('text-sm text-slate-900 dark:text-white truncate max-w-[180px] lg:max-w-none', isNew && !isPublished ? 'font-black' : 'font-bold')}>{s.title}</p>
                           {isNew && !isPublished && <span className="w-2 h-2 rounded-full bg-blue-500 shrink-0" title="Nueva" />}
+                        </div>
+                        <div className="flex flex-wrap items-center gap-1 mt-0.5">
                           {isPublished && <Badge className={STATUS_LABELS['PUBLICADA'].color}>{STATUS_LABELS['PUBLICADA'].label}</Badge>}
                           {isRejected && <Badge className="bg-red-100 text-red-700 text-[9px]">Rechazada</Badge>}
                           {s.status === 'APROBADA' && <Badge className="bg-emerald-100 text-emerald-700 text-[9px]">Aprobada</Badge>}
