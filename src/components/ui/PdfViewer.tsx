@@ -614,7 +614,7 @@ const PdfViewer: React.FC<PdfViewerProps> = ({
           activeTool === 'hand' ? 'cursor-grab' :
           annotating && activeTool === 'highlight' ? 'cursor-text' :
           annotating && activeTool !== 'select' ? 'cursor-crosshair' : '')}
-        style={isFullscreen ? { flex: 1, minHeight: 0 } : { maxHeight: 'calc(100vh - 200px)', minHeight: '500px' }}
+        style={isFullscreen ? { flex: 1, minHeight: 0 } : { minHeight: 'calc(100vh - 200px)' }}
         onMouseUp={handleMouseUp}
       >
         {loading && !error && (
