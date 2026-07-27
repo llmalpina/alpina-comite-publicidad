@@ -27,3 +27,5 @@ frontend:
       headers:
         - key: Cache-Control
           value: 'public, max-age=0, must-revalidate'
+        - key: Content-Security-Policy
+          value: "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://unpkg.com https://cdn.tailwindcss.com blob:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob: https://*.amazonaws.com; connect-src 'self' https://api-ocr.datahub-alpina.com https://*.amazonaws.com https://*.amazoncognito.com https://*.on.aws https://login.microsoftonline.com https://09q6y713ti.execute-api.us-east-1.amazonaws.com https://unpkg.com; worker-src 'self' blob:; child-src 'self' blob:; frame-src 'self'"
