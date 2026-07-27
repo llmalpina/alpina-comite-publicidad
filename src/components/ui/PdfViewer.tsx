@@ -117,11 +117,20 @@ const PdfViewer: React.FC<PdfViewerProps> = ({
   const [numPages, setNumPages] = useState(0);
   const [currentPage, setCurrentPage] = useState(1);
   const [scale, setScale] = useState(1.2);
+  const [renderScale, setRenderScale] = useState(1.2);
   const [containerWidth, setContainerWidth] = useState(0);
   const [fitToWidth, setFitToWidth] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [hoveredAnn, setHoveredAnn] = useState<string | null>(null);
+
+  // Debounce scale changes to prevent worker crash on rapid zoom
+  const scaleTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => {
+    if (scaleTimeoutRef.current) clearTimeout(scaleTimeoutRef.current);
+    scaleTimeoutRef.current = setTimeout(() => setRenderScale(scale), 150);
+    return () => { if (scaleTimeoutRef.current) clearTimeout(scaleTimeoutRef.current); };
+  }, [scale]);
 
   // Drawing state
   const [isDrawing, setIsDrawing] = useState(false);
@@ -645,8 +654,7 @@ const PdfViewer: React.FC<PdfViewerProps> = ({
 
         {/* Scroll continuo — todas las páginas */}
         <div style={{ display: (loading || error) ? 'none' : 'flex', flexDirection: 'column', alignItems: 'center', padding: '16px', gap: '12px', backgroundColor: '#f5f5f5' }}>
-          <Document file={url} onLoadSuccess={onDocumentLoadSuccess} onLoadError={onDocumentLoadError} loading=""
-            options={{ wasmUrl: import.meta.env.BASE_URL + 'wasm/' }}>
+          <Document file={url} onLoadSuccess={onDocumentLoadSuccess} onLoadError={onDocumentLoadError} loading="">
             {Array.from({ length: numPages }, (_, i) => i + 1).map(pageNum => (
               <div key={pageNum} ref={pageNum === currentPage ? pageRef : undefined}
                 className={cn('relative shadow-2xl mb-3', annotating && activeTool !== 'select' && activeTool !== 'hand' && activeTool !== 'highlight' && 'select-none')}
@@ -656,7 +664,7 @@ const PdfViewer: React.FC<PdfViewerProps> = ({
                 style={annotating && activeTool === 'highlight' ? { ['--highlight-active' as any]: '1' } : undefined}
               >
                 <Page pageNumber={pageNum}
-                  scale={!fitToWidth ? scale : undefined}
+                  scale={!fitToWidth ? renderScale : undefined}
                   width={fitToWidth ? Math.max(containerWidth, 800) : undefined}
                   renderTextLayer renderAnnotationLayer className="bg-white"
                   canvasBackground="white"
