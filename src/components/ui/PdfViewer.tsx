@@ -116,7 +116,7 @@ const PdfViewer: React.FC<PdfViewerProps> = ({
   const pageRef = useRef<HTMLDivElement>(null);
   const [numPages, setNumPages] = useState(0);
   const [currentPage, setCurrentPage] = useState(1);
-  const [scale, setScale] = useState(1.5);
+  const [scale, setScale] = useState(1.2);
   const [containerWidth, setContainerWidth] = useState(0);
   const [fitToWidth, setFitToWidth] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -593,11 +593,16 @@ const PdfViewer: React.FC<PdfViewerProps> = ({
             <ZoomOut size={14} />
           </Button>
           <span className="text-xs text-slate-600 dark:text-slate-400 w-10 text-center">
-            {Math.round(scale * 100)}%
+            {Math.round((fitToWidth ? (containerWidth > 0 ? (containerWidth / 595) : 1) : scale) * 100)}%
           </span>
           <Button variant="ghost" size="icon" className="h-7 w-7"
             onClick={() => { setFitToWidth(false); setScale(s => Math.min(3.0, +(s + 0.15).toFixed(2))); }}>
             <ZoomIn size={14} />
+          </Button>
+          <Button variant="ghost" size="sm" className="h-7 text-xs px-2"
+            onClick={() => setFitToWidth(!fitToWidth)}
+            title={fitToWidth ? "Usar zoom manual" : "Ajustar al ancho"}>
+            {fitToWidth ? "Zoom" : "Ancho"}
           </Button>
           <div className="w-px h-5 bg-slate-300 mx-1" />
           <Button variant="ghost" size="icon" className="h-7 w-7" title="Pantalla completa"
@@ -650,7 +655,8 @@ const PdfViewer: React.FC<PdfViewerProps> = ({
                 style={annotating && activeTool === 'highlight' ? { ['--highlight-active' as any]: '1' } : undefined}
               >
                 <Page pageNumber={pageNum}
-                  scale={scale}
+                  scale={!fitToWidth ? scale : undefined}
+                  width={fitToWidth ? Math.max(containerWidth, 800) : undefined}
                   renderTextLayer renderAnnotationLayer className="bg-white" />
 
                 {/* Annotations for this page */}
