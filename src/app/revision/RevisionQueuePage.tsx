@@ -208,16 +208,16 @@ const RevisionQueuePage: React.FC = () => {
         ))}
       </div>
 
-      <div className="flex gap-3">
+      <div className="flex flex-col sm:flex-row gap-3">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
           <Input placeholder="Buscar por marca, consecutivo, título o solicitante..." className="pl-10" value={search} onChange={e => setSearch(e.target.value)} />
         </div>
-        <select value={solicitanteFilter} onChange={e => setSolicitanteFilter(e.target.value)} className="flex h-10 rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring min-w-[180px]">
+        <select value={solicitanteFilter} onChange={e => setSolicitanteFilter(e.target.value)} className="flex h-10 rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring w-full sm:w-auto sm:min-w-[160px]">
           <option value="">Todos los solicitantes</option>
           {solicitantes.map(s => <option key={s} value={s}>{s}</option>)}
         </select>
-        <select value={contentTypeFilter} onChange={e => setContentTypeFilter(e.target.value)} className="flex h-10 rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring min-w-[180px]">
+        <select value={contentTypeFilter} onChange={e => setContentTypeFilter(e.target.value)} className="flex h-10 rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring w-full sm:w-auto sm:min-w-[160px]">
           <option value="">Todos los tipos</option>
           {CONTENT_TYPES.map(ct => <option key={ct.value} value={ct.value}>{ct.label}</option>)}
         </select>
@@ -239,8 +239,8 @@ const RevisionQueuePage: React.FC = () => {
         </div>
       ) : (
         <div className="space-y-3">
-          {/* Header con ordenamiento — solo en desktop */}
-          <div className="hidden md:grid md:grid-cols-[auto_1fr_100px_120px_100px_60px_70px_70px_90px] items-center gap-2 px-4 py-2 text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+          {/* Header con ordenamiento — solo en desktop grande */}
+          <div className="hidden lg:grid lg:grid-cols-[auto_1fr_100px_120px_100px_60px_70px_70px_90px] items-center gap-2 px-4 py-2 text-[10px] font-bold text-slate-500 uppercase tracking-wider">
             <div className="w-7"></div>
             <div>Solicitud</div>
             <div>Marca</div>
@@ -271,9 +271,9 @@ const RevisionQueuePage: React.FC = () => {
                 isNew && !isPublished && 'ring-1 ring-blue-200'
               )}>
                 <CardContent className="p-0">
-                  <div className="flex flex-col md:grid md:grid-cols-[auto_1fr_100px_120px_100px_60px_70px_70px_90px] md:items-center gap-3 md:gap-2 p-4">
+                  <div className="flex flex-col lg:grid lg:grid-cols-[auto_1fr_100px_120px_100px_60px_70px_70px_90px] lg:items-center gap-3 lg:gap-2 p-4">
                     {/* Check de revisada */}
-                    <div className="hidden md:flex items-center">
+                    <div className="hidden lg:flex items-center">
                       <button
                         onClick={(e) => { e.preventDefault(); e.stopPropagation(); toggleChecked(s.id); }}
                         className={cn('p-1 rounded transition-colors', isChecked ? 'text-emerald-500 hover:text-emerald-700' : 'text-slate-300 hover:text-slate-500')}
@@ -307,13 +307,13 @@ const RevisionQueuePage: React.FC = () => {
                     </div>
 
                     {/* Marca */}
-                    <div className="hidden md:block min-w-0">
+                    <div className="hidden lg:block min-w-0">
                       <p className="text-sm text-slate-700 dark:text-slate-300 truncate">{s.brand}</p>
                       <p className="text-[10px] text-slate-400 truncate">{s.area}</p>
                     </div>
 
                     {/* Tipo de contenido */}
-                    <div className="hidden md:block min-w-0">
+                    <div className="hidden lg:block min-w-0">
                       <p className="text-[10px] font-semibold text-slate-600 dark:text-slate-400 truncate">
                         {CONTENT_TYPES.find(ct => ct.value === (s as any).contentType)?.label || (s as any).contentType || '—'}
                       </p>
@@ -388,7 +388,7 @@ const RevisionQueuePage: React.FC = () => {
                       {/* Check de revisada (mobile) */}
                       <button
                         onClick={(e) => { e.preventDefault(); e.stopPropagation(); toggleChecked(s.id); }}
-                        className={cn('md:hidden flex items-center justify-center gap-1 text-[10px] font-semibold h-7 rounded px-2 transition-colors',
+                        className={cn('lg:hidden flex items-center justify-center gap-1 text-[10px] font-semibold h-7 rounded px-2 transition-colors',
                           isChecked ? 'text-emerald-600 bg-emerald-50 border border-emerald-200' : 'text-slate-400 bg-slate-50 border border-slate-200 hover:text-slate-600')}
                       >
                         {isChecked ? <CheckSquare size={12} /> : <Square size={12} />}
