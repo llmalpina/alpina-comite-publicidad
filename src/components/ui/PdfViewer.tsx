@@ -197,6 +197,13 @@ const PdfViewer: React.FC<PdfViewerProps> = ({
     return () => ro.disconnect();
   }, []);
 
+  // Scroll to top when PDF loads
+  useEffect(() => {
+    if (!loading && !error && containerRef.current && numPages > 0) {
+      containerRef.current.scrollTop = 0;
+    }
+  }, [numPages, loading, error]);
+
   useEffect(() => {
     const handler = (e: MouseEvent) => {
       const link = (e.target as HTMLElement).closest('a');
