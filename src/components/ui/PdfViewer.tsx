@@ -646,7 +646,7 @@ const PdfViewer: React.FC<PdfViewerProps> = ({
         {/* Scroll continuo — todas las páginas */}
         <div style={{ display: (loading || error) ? 'none' : 'flex', flexDirection: 'column', alignItems: 'center', padding: '16px', gap: '12px', backgroundColor: '#f5f5f5' }}>
           <Document file={url} onLoadSuccess={onDocumentLoadSuccess} onLoadError={onDocumentLoadError} loading=""
-            options={{ useWasm: false }}>
+            options={{ wasmUrl: 'https://unpkg.com/pdfjs-dist@5.6.205/wasm/' }}>
             {Array.from({ length: numPages }, (_, i) => i + 1).map(pageNum => (
               <div key={pageNum} ref={pageNum === currentPage ? pageRef : undefined}
                 className={cn('relative shadow-2xl mb-3', annotating && activeTool !== 'select' && activeTool !== 'hand' && activeTool !== 'highlight' && 'select-none')}
