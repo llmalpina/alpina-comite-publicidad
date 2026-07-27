@@ -116,9 +116,9 @@ const PdfViewer: React.FC<PdfViewerProps> = ({
   const pageRef = useRef<HTMLDivElement>(null);
   const [numPages, setNumPages] = useState(0);
   const [currentPage, setCurrentPage] = useState(1);
-  const [scale, setScale] = useState(1.0);
+  const [scale, setScale] = useState(1.5);
   const [containerWidth, setContainerWidth] = useState(0);
-  const [fitToWidth, setFitToWidth] = useState(true);
+  const [fitToWidth, setFitToWidth] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [hoveredAnn, setHoveredAnn] = useState<string | null>(null);
@@ -586,7 +586,7 @@ const PdfViewer: React.FC<PdfViewerProps> = ({
             <ZoomOut size={14} />
           </Button>
           <span className="text-xs text-slate-600 dark:text-slate-400 w-10 text-center">
-            {Math.round((fitToWidth && containerWidth > 0 ? containerWidth / 595 : scale) * 100)}%
+            {Math.round(scale * 100)}%
           </span>
           <Button variant="ghost" size="icon" className="h-7 w-7"
             onClick={() => { setFitToWidth(false); setScale(s => Math.min(3.0, +(s + 0.15).toFixed(2))); }}>
@@ -643,8 +643,7 @@ const PdfViewer: React.FC<PdfViewerProps> = ({
                 style={annotating && activeTool === 'highlight' ? { ['--highlight-active' as any]: '1' } : undefined}
               >
                 <Page pageNumber={pageNum}
-                  scale={fitToWidth && containerWidth > 0 ? undefined : scale}
-                  width={fitToWidth && containerWidth > 0 ? containerWidth : undefined}
+                  scale={scale}
                   renderTextLayer renderAnnotationLayer className="bg-white" />
 
                 {/* Annotations for this page */}
