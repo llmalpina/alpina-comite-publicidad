@@ -9,6 +9,16 @@ import type { AnnotationTool } from '../../types';
 
 pdfjs.GlobalWorkerOptions.workerSrc = import.meta.env.BASE_URL + 'pdf.worker.min.mjs';
 
+// Configure PDF.js to render all content properly
+pdfjs.GlobalWorkerOptions.workerSrc = import.meta.env.BASE_URL + 'pdf.worker.min.mjs';
+if ((pdfjs as any).GlobalWorkerOptions && (pdfjs as any).GlobalWorkerOptions.workerPort === undefined) {
+  // Improve rendering of PDFs with images and colors
+  (pdfjs as any).rendering = { 
+    colorSpace: 'DeviceRGB',
+    renderInteractiveForms: false 
+  };
+}
+
 export interface PdfAnnotationOverlay {
   id: string;
   page: number;
@@ -644,7 +654,7 @@ const PdfViewer: React.FC<PdfViewerProps> = ({
         )}
 
         {/* Scroll continuo — todas las páginas */}
-        <div style={{ display: (loading || error) ? 'none' : 'flex', flexDirection: 'column', alignItems: 'center', padding: '16px', gap: '12px' }}>
+        <div style={{ display: (loading || error) ? 'none' : 'flex', flexDirection: 'column', alignItems: 'center', padding: '16px', gap: '12px', backgroundColor: '#f5f5f5' }}>
           <Document file={url} onLoadSuccess={onDocumentLoadSuccess} onLoadError={onDocumentLoadError} loading="">
             {Array.from({ length: numPages }, (_, i) => i + 1).map(pageNum => (
               <div key={pageNum} ref={pageNum === currentPage ? pageRef : undefined}
@@ -657,7 +667,10 @@ const PdfViewer: React.FC<PdfViewerProps> = ({
                 <Page pageNumber={pageNum}
                   scale={!fitToWidth ? scale : undefined}
                   width={fitToWidth ? Math.max(containerWidth, 800) : undefined}
-                  renderTextLayer renderAnnotationLayer className="bg-white" />
+                  renderTextLayer renderAnnotationLayer className="bg-white"
+                  canvasBackground="white"
+                  error={() => <div className="bg-white p-4 text-red-500 text-xs">Error renderizando página</div>}
+                />
 
                 {/* Annotations for this page */}
                 {annotations.filter(a => a.page === pageNum && !a.resolved).map(ann => renderAnnotationShape(ann))}
