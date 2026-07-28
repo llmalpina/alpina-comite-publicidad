@@ -1,7 +1,7 @@
 import React from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useTheme } from '../../contexts/ThemeContext';
-import { ROLE_LABELS } from '../../lib/constants';
+import { ROLE_LABELS, getAssetPath } from '../../lib/constants';
 
 interface HeaderProps {
   onMenuToggle: () => void;
@@ -26,7 +26,7 @@ const Header: React.FC<HeaderProps> = ({ onMenuToggle }) => {
           <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" /></svg>
         </button>
         <button onClick={() => window.location.href = '/dashboard'} className="flex items-center gap-3 hover:opacity-80 transition-opacity" aria-label="Ir al inicio">
-          <img src="/assets/logo-alpina.png" alt="" className="h-8" />
+          <img src={getAssetPath('logo-alpina.png')} alt="" className="h-8" />
           <span className="hidden sm:block font-bold text-white text-sm">Comité Autorregulación Publicitaria</span>
         </button>
       </div>

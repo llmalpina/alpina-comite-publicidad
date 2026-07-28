@@ -1,6 +1,7 @@
 import React from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
+import { getAssetPath } from '../../lib/constants';
 import { LayoutDashboard, FileText, CheckSquare, Settings, BarChart3, Users, PlusCircle, SlidersHorizontal } from 'lucide-react';
 import { cn } from '../../lib/utils';
 
@@ -47,7 +48,7 @@ const Sidebar: React.FC<SidebarProps> = ({ collapsed, onToggle, mobileOpen, onMo
     )}>
       <div className="flex items-center gap-3 px-3 py-4 border-b h-16 shrink-0 border-brand-50 dark:border-slate-700">
         <button onClick={() => navigate('/dashboard')} className="shrink-0 rounded-xl overflow-hidden h-10 w-10 flex items-center justify-center">
-          <img src="/assets/Logo_azul_oscuro_alpina.png" alt="Alpina" className="w-9 h-9 object-contain" />
+          <img src={getAssetPath('Logo_azul_oscuro_alpina.png')} alt="Alpina" className="w-9 h-9 object-contain" />
         </button>
         {showExpanded && (
           <div className="flex-1 min-w-0">

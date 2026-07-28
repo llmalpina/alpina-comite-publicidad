@@ -1,5 +1,15 @@
 import { ContentType, RequestStatus, UserRole } from '../types';
 
+// Resolver dinámico para paths de assets que funciona tanto en:
+// - main.d11moxp2o71g19.amplifyapp.com/comite-publicidad/
+// - datahub-alpina.com/comite-publicidad/
+export const getAssetPath = (assetName: string): string => {
+  const basePath = (import.meta as any).env?.BASE_URL || '/';
+  // Normalizar path removiendo trailing slash y agregando asset name
+  const normalizedBase = basePath.endsWith('/') ? basePath : `${basePath}/`;
+  return `${normalizedBase}assets/${assetName}`;
+};
+
 export const BRANDS = ['Alpina', 'Bon Yurt', 'Alpin', 'Finesse', 'Yox', 'Avena Alpina', 'Arequipe Alpina', 'Baby Gü', 'Regeneris'];
 
 export const CONTENT_TYPES: { label: string; value: ContentType }[] = [

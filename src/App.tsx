@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
+import { getAssetPath } from './lib/constants';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { NotificationProvider } from './contexts/NotificationContext';
 import { ThemeProvider } from './contexts/ThemeContext';
@@ -29,7 +30,7 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode; roles?: string[] }> 
   if (loading) return (
     <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-900">
       <div className="flex flex-col items-center gap-3">
-        <img src="/assets/Logo_azul_oscuro_alpina.png" alt="Alpina" className="w-12 h-12 animate-pulse" />
+        <img src={getAssetPath('Logo_azul_oscuro_alpina.png')} alt="Alpina" className="w-12 h-12 animate-pulse" />
         <p className="text-sm text-slate-400">Verificando sesión...</p>
       </div>
     </div>
