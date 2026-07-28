@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { UserPlus, Search, ToggleLeft, ToggleRight, Loader2, KeyRound } from 'lucide-react';
+import React, { useState, useEffect, useMemo } from 'react';
+import { UserPlus, Search, ToggleLeft, ToggleRight, Loader2, KeyRound, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '../../../components/ui/Card';
 import { Button } from '../../../components/ui/Button';
 import { Input } from '../../../components/ui/Input';
@@ -38,6 +38,8 @@ const UsuariosPage: React.FC = () => {
   const [showForm, setShowForm] = useState(false);
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState({ name: '', email: '', role: 'SOLICITANTE' as UserRole, area: '' });
+  const [currentPage, setCurrentPage] = useState(1);
+  const ITEMS_PER_PAGE = 15;
 
   const areasActivas = config.areas.filter(a => a.activo);
 
@@ -113,6 +115,26 @@ const UsuariosPage: React.FC = () => {
     u.email?.toLowerCase().includes(search.toLowerCase()) ||
     u.area?.toLowerCase().includes(search.toLowerCase())
   );
+
+  // Paginación
+  const totalPages = Math.ceil(filtered.length / ITEMS_PER_PAGE);
+  const paginatedUsers = useMemo(() => {
+    const start = (currentPage - 1) * ITEMS_PER_PAGE;
+    return filtered.slice(start, start + ITEMS_PER_PAGE);
+  }, [filtered, currentPage]);
+
+  // Reset page cuando cambia búsqueda
+  useEffect(() => { setCurrentPage(1); }, [search]);
+
+  const getPageNumbers = () => {
+    const pages: number[] = [];
+    const maxButtons = 7;
+    let start = Math.max(1, currentPage - Math.floor(maxButtons / 2));
+    let end = Math.min(totalPages, start + maxButtons - 1);
+    if (end - start + 1 < maxButtons) start = Math.max(1, end - maxButtons + 1);
+    for (let i = start; i <= end; i++) pages.push(i);
+    return pages;
+  };
 
   return (
     <div className="space-y-6 max-w-5xl">
@@ -195,7 +217,7 @@ const UsuariosPage: React.FC = () => {
                   </tr>
                 </thead>
                 <tbody className="divide-y">
-                  {filtered.map(u => (
+                  {paginatedUsers.map(u => (
                     <tr key={u.id} className={cn('hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors', !u.activo && 'opacity-50')}>
                       <td className="p-4">
                         <div className="flex items-center gap-3">
@@ -246,7 +268,7 @@ const UsuariosPage: React.FC = () => {
                       </td>
                     </tr>
                   ))}
-                  {filtered.length === 0 && (
+                  {paginatedUsers.length === 0 && (
                     <tr><td colSpan={5} className="text-center py-16 text-slate-400 text-sm">No se encontraron usuarios.</td></tr>
                   )}
                 </tbody>
@@ -255,6 +277,61 @@ const UsuariosPage: React.FC = () => {
           )}
         </CardContent>
       </Card>
+
+      {/* Paginación */}
+      {!loading && totalPages > 1 && (
+        <div className="flex items-center justify-between">
+          <p className="text-sm text-slate-500 dark:text-slate-400">
+            Mostrando {((currentPage - 1) * ITEMS_PER_PAGE) + 1}-{Math.min(currentPage * ITEMS_PER_PAGE, filtered.length)} de {filtered.length} usuarios
+          </p>
+          <div className="flex items-center gap-1">
+            <button
+              onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+              disabled={currentPage === 1}
+              className="p-2 rounded hover:bg-slate-100 dark:hover:bg-slate-700 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+            >
+              <ChevronLeft size={16} />
+            </button>
+
+            {getPageNumbers()[0] > 1 && (
+              <>
+                <button onClick={() => setCurrentPage(1)} className="w-8 h-8 rounded text-sm hover:bg-slate-100 dark:hover:bg-slate-700">1</button>
+                {getPageNumbers()[0] > 2 && <span className="text-slate-400 px-1">...</span>}
+              </>
+            )}
+
+            {getPageNumbers().map(page => (
+              <button
+                key={page}
+                onClick={() => setCurrentPage(page)}
+                className={cn(
+                  'w-8 h-8 rounded text-sm font-medium transition-colors',
+                  page === currentPage
+                    ? 'bg-[#1e3a5f] text-white'
+                    : 'hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300'
+                )}
+              >
+                {page}
+              </button>
+            ))}
+
+            {getPageNumbers()[getPageNumbers().length - 1] < totalPages && (
+              <>
+                {getPageNumbers()[getPageNumbers().length - 1] < totalPages - 1 && <span className="text-slate-400 px-1">...</span>}
+                <button onClick={() => setCurrentPage(totalPages)} className="w-8 h-8 rounded text-sm hover:bg-slate-100 dark:hover:bg-slate-700">{totalPages}</button>
+              </>
+            )}
+
+            <button
+              onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+              disabled={currentPage === totalPages}
+              className="p-2 rounded hover:bg-slate-100 dark:hover:bg-slate-700 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+            >
+              <ChevronRight size={16} />
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
