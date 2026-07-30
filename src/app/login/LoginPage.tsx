@@ -78,7 +78,7 @@ const LoginPage: React.FC = () => {
           <div className="absolute bottom-10 right-10 w-48 h-48 bg-brand-300 rounded-full blur-3xl" />
         </div>
         <div className="relative z-10 flex flex-col items-center text-center">
-          <img src={getAssetPath('APPrueba-logo.png')} alt="Alpina" className="w-32 md:w-44 mb-8 drop-shadow-lg" />
+          <img src={getAssetPath('APPrueba-logo.png')} alt="Alpina" className="w-52 md:w-72 mb-8 drop-shadow-lg" />
           <p className="text-brand-200 text-sm max-w-xs"> Plataforma de gestión y autorregulación de piezas publicitarias!</p>
         </div>
       </div>
