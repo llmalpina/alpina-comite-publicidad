@@ -109,7 +109,7 @@ export function useManualConfig() {
     });
 
     if (!presignRes.ok) throw new Error('Error al obtener URL de subida');
-    const { url } = await presignRes.json();
+    const { url, key: confirmedKey } = await presignRes.json();
 
     // 2. Subir archivo a S3
     const uploadRes = await fetch(url, {
@@ -120,8 +120,8 @@ export function useManualConfig() {
 
     if (!uploadRes.ok) throw new Error('Error al subir PDF a S3');
 
-    // 3. Guardar referencia en config
-    await saveManualConfig({ pdfS3Key: s3Key, pdfFileName: file.name });
+    // 3. Guardar referencia en config (usar la key confirmada por la lambda)
+    await saveManualConfig({ pdfS3Key: confirmedKey || s3Key, pdfFileName: file.name });
   };
 
   return {
