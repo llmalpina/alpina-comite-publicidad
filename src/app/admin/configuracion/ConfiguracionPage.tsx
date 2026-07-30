@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Plus, Trash2, Save, Mail, Shield, Check, X, Bell, ChevronDown, ChevronUp } from 'lucide-react';
+import { Plus, Trash2, Save, Mail, Shield, Check, X, Bell, ChevronDown, ChevronUp, BookOpen } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '../../../components/ui/Card';
 import { Button } from '../../../components/ui/Button';
 import { Input } from '../../../components/ui/Input';
@@ -7,6 +7,7 @@ import { Badge } from '../../../components/ui/Badge';
 import { useConfig, PermissionKey, NotificationRule, NotificationEvent } from '../../../contexts/ConfigContext';
 import { useNotifications } from '../../../contexts/NotificationContext';
 import { cn } from '../../../lib/utils';
+import TabManual from './TabManual';
 
 const PERMISSION_LABELS: Record<PermissionKey, string> = {
   crear_solicitud:          'Crear solicitudes',
@@ -722,7 +723,7 @@ const TabHorario: React.FC = () => {
 // ─── Página principal ─────────────────────────────────────────────────────────
 
 const ConfiguracionPage: React.FC = () => {
-  const [tab, setTab] = useState<'roles' | 'correos' | 'horario'>('roles');
+  const [tab, setTab] = useState<'roles' | 'correos' | 'horario' | 'manual'>('roles');
 
   return (
     <div className="space-y-6 max-w-5xl">
@@ -736,6 +737,7 @@ const ConfiguracionPage: React.FC = () => {
           { key: 'roles', label: 'Roles y Permisos', icon: Shield },
           { key: 'correos', label: 'Correos', icon: Mail },
           { key: 'horario', label: 'Horario', icon: Bell },
+          { key: 'manual', label: 'Manual / Ayuda', icon: BookOpen },
         ] as const).map(t => (
           <button
             key={t.key}
@@ -747,7 +749,7 @@ const ConfiguracionPage: React.FC = () => {
         ))}
       </div>
 
-      {tab === 'roles' ? <TabRoles /> : tab === 'correos' ? <TabCorreos /> : <TabHorario />}
+      {tab === 'roles' ? <TabRoles /> : tab === 'correos' ? <TabCorreos /> : tab === 'manual' ? <TabManual /> : <TabHorario />}
     </div>
   );
 };

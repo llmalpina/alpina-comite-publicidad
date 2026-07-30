@@ -19,6 +19,7 @@ import ReportsPage from './app/admin/reportes/ReportsPage';
 import MaestrosPage from './app/admin/maestros/MaestrosPage';
 import UsuariosPage from './app/admin/usuarios/UsuariosPage';
 import ConfiguracionPage from './app/admin/configuracion/ConfiguracionPage';
+import ManualPage from './app/manual/ManualPage';
 import { BrowserRouter } from 'react-router-dom';
 
 const ProtectedRoute: React.FC<{ children: React.ReactNode; roles?: string[] }> = ({ children, roles }) => {
@@ -66,6 +67,7 @@ const AppRoutes: React.FC = () => (
     <Route path="/admin/maestros" element={<ProtectedRoute roles={['ADMIN']}><MaestrosPage /></ProtectedRoute>} />
     <Route path="/admin/usuarios" element={<ProtectedRoute roles={['ADMIN']}><UsuariosPage /></ProtectedRoute>} />
     <Route path="/admin/configuracion" element={<ProtectedRoute roles={['ADMIN']}><ConfiguracionPage /></ProtectedRoute>} />
+    <Route path="/manual" element={<ProtectedRoute><ManualPage /></ProtectedRoute>} />
     <Route path="/" element={<Navigate to="/dashboard" replace />} />
   </Routes>
 );

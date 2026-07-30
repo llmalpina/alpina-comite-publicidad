@@ -2,7 +2,7 @@ import React from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { getAssetPath } from '../../lib/constants';
-import { LayoutDashboard, FileText, CheckSquare, Settings, BarChart3, Users, PlusCircle, SlidersHorizontal } from 'lucide-react';
+import { LayoutDashboard, FileText, CheckSquare, Settings, BarChart3, Users, PlusCircle, SlidersHorizontal, BookOpen } from 'lucide-react';
 import { cn } from '../../lib/utils';
 
 interface SidebarProps {
@@ -28,6 +28,9 @@ const NAV_GROUPS = [
     { label: 'Maestros', icon: SlidersHorizontal, path: '/admin/maestros', roles: ['ADMIN'] },
     { label: 'Usuarios', icon: Users, path: '/admin/usuarios', roles: ['ADMIN'] },
     { label: 'Configuración', icon: Settings, path: '/admin/configuracion', roles: ['ADMIN'] },
+  ]},
+  { label: 'Ayuda', items: [
+    { label: 'Manual de Uso', icon: BookOpen, path: '/manual', roles: ['SOLICITANTE','REVISOR_ARA','REVISOR_LEGAL','ADMIN'] },
   ]},
 ];
 
