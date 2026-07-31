@@ -9,10 +9,6 @@ const DEV_USERS: Record<UserRole, User> = {
   ADMIN:         { id: 'dev-u4', name: 'Marta Lucía Casas',email: 'marta.casas@alpina.com',      role: 'ADMIN',         area: 'Coordinación Comité' },
 };
 
-const COGNITO_DOMAIN = import.meta.env.VITE_COGNITO_DOMAIN as string;
-const CLIENT_ID = import.meta.env.VITE_COGNITO_CLIENT_ID as string;
-const USER_POOL_ID = import.meta.env.VITE_COGNITO_USER_POOL_ID as string;
-const REGION = import.meta.env.VITE_AWS_REGION || 'us-east-1';
 const API_URL = import.meta.env.VITE_API_URL as string;
 
 interface AuthContextType {
@@ -37,20 +33,13 @@ function decodeJwt(token: string): Record<string, any> {
   }
 }
 
-/** Llama al endpoint de Cognito USER_PASSWORD_AUTH */
+/** Llama al endpoint /auth del API Gateway en lugar de Cognito directamente (CORS safe) */
 async function cognitoAuth(email: string, password: string) {
-  const url = `https://cognito-idp.${REGION}.amazonaws.com/`;
+  const url = `${API_URL}/auth`;
   const res = await fetch(url, {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/x-amz-json-1.1',
-      'X-Amz-Target': 'AWSCognitoIdentityProviderService.InitiateAuth',
-    },
-    body: JSON.stringify({
-      AuthFlow: 'USER_PASSWORD_AUTH',
-      ClientId: CLIENT_ID,
-      AuthParameters: { USERNAME: email, PASSWORD: password },
-    }),
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email, password, action: 'login' }),
   });
   if (!res.ok) {
     const err = await res.json();
@@ -59,20 +48,28 @@ async function cognitoAuth(email: string, password: string) {
   return res.json();
 }
 
-/** Refresca el token usando el refresh token */
-async function cognitoRefresh(refreshToken: string) {
-  const url = `https://cognito-idp.${REGION}.amazonaws.com/`;
+/** Completa el challenge NEW_PASSWORD_REQUIRED a través del API Gateway */
+async function cognitoCompleteNewPassword(email: string, newPassword: string, session: string) {
+  const url = `${API_URL}/auth`;
   const res = await fetch(url, {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/x-amz-json-1.1',
-      'X-Amz-Target': 'AWSCognitoIdentityProviderService.InitiateAuth',
-    },
-    body: JSON.stringify({
-      AuthFlow: 'REFRESH_TOKEN_AUTH',
-      ClientId: CLIENT_ID,
-      AuthParameters: { REFRESH_TOKEN: refreshToken },
-    }),
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email, newPassword, session, action: 'complete-new-password' }),
+  });
+  if (!res.ok) {
+    const err = await res.json();
+    throw new Error(err.message || 'Error al cambiar contraseña');
+  }
+  return res.json();
+}
+
+/** Refresca el token usando el refresh token a través del API Gateway */
+async function cognitoRefresh(refreshToken: string) {
+  const url = `${API_URL}/auth`;
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ refreshToken, action: 'refresh' }),
   });
   if (!res.ok) throw new Error('Sesión expirada');
   return res.json();
@@ -192,30 +189,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   /** Completa el challenge NEW_PASSWORD_REQUIRED */
   const completeNewPassword = async (email: string, newPassword: string, session: string) => {
-    const url = `https://cognito-idp.${REGION}.amazonaws.com/`;
-    const res = await fetch(url, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/x-amz-json-1.1',
-        'X-Amz-Target': 'AWSCognitoIdentityProviderService.RespondToAuthChallenge',
-      },
-      body: JSON.stringify({
-        ChallengeName: 'NEW_PASSWORD_REQUIRED',
-        ClientId: CLIENT_ID,
-        ChallengeResponses: { USERNAME: email, NEW_PASSWORD: newPassword },
-        Session: session,
-      }),
-    });
-    if (!res.ok) {
-      const err = await res.json();
-      throw new Error(err.message || 'Error al cambiar contraseña');
-    }
-    const data = await res.json();
+    const data = await cognitoCompleteNewPassword(email, newPassword, session);
     const { IdToken, AccessToken, RefreshToken } = data.AuthenticationResult;
     localStorage.setItem('alpina_id_token', IdToken);
     localStorage.setItem('alpina_access_token', AccessToken);
     localStorage.setItem('alpina_refresh_token', RefreshToken);
-    // Después del cambio de contraseña el token puede no traer custom:role — enriquecemos desde DB
     const baseUser = buildUserFromToken(IdToken);
     const enriched = await enrichUserFromDB(baseUser);
     setUser(enriched);
