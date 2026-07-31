@@ -108,6 +108,10 @@ export const usuariosApi = {
     apiFetch<any>(`/usuarios/${id}/disable`, { method: 'PATCH' }),
   resetPassword: (id: string) =>
     apiFetch<{ message: string }>(`/usuarios/${id}/reset-password`, { method: 'PATCH' }),
+  update: (id: string, data: { name?: string; email?: string; role?: string; area?: string }) =>
+    apiFetch<any>(`/usuarios/${id}/editar`, { method: 'PATCH', body: JSON.stringify(data) }),
+  remove: (id: string) =>
+    apiFetch<{ message: string }>(`/usuarios/${id}`, { method: 'DELETE' }),
 };
 
 // ─── S3 Presigned URL ────────────────────────────────────────────────────────

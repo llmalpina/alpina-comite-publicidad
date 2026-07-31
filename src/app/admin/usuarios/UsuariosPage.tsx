@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { UserPlus, Search, ToggleLeft, ToggleRight, Loader2, KeyRound, ChevronLeft, ChevronRight } from 'lucide-react';
+import { UserPlus, Search, ToggleLeft, ToggleRight, Loader2, KeyRound, ChevronLeft, ChevronRight, Pencil, Trash2, X } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '../../../components/ui/Card';
 import { Button } from '../../../components/ui/Button';
 import { Input } from '../../../components/ui/Input';
@@ -39,6 +39,10 @@ const UsuariosPage: React.FC = () => {
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState({ name: '', email: '', role: 'SOLICITANTE' as UserRole, area: '' });
   const [currentPage, setCurrentPage] = useState(1);
+  const [editingUser, setEditingUser] = useState<UserRow | null>(null);
+  const [editForm, setEditForm] = useState({ name: '', email: '' });
+  const [editSaving, setEditSaving] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
   const ITEMS_PER_PAGE = 15;
 
   const areasActivas = config.areas.filter(a => a.activo);
@@ -98,6 +102,42 @@ const UsuariosPage: React.FC = () => {
       setUsers(prev => prev.map(u => u.id === userId ? { ...u, activo: !u.activo } : u));
       notify(target.activo ? 'Usuario desactivado' : 'Usuario activado', 'info');
     } catch (e: any) { notify(e.message, 'error'); }
+  };
+
+  const handleOpenEdit = (user: UserRow) => {
+    setEditingUser(user);
+    setEditForm({ name: user.name, email: user.email });
+  };
+
+  const handleSaveEdit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingUser) return;
+    if (!editForm.name || !editForm.email) { notify('Completa nombre y correo', 'error'); return; }
+    setEditSaving(true);
+    try {
+      const updated = await usuariosApi.update(editingUser.id, editForm);
+      setUsers(prev => prev.map(u => u.id === editingUser.id ? { ...u, ...updated } : u));
+      setEditingUser(null);
+      notify('Usuario actualizado', 'success');
+    } catch (e: any) {
+      notify(e.message, 'error');
+    } finally {
+      setEditSaving(false);
+    }
+  };
+
+  const handleDelete = async (user: UserRow) => {
+    if (!confirm(`¿Eliminar a ${user.name} (${user.email})? Esta acción no se puede deshacer.`)) return;
+    setDeletingId(user.id);
+    try {
+      await usuariosApi.remove(user.id);
+      setUsers(prev => prev.filter(u => u.id !== user.id));
+      notify('Usuario eliminado', 'success');
+    } catch (e: any) {
+      notify(e.message, 'error');
+    } finally {
+      setDeletingId(null);
+    }
   };
 
   const handleResetPassword = async (userId: string) => {
@@ -258,11 +298,17 @@ const UsuariosPage: React.FC = () => {
                       </td>
                       <td className="p-4">
                         <div className="flex items-center gap-1">
+                          <button onClick={() => handleOpenEdit(u)} className="p-1.5 rounded hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-500 transition-colors" title="Editar usuario">
+                            <Pencil size={17} className="text-blue-500" />
+                          </button>
                           <button onClick={() => handleResetPassword(u.id)} className="p-1.5 rounded hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-500 transition-colors" title="Resetear contraseña">
                             <KeyRound size={18} className="text-amber-500" />
                           </button>
                           <button onClick={() => handleToggle(u.id)} className="p-1.5 rounded hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-500 transition-colors" title={u.activo ? 'Desactivar' : 'Activar'}>
                             {u.activo ? <ToggleRight size={20} className="text-emerald-500" /> : <ToggleLeft size={20} />}
+                          </button>
+                          <button onClick={() => handleDelete(u)} disabled={deletingId === u.id} className="p-1.5 rounded hover:bg-red-50 dark:hover:bg-red-900/20 text-slate-500 transition-colors disabled:opacity-50" title="Eliminar usuario">
+                            {deletingId === u.id ? <Loader2 size={17} className="animate-spin text-red-500" /> : <Trash2 size={17} className="text-red-500" />}
                           </button>
                         </div>
                       </td>
@@ -330,6 +376,42 @@ const UsuariosPage: React.FC = () => {
               <ChevronRight size={16} />
             </button>
           </div>
+        </div>
+      )}
+
+      {/* Modal editar usuario */}
+      {editingUser && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={() => setEditingUser(null)}>
+          <Card className="w-full max-w-md" onClick={(e: React.MouseEvent) => e.stopPropagation()}>
+            <CardHeader className="pb-2 flex flex-row items-center justify-between">
+              <CardTitle className="text-sm font-bold text-slate-800 dark:text-slate-200 flex items-center gap-2">
+                <Pencil size={16} /> Editar usuario
+              </CardTitle>
+              <button onClick={() => setEditingUser(null)} className="p-1 rounded hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-400">
+                <X size={18} />
+              </button>
+            </CardHeader>
+            <CardContent>
+              <form onSubmit={handleSaveEdit} className="space-y-4">
+                <div className="space-y-1">
+                  <label className="text-xs font-semibold text-slate-600 dark:text-slate-400">Nombre completo</label>
+                  <Input value={editForm.name} onChange={e => setEditForm(f => ({ ...f, name: e.target.value }))} />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs font-semibold text-slate-600 dark:text-slate-400">Correo corporativo</label>
+                  <Input type="email" value={editForm.email} onChange={e => setEditForm(f => ({ ...f, email: e.target.value }))} />
+                  <p className="text-xs text-slate-400">Si cambias el correo, el usuario deberá iniciar sesión con el nuevo.</p>
+                </div>
+                <div className="flex gap-2 justify-end pt-2">
+                  <Button type="button" variant="outline" onClick={() => setEditingUser(null)}>Cancelar</Button>
+                  <Button type="submit" disabled={editSaving} className="gap-2">
+                    {editSaving ? <Loader2 size={16} className="animate-spin" /> : <Pencil size={16} />}
+                    Guardar cambios
+                  </Button>
+                </div>
+              </form>
+            </CardContent>
+          </Card>
         </div>
       )}
     </div>
