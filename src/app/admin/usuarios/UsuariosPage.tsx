@@ -14,10 +14,11 @@ const ROLE_LABELS: Record<UserRole, { label: string; color: string }> = {
   SOLICITANTE:   { label: 'Solicitante',        color: 'bg-blue-100 text-blue-700' },
   REVISOR_ARA:   { label: 'Revisor ARA',         color: 'bg-purple-100 text-purple-700' },
   REVISOR_LEGAL: { label: 'Revisor Legal',       color: 'bg-amber-100 text-amber-700' },
+  REVISOR_BOYDORR: { label: 'Revisor Boydorr',   color: 'bg-emerald-100 text-emerald-700' },
   ADMIN:         { label: 'Administrador',       color: 'bg-slate-200 text-slate-700' },
 };
 
-const ROLES: UserRole[] = ['SOLICITANTE', 'REVISOR_ARA', 'REVISOR_LEGAL', 'ADMIN'];
+const ROLES: UserRole[] = ['SOLICITANTE', 'REVISOR_ARA', 'REVISOR_LEGAL', 'REVISOR_BOYDORR', 'ADMIN'];
 
 interface UserRow {
   id: string;
