@@ -45,6 +45,7 @@ export const ROLE_LABELS: Record<UserRole, string> = {
   SOLICITANTE: 'Solicitante',
   REVISOR_ARA: 'Revisor ARA & Nutrición',
   REVISOR_LEGAL: 'Revisor Legal',
+  REVISOR_BOYDORR: 'Revisor Boydorr',
   ADMIN: 'Administrador',
 };
 

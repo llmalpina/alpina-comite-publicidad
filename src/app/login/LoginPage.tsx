@@ -81,7 +81,7 @@ const LoginPage: React.FC = () => {
           <img src={getAssetPath('APPrueba-logo.png')} alt="Alpina" className="w-52 md:w-72 mb-8 drop-shadow-lg" />
           <p className="text-brand-200 text-sm max-w-xs"> Plataforma de gestión y autorregulación de piezas publicitarias!</p>
         </div>
-      </div>
+      </div>t
 
       {/* Panel derecho */}
       <div className="md:w-1/2 flex items-center justify-center p-8 md:p-16 bg-white dark:bg-slate-900 md:rounded-l-[3rem]">

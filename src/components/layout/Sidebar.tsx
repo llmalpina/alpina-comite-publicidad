@@ -14,14 +14,14 @@ interface SidebarProps {
 
 const NAV_GROUPS = [
   { label: 'Principal', items: [
-    { label: 'Dashboard', icon: LayoutDashboard, path: '/dashboard', roles: ['SOLICITANTE','REVISOR_ARA','REVISOR_LEGAL','ADMIN'] },
+    { label: 'Dashboard', icon: LayoutDashboard, path: '/dashboard', roles: ['SOLICITANTE','REVISOR_ARA','REVISOR_LEGAL','REVISOR_BOYDORR','ADMIN'] },
   ]},
   { label: 'Solicitudes', items: [
     { label: 'Mis Solicitudes', icon: FileText, path: '/solicitudes', roles: ['SOLICITANTE'] },
     { label: 'Nueva Solicitud', icon: PlusCircle, path: '/solicitudes/nueva', roles: ['SOLICITANTE'] },
   ]},
   { label: 'Revisión', items: [
-    { label: 'Cola de Revisión', icon: CheckSquare, path: '/revision', roles: ['REVISOR_ARA','REVISOR_LEGAL','ADMIN'] },
+    { label: 'Cola de Revisión', icon: CheckSquare, path: '/revision', roles: ['REVISOR_ARA','REVISOR_LEGAL','REVISOR_BOYDORR','ADMIN'] },
   ]},
   { label: 'Administración', items: [
     { label: 'Reportes', icon: BarChart3, path: '/admin/reportes', roles: ['ADMIN'] },
@@ -30,7 +30,7 @@ const NAV_GROUPS = [
     { label: 'Configuración', icon: Settings, path: '/admin/configuracion', roles: ['ADMIN'] },
   ]},
   { label: 'Ayuda', items: [
-    { label: 'Manual de Uso', icon: BookOpen, path: '/manual', roles: ['SOLICITANTE','REVISOR_ARA','REVISOR_LEGAL','ADMIN'] },
+    { label: 'Manual de Uso', icon: BookOpen, path: '/manual', roles: ['SOLICITANTE','REVISOR_ARA','REVISOR_LEGAL','REVISOR_BOYDORR','ADMIN'] },
   ]},
 ];
 

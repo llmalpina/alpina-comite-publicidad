@@ -11,6 +11,7 @@ const ROLE_COLORS: Record<string, { bg: string; fg: string }> = {
   ADMIN:         { bg: '#300249', fg: '#fff' },
   REVISOR_ARA:   { bg: '#1450C9', fg: '#fff' },
   REVISOR_LEGAL: { bg: '#65C5E9', fg: '#1e293b' },
+  REVISOR_BOYDORR: { bg: '#059669', fg: '#fff' },
   SOLICITANTE:   { bg: '#99DCF1', fg: '#1e293b' },
 };
 

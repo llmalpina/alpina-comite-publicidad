@@ -1,4 +1,4 @@
-export type UserRole = 'SOLICITANTE' | 'REVISOR_ARA' | 'REVISOR_LEGAL' | 'ADMIN';
+export type UserRole = 'SOLICITANTE' | 'REVISOR_ARA' | 'REVISOR_LEGAL' | 'REVISOR_BOYDORR' | 'ADMIN';
 
 export type RequestStatus = 
   | 'BORRADOR' 

@@ -6,6 +6,7 @@ const DEV_USERS: Record<UserRole, User> = {
   SOLICITANTE:   { id: 'dev-u1', name: 'Carlos Rodríguez', email: 'carlos.rodriguez@alpina.com', role: 'SOLICITANTE', area: 'Mercadeo - Bon Yurt' },
   REVISOR_ARA:   { id: 'dev-u2', name: 'Ana María López',  email: 'ana.lopez@alpina.com',        role: 'REVISOR_ARA',   area: 'Asuntos Regulatorios' },
   REVISOR_LEGAL: { id: 'dev-u3', name: 'Juan Felipe Gómez',email: 'juan.gomez@alpina.com',       role: 'REVISOR_LEGAL', area: 'Legal' },
+  REVISOR_BOYDORR: { id: 'dev-u5', name: 'Revisor Boydorr', email: 'revisor.boydorr@alpina.com', role: 'REVISOR_BOYDORR', area: 'Nutrición' },
   ADMIN:         { id: 'dev-u4', name: 'Marta Lucía Casas',email: 'marta.casas@alpina.com',      role: 'ADMIN',         area: 'Coordinación Comité' },
 };
 

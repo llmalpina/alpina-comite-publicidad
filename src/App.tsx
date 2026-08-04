@@ -61,8 +61,8 @@ const AppRoutes: React.FC = () => (
     <Route path="/solicitudes" element={<ProtectedRoute roles={['SOLICITANTE','ADMIN']}><SolicitudesPage /></ProtectedRoute>} />
     <Route path="/solicitudes/nueva" element={<ProtectedRoute roles={['SOLICITANTE','ADMIN']}><NuevaSolicitudPage /></ProtectedRoute>} />
     <Route path="/solicitudes/:id" element={<ProtectedRoute><SolicitudDetailPage /></ProtectedRoute>} />
-    <Route path="/revision" element={<ProtectedRoute roles={['REVISOR_ARA','REVISOR_LEGAL','ADMIN']}><RevisionQueuePage /></ProtectedRoute>} />
-    <Route path="/revision/:id" element={<ProtectedRoute roles={['REVISOR_ARA','REVISOR_LEGAL','ADMIN']}><RevisionDetailPage /></ProtectedRoute>} />
+    <Route path="/revision" element={<ProtectedRoute roles={['REVISOR_ARA','REVISOR_LEGAL','REVISOR_BOYDORR','ADMIN']}><RevisionQueuePage /></ProtectedRoute>} />
+    <Route path="/revision/:id" element={<ProtectedRoute roles={['REVISOR_ARA','REVISOR_LEGAL','REVISOR_BOYDORR','ADMIN']}><RevisionDetailPage /></ProtectedRoute>} />
     <Route path="/admin/reportes" element={<ProtectedRoute roles={['ADMIN']}><ReportsPage /></ProtectedRoute>} />
     <Route path="/admin/maestros" element={<ProtectedRoute roles={['ADMIN']}><MaestrosPage /></ProtectedRoute>} />
     <Route path="/admin/usuarios" element={<ProtectedRoute roles={['ADMIN']}><UsuariosPage /></ProtectedRoute>} />
