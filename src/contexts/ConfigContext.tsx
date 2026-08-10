@@ -408,7 +408,9 @@ export const ConfigProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   };
 
   const hasPermission = (roleId: string, permission: PermissionKey) =>
-    roles.find(r => r.id === roleId)?.permissions.includes(permission) ?? false;
+    roles.find(r => r.id === roleId)?.permissions.includes(permission)
+    ?? DEFAULT_ROLES.find(r => r.id === roleId)?.permissions.includes(permission)
+    ?? false;
 
   const updateRole = (role: RoleConfig) =>
     persistRoles(roles.map(r => r.id === role.id ? role : r));

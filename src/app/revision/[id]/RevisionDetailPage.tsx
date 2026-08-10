@@ -1094,6 +1094,7 @@ const RevisionDetailPage: React.FC = () => {
                           <span className="text-xs font-bold text-yellow-800">{
                             ann.userRole === 'REVISOR_ARA' ? 'Revisor ARA & Nutrición'
                             : ann.userRole === 'REVISOR_LEGAL' ? 'Revisor Legal'
+                            : ann.userRole === 'REVISOR_BOYDORR' ? 'Revisor Boydorr'
                             : ann.area?.toLowerCase().includes('regulat') ? 'Revisor ARA & Nutrición'
                             : ann.area?.toLowerCase().includes('legal') ? 'Revisor Legal'
                             : ann.area || 'Revisor'
