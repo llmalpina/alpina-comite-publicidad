@@ -160,10 +160,10 @@ const DEFAULT_SCHEDULE: ScheduleConfig = {
 };
 
 const DEFAULT_EMAIL: EmailConfig = {
-  smtpHost:     'smtp.office365.com',
+  smtpHost:     'smtp.gmail.com',
   smtpPort:     587,
   smtpUser:     'asist.auto@alpina.com',
-  smtpPassword: 'AlpinitoOctubre2025.',
+  smtpPassword: '',
   fromName:     'Comité Publicidad Alpina',
   rules: [
     {
