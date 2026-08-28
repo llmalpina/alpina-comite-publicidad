@@ -28,7 +28,14 @@ export type PermissionKey =
   | 'gestionar_usuarios'
   | 'gestionar_roles'
   | 'configurar_correos'
-  | 'eliminar_solicitudes';
+  | 'eliminar_solicitudes'
+  // ─── Flujo de aprobación de artes por equipos (módulo independiente) ───
+  | 'artes_ver_cola'
+  | 'artes_aprobar'
+  | 'artes_subir_ajuste'
+  | 'artes_ver_repositorio'
+  | 'artes_gestionar_equipos'
+  | 'artes_admin_flujo';
 
 export interface RoleConfig {
   id: string;
@@ -128,15 +135,50 @@ export const ALL_PERMISSIONS: PermissionKey[] = [
   'revisar_solicitud', 'aprobar_rechazar', 'agregar_comentario',
   'agregar_anotacion_pdf', 'subir_version', 'subir_fuera_horario', 'enviar_informe', 'ver_reportes',
   'gestionar_maestros', 'gestionar_usuarios', 'gestionar_roles', 'configurar_correos', 'eliminar_solicitudes',
+  'artes_ver_cola', 'artes_aprobar', 'artes_subir_ajuste', 'artes_ver_repositorio',
+  'artes_gestionar_equipos', 'artes_admin_flujo',
 ];
 
+/**
+ * Permisos de artes que traen todos los roles por defecto.
+ *
+ * Solo `artes_aprobar`: el acceso a la cola y al repositorio se decide por la
+ * pertenencia al equipo (por correo), no por el rol, para que cada equipo vea
+ * únicamente lo que le corresponde. Los demás permisos (`artes_ver_cola`,
+ * `artes_ver_repositorio`, `artes_subir_ajuste`, `artes_gestionar_equipos`,
+ * `artes_admin_flujo`) se otorgan a mano cuando se necesita dar acceso a un rol
+ * completo sin listarlo en un equipo.
+ */
+export const ARTES_PERMISSIONS: PermissionKey[] = ['artes_aprobar'];
+
 const DEFAULT_ROLES: RoleConfig[] = [
-  { id: 'SOLICITANTE',   name: 'SOLICITANTE',   label: 'Solicitante',   color: 'bg-blue-100 text-blue-700',   editable: false, permissions: ['crear_solicitud', 'ver_solicitudes_propias', 'agregar_comentario', 'subir_version', 'agregar_anotacion_pdf'] },
-  { id: 'REVISOR_ARA',   name: 'REVISOR_ARA',   label: 'Revisor ARA',   color: 'bg-purple-100 text-purple-700', editable: false, permissions: ['ver_todas_solicitudes', 'revisar_solicitud', 'aprobar_rechazar', 'agregar_comentario', 'agregar_anotacion_pdf'] },
-  { id: 'REVISOR_LEGAL', name: 'REVISOR_LEGAL', label: 'Revisor Legal', color: 'bg-amber-100 text-amber-700',  editable: false, permissions: ['ver_todas_solicitudes', 'revisar_solicitud', 'aprobar_rechazar', 'agregar_comentario', 'agregar_anotacion_pdf'] },
-  { id: 'REVISOR_BOYDORR', name: 'REVISOR_BOYDORR', label: 'Revisor Boydorr', color: 'bg-emerald-100 text-emerald-700', editable: false, permissions: ['ver_todas_solicitudes', 'revisar_solicitud', 'aprobar_rechazar', 'agregar_comentario', 'agregar_anotacion_pdf'] },
+  { id: 'SOLICITANTE',   name: 'SOLICITANTE',   label: 'Solicitante',   color: 'bg-blue-100 text-blue-700',   editable: false, permissions: ['crear_solicitud', 'ver_solicitudes_propias', 'agregar_comentario', 'subir_version', 'agregar_anotacion_pdf', ...ARTES_PERMISSIONS] },
+  { id: 'REVISOR_ARA',   name: 'REVISOR_ARA',   label: 'Revisor ARA',   color: 'bg-purple-100 text-purple-700', editable: false, permissions: ['ver_todas_solicitudes', 'revisar_solicitud', 'aprobar_rechazar', 'agregar_comentario', 'agregar_anotacion_pdf', ...ARTES_PERMISSIONS] },
+  { id: 'REVISOR_LEGAL', name: 'REVISOR_LEGAL', label: 'Revisor Legal', color: 'bg-amber-100 text-amber-700',  editable: false, permissions: ['ver_todas_solicitudes', 'revisar_solicitud', 'aprobar_rechazar', 'agregar_comentario', 'agregar_anotacion_pdf', ...ARTES_PERMISSIONS] },
+  { id: 'REVISOR_BOYDORR', name: 'REVISOR_BOYDORR', label: 'Revisor Boydorr', color: 'bg-emerald-100 text-emerald-700', editable: false, permissions: ['ver_todas_solicitudes', 'revisar_solicitud', 'aprobar_rechazar', 'agregar_comentario', 'agregar_anotacion_pdf', ...ARTES_PERMISSIONS] },
   { id: 'ADMIN',         name: 'ADMIN',         label: 'Administrador', color: 'bg-slate-200 text-slate-700',  editable: false, permissions: ALL_PERMISSIONS },
 ];
+
+/**
+ * Une los permisos guardados en DynamoDB con los defaults de cada rol del
+ * sistema. Necesario cuando se agregan permisos nuevos al código: sin esto, los
+ * roles ya persistidos se quedarían sin las claves nuevas hasta editarlos a mano.
+ * Los roles creados por el usuario (editable) se respetan tal cual.
+ */
+function mergeRolesWithDefaults(stored: RoleConfig[]): RoleConfig[] {
+  if (!Array.isArray(stored) || stored.length === 0) return DEFAULT_ROLES;
+  const merged = stored.map(role => {
+    const base = DEFAULT_ROLES.find(r => r.id === role.id);
+    if (!base || role.editable) return role;
+    const faltantes = base.permissions.filter(p => !role.permissions.includes(p));
+    return faltantes.length ? { ...role, permissions: [...role.permissions, ...faltantes] } : role;
+  });
+  // Agrega roles del sistema que no estuvieran persistidos
+  DEFAULT_ROLES.forEach(base => {
+    if (!merged.some(r => r.id === base.id)) merged.push(base);
+  });
+  return merged;
+}
 
 const DEFAULT_SCHEDULE: ScheduleConfig = {
   enabled: true,
@@ -341,7 +383,7 @@ export const ConfigProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           ]),
           timeout,
         ]) as [RoleConfig[], EmailConfig, ScheduleConfig];
-        setRoles(dbRoles);
+        setRoles(mergeRolesWithDefaults(dbRoles));
         setEmailConfig(dbEmail);
         setScheduleConfig(dbSchedule);
       } catch {

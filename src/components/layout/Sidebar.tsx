@@ -2,8 +2,9 @@ import React from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { getAssetPath } from '../../lib/constants';
-import { LayoutDashboard, FileText, CheckSquare, Settings, BarChart3, Users, PlusCircle, SlidersHorizontal, BookOpen } from 'lucide-react';
+import { LayoutDashboard, FileText, CheckSquare, Settings, BarChart3, Users, PlusCircle, SlidersHorizontal, BookOpen, PenTool, Archive, UsersRound } from 'lucide-react';
 import { cn } from '../../lib/utils';
+import { useArtes } from '../../contexts/ArtesContext';
 
 interface SidebarProps {
   collapsed: boolean;
@@ -37,9 +38,28 @@ const NAV_GROUPS = [
 const Sidebar: React.FC<SidebarProps> = ({ collapsed, onToggle, mobileOpen, onMobileClose }) => {
   const { user } = useAuth();
   const navigate = useNavigate();
-  const filteredGroups = NAV_GROUPS
-    .map(g => ({ ...g, items: g.items.filter(i => i.roles.includes(user?.role || '')) }))
-    .filter(g => g.items.length > 0);
+  const { canVerCola, canVerRepositorio, canGestionarEquipos, myTeams } = useArtes();
+
+  // El módulo de artes no se filtra por rol: se muestra a quien pertenece a un
+  // equipo o tiene el permiso correspondiente.
+  const artesItems = [
+    canVerCola && { label: 'Cola de artes', icon: PenTool, path: '/artes/cola' },
+    canVerRepositorio && { label: 'Artes aprobados', icon: Archive, path: '/artes/aprobados' },
+    canGestionarEquipos && { label: 'Equipos y firmas', icon: UsersRound, path: '/artes/equipos' },
+  ].filter(Boolean) as { label: string; icon: any; path: string }[];
+
+  const filteredGroups = [
+    ...NAV_GROUPS.map(g => ({ ...g, items: g.items.filter(i => i.roles.includes(user?.role || '')) })),
+    ...(artesItems.length
+      ? [{
+          label: myTeams.length > 0
+            ? `Artes · ${myTeams.map(t => t.label).join(' / ')}`
+            : 'Aprobación de artes',
+          items: artesItems,
+        }]
+      : []),
+  ].filter(g => g.items.length > 0);
+
   const showExpanded = !collapsed || mobileOpen;
 
   return (

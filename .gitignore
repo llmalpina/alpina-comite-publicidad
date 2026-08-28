@@ -6,3 +6,6 @@ coverage/
 *.log
 .env*
 !.env.example
+
+# Salida de las pruebas locales (PDF de revision de la hoja de firmas)
+scripts/out/

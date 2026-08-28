@@ -20,6 +20,11 @@ import MaestrosPage from './app/admin/maestros/MaestrosPage';
 import UsuariosPage from './app/admin/usuarios/UsuariosPage';
 import ConfiguracionPage from './app/admin/configuracion/ConfiguracionPage';
 import ManualPage from './app/manual/ManualPage';
+import { ArtesProvider, useArtes } from './contexts/ArtesContext';
+import ArtesColaPage from './app/artes/cola/ArtesColaPage';
+import ArtesAprobadosPage from './app/artes/aprobados/ArtesAprobadosPage';
+import ArtesEquiposPage from './app/artes/equipos/ArtesEquiposPage';
+import ArteDetailPage from './app/artes/[id]/ArteDetailPage';
 import { BrowserRouter } from 'react-router-dom';
 
 const ProtectedRoute: React.FC<{ children: React.ReactNode; roles?: string[] }> = ({ children, roles }) => {
@@ -54,6 +59,26 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode; roles?: string[] }> 
   );
 };
 
+/**
+ * Acceso al módulo de artes.
+ * A diferencia del comité, aquí el acceso no depende solo del rol: pertenecer a
+ * un equipo (por correo) ya habilita la cola y el repositorio.
+ */
+const ArtesRoute: React.FC<{ children: React.ReactNode; need: 'cola' | 'repositorio' | 'config' }> = ({ children, need }) => {
+  const { loading, canVerCola, canVerRepositorio, canGestionarEquipos } = useArtes();
+
+  if (loading) return (
+    <div className="flex items-center justify-center py-20 text-sm text-slate-400">Verificando acceso...</div>
+  );
+
+  const permitido = need === 'config' ? canGestionarEquipos
+    : need === 'repositorio' ? canVerRepositorio
+    : canVerCola;
+
+  if (!permitido) return <Navigate to="/dashboard" replace />;
+  return <>{children}</>;
+};
+
 const AppRoutes: React.FC = () => (
   <Routes>
     <Route path="/login" element={<LoginPage />} />
@@ -67,6 +92,11 @@ const AppRoutes: React.FC = () => (
     <Route path="/admin/maestros" element={<ProtectedRoute roles={['ADMIN']}><MaestrosPage /></ProtectedRoute>} />
     <Route path="/admin/usuarios" element={<ProtectedRoute roles={['ADMIN']}><UsuariosPage /></ProtectedRoute>} />
     <Route path="/admin/configuracion" element={<ProtectedRoute roles={['ADMIN']}><ConfiguracionPage /></ProtectedRoute>} />
+    {/* Flujo de aprobación de artes por equipos (módulo independiente) */}
+    <Route path="/artes/cola" element={<ProtectedRoute><ArtesRoute need="cola"><ArtesColaPage /></ArtesRoute></ProtectedRoute>} />
+    <Route path="/artes/aprobados" element={<ProtectedRoute><ArtesRoute need="repositorio"><ArtesAprobadosPage /></ArtesRoute></ProtectedRoute>} />
+    <Route path="/artes/equipos" element={<ProtectedRoute><ArtesRoute need="config"><ArtesEquiposPage /></ArtesRoute></ProtectedRoute>} />
+    <Route path="/artes/:id" element={<ProtectedRoute><ArtesRoute need="cola"><ArteDetailPage /></ArtesRoute></ProtectedRoute>} />
     <Route path="/manual" element={<ProtectedRoute><ManualPage /></ProtectedRoute>} />
     <Route path="/" element={<Navigate to="/dashboard" replace />} />
   </Routes>
@@ -79,9 +109,11 @@ export default function App() {
         <AuthProvider>
           <MaestrosProvider>
             <ConfigProvider>
-              <NotificationProvider>
-                <AppRoutes />
-              </NotificationProvider>
+              <ArtesProvider>
+                <NotificationProvider>
+                  <AppRoutes />
+                </NotificationProvider>
+              </ArtesProvider>
             </ConfigProvider>
           </MaestrosProvider>
         </AuthProvider>

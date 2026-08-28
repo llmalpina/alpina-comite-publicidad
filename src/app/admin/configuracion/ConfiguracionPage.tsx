@@ -27,12 +27,19 @@ const PERMISSION_LABELS: Record<PermissionKey, string> = {
   gestionar_roles:          'Gestionar roles',
   configurar_correos:       'Configurar correos',
   eliminar_solicitudes:     'Eliminar (archivar) solicitudes',
+  artes_ver_cola:           'Ver cola de aprobación de artes',
+  artes_aprobar:            'Firmar artes por su equipo',
+  artes_subir_ajuste:       'Subir ajustes del arte (Diseño)',
+  artes_ver_repositorio:    'Ver repositorio de artes aprobados',
+  artes_gestionar_equipos:  'Configurar equipos y recordatorios de artes',
+  artes_admin_flujo:        'Administrar todo el flujo de artes',
 };
 
 const PERMISSION_GROUPS = [
   { label: 'Solicitudes', keys: ['crear_solicitud', 'ver_solicitudes_propias', 'ver_todas_solicitudes', 'ver_solicitudes_otros', 'subir_version', 'subir_fuera_horario', 'eliminar_solicitudes'] as PermissionKey[] },
   { label: 'Revisión', keys: ['revisar_solicitud', 'aprobar_rechazar', 'agregar_comentario', 'agregar_anotacion_pdf', 'enviar_informe'] as PermissionKey[] },
   { label: 'Administración', keys: ['ver_reportes', 'gestionar_maestros', 'gestionar_usuarios', 'gestionar_roles', 'configurar_correos'] as PermissionKey[] },
+  { label: 'Aprobación de artes por equipos', keys: ['artes_ver_cola', 'artes_aprobar', 'artes_subir_ajuste', 'artes_ver_repositorio', 'artes_gestionar_equipos', 'artes_admin_flujo'] as PermissionKey[] },
 ];
 
 const COLOR_OPTIONS = [
