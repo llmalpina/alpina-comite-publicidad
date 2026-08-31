@@ -1,6 +1,33 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { User, UserRole } from '../types';
 
+/**
+ * Cierre de sesión por inactividad.
+ *
+ * El refresh token de Cognito dura 30 días y se guarda en localStorage, así que
+ * sin este control un usuario que abra la app una vez queda logeado durante 30
+ * días sin volver a pedir credenciales (riesgo de seguridad en equipos
+ * compartidos o si se pierde el dispositivo). Aquí se registra la última
+ * actividad real del usuario (clic, tecla, scroll, touch) y si pasa el umbral
+ * sin actividad, se cierra la sesión aunque el refresh token siga siendo válido.
+ */
+const INACTIVITY_LIMIT_MS = 30 * 60 * 1000; // 30 minutos sin actividad
+const LAST_ACTIVITY_KEY = 'alpina_last_activity';
+
+function markActivity() {
+  try { localStorage.setItem(LAST_ACTIVITY_KEY, String(Date.now())); } catch { /* localStorage no disponible */ }
+}
+
+function isSessionExpiredByInactivity(): boolean {
+  try {
+    const last = localStorage.getItem(LAST_ACTIVITY_KEY);
+    if (!last) return false; // primera carga: no hay historial de inactividad aún
+    return Date.now() - Number(last) > INACTIVITY_LIMIT_MS;
+  } catch {
+    return false;
+  }
+}
+
 // Usuarios de prueba para acceso rápido (solo dev)
 const DEV_USERS: Record<UserRole, User> = {
   SOLICITANTE:   { id: 'dev-u1', name: 'Carlos Rodríguez', email: 'carlos.rodriguez@alpina.com', role: 'SOLICITANTE', area: 'Mercadeo - Bon Yurt' },
@@ -129,6 +156,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           if (claims.exp && claims.exp > now) {
             localStorage.setItem('alpina_id_token', ssoToken);
             setUser(buildUserFromToken(ssoToken));
+            markActivity();
             // Limpia el token de la URL sin recargar
             window.history.replaceState({}, '', window.location.pathname);
             setLoading(false);
@@ -144,6 +172,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const idToken = localStorage.getItem('alpina_id_token');
       const refreshToken = localStorage.getItem('alpina_refresh_token');
       if (!idToken || !refreshToken) { setLoading(false); return; }
+
+      // Sesión inactiva por más de 30 minutos: cerrar sesión aunque el refresh
+      // token de Cognito (30 días) siga siendo técnicamente válido.
+      if (isSessionExpiredByInactivity()) {
+        localStorage.clear();
+        setLoading(false);
+        return;
+      }
+      markActivity();
 
       // Verifica si el token está expirado
       const claims = decodeJwt(idToken);
@@ -164,6 +201,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const baseUser = buildUserFromToken(newIdToken);
         const enriched = await enrichUserFromDB(baseUser);
         setUser(enriched);
+        markActivity();
       } catch {
         localStorage.clear();
       } finally {
@@ -172,6 +210,31 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
     restore();
   }, []);
+
+  // Mientras haya sesión: registra actividad real del usuario y revisa cada
+  // minuto si se superó el límite de inactividad para cerrar sesión sola.
+  useEffect(() => {
+    if (!user) return;
+    markActivity();
+
+    const events = ['mousedown', 'keydown', 'scroll', 'touchstart'];
+    const onActivity = () => markActivity();
+    events.forEach(ev => window.addEventListener(ev, onActivity, { passive: true }));
+
+    const interval = setInterval(() => {
+      if (isSessionExpiredByInactivity()) {
+        localStorage.clear();
+        setUser(null);
+        // Recarga completa al login: limpia cualquier estado en memoria de la SPA
+        window.location.href = `${(import.meta as any).env?.BASE_URL || '/'}login`;
+      }
+    }, 60 * 1000);
+
+    return () => {
+      events.forEach(ev => window.removeEventListener(ev, onActivity));
+      clearInterval(interval);
+    };
+  }, [user]);
 
   const login = async (email: string, password: string): Promise<{ challenge?: string; session?: string }> => {
     const data = await cognitoAuth(email, password);
@@ -185,6 +248,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const baseUser = buildUserFromToken(IdToken);
     const enriched = await enrichUserFromDB(baseUser);
     setUser(enriched);
+    markActivity();
     return {};
   };
 
@@ -198,6 +262,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const baseUser = buildUserFromToken(IdToken);
     const enriched = await enrichUserFromDB(baseUser);
     setUser(enriched);
+    markActivity();
   };
 
   const logout = () => {
@@ -205,6 +270,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     localStorage.removeItem('alpina_access_token');
     localStorage.removeItem('alpina_refresh_token');
     localStorage.removeItem('alpina_dev_user');
+    localStorage.removeItem(LAST_ACTIVITY_KEY);
     setUser(null);
   };
 
@@ -213,6 +279,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const devUser = DEV_USERS[role];
     localStorage.setItem('alpina_dev_user', JSON.stringify(devUser));
     setUser(devUser);
+    markActivity();
   };
 
   return (

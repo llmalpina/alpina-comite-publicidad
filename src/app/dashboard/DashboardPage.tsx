@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { FileText, CheckCircle2, XCircle, Clock, TrendingUp, ArrowRight, PlusCircle, Loader2, Filter, Calendar, MessageSquare, Layers } from 'lucide-react';
+import { FileText, CheckCircle2, XCircle, Clock, TrendingUp, ArrowRight, PlusCircle, Loader2, Filter, Calendar, MessageSquare, Layers, FileSpreadsheet } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useConfig } from '../../contexts/ConfigContext';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/Card';
@@ -10,6 +10,7 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContaine
 import { Link } from 'react-router-dom';
 import { useSolicitudes } from '../../hooks/useSolicitudes';
 import { formatDate, cn } from '../../lib/utils';
+import ExportExcelModal from '../../components/dashboard/ExportExcelModal';
 
 type DateRange = 'semana' | 'mes' | 'trimestre' | 'anio' | 'todo';
 
@@ -45,6 +46,8 @@ const DashboardPage: React.FC = () => {
   const scheduleCheck = canSubmitNow(user?.role || 'SOLICITANTE');
   const [dateRange, setDateRange] = useState<DateRange>('mes');
   const [brandFilter, setBrandFilter] = useState<string>('');
+  const [showExportModal, setShowExportModal] = useState(false);
+  const canExport = hasPermission(user?.role || '', 'ver_reportes');
 
   // Marcas únicas de las solicitudes
   const allBrands = useMemo(() => [...new Set(solicitudes.map(s => s.brand).filter(Boolean))].sort(), [solicitudes]);
@@ -154,17 +157,28 @@ const DashboardPage: React.FC = () => {
           <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Dashboard</h1>
           <p className="text-slate-500 dark:text-slate-400 text-sm">Hola {user?.name} — resumen de actividad del comité</p>
         </div>
-        {hasPermission(user?.role || '', 'crear_solicitud') && (
-          scheduleCheck.allowed ? (
-            <Link to="/solicitudes/nueva"><Button className="gap-2"><PlusCircle size={18} />Nueva Solicitud</Button></Link>
-          ) : (
-            <div className="flex items-center gap-2">
-              <span className="text-xs text-red-500 max-w-[200px] text-right">{scheduleCheck.message}</span>
-              <Button className="gap-2" disabled><PlusCircle size={18} />Nueva Solicitud</Button>
-            </div>
-          )
-        )}
+        <div className="flex items-center gap-2 shrink-0">
+          {canExport && (
+            <Button variant="outline" className="gap-2" onClick={() => setShowExportModal(true)}>
+              <FileSpreadsheet size={18} /> Exportar Excel
+            </Button>
+          )}
+          {hasPermission(user?.role || '', 'crear_solicitud') && (
+            scheduleCheck.allowed ? (
+              <Link to="/solicitudes/nueva"><Button className="gap-2"><PlusCircle size={18} />Nueva Solicitud</Button></Link>
+            ) : (
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-red-500 max-w-[200px] text-right">{scheduleCheck.message}</span>
+                <Button className="gap-2" disabled><PlusCircle size={18} />Nueva Solicitud</Button>
+              </div>
+            )
+          )}
+        </div>
       </div>
+
+      {canExport && showExportModal && (
+        <ExportExcelModal solicitudes={solicitudes} onClose={() => setShowExportModal(false)} />
+      )}
 
       {/* Filtros */}
       <div className="flex flex-wrap items-center gap-3">

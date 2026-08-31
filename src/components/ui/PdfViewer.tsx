@@ -204,7 +204,14 @@ const PdfViewer: React.FC<PdfViewerProps> = ({
     }
   }, [numPages, loading, error]);
 
+  // Los links que vienen renderizados DENTRO del PDF (react-pdf los pinta como
+  // <a>) deben abrir en pestaña nueva. El listener se adjunta al contenedor del
+  // visor, NO a document: si se pone en document, intercepta también los
+  // NavLink/Link de react-router de toda la app (sidebar, botón "volver", etc.)
+  // y los fuerza a abrir en pestaña nueva en vez de navegar dentro de la SPA.
   useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
     const handler = (e: MouseEvent) => {
       const link = (e.target as HTMLElement).closest('a');
       if (link?.href && !link.href.startsWith('javascript')) {
@@ -212,8 +219,8 @@ const PdfViewer: React.FC<PdfViewerProps> = ({
         window.open(link.href, '_blank', 'noopener');
       }
     };
-    document.addEventListener('click', handler, true);
-    return () => document.removeEventListener('click', handler, true);
+    el.addEventListener('click', handler, true);
+    return () => el.removeEventListener('click', handler, true);
   }, []);
 
   // Detect fullscreen changes
