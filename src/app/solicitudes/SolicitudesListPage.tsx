@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import { Link } from "react-router-dom";
 import { PlusCircle, Search, Eye, Loader2, FileText, X, ChevronUp, ChevronDown, Archive, XCircle } from "lucide-react";
 import { Button } from "../../components/ui/Button";
@@ -11,6 +11,7 @@ import { useSolicitudes } from "../../hooks/useSolicitudes";
 import { solicitudesApi, apiFetch } from "../../lib/api";
 import { useAuth } from "../../contexts/AuthContext";
 import { useConfig } from "../../contexts/ConfigContext";
+import { useMaestros } from "../../contexts/MaestrosContext";
 import { RequestStatus } from "../../types";
 
 const STATUS_FILTER_OPTIONS: { value: RequestStatus | ""; label: string }[] = [
@@ -27,10 +28,12 @@ const SolicitudesPage: React.FC = () => {
   const { solicitudes, setSolicitudes, loading, error } = useSolicitudes();
   const { user } = useAuth();
   const { hasPermission } = useConfig();
+  const { config: maestros } = useMaestros();
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<RequestStatus | "">("");
   const [solicitanteFilter, setSolicitanteFilter] = useState("");
   const [brandFilter, setBrandFilter] = useState("");
+  const [contentTypeFilter, setContentTypeFilter] = useState("");
   const [dateFilter, setDateFilter] = useState("");
   const [sortAsc, setSortAsc] = useState(false);
 
@@ -42,6 +45,22 @@ const SolicitudesPage: React.FC = () => {
   const solicitantes = [...new Set(solicitudes.map(s => s.solicitanteName).filter(Boolean))].sort();
   const brands = [...new Set(solicitudes.map(s => s.brand).filter(Boolean))].sort();
 
+  // Tipos de contenido: se toman de Maestros (dinámico) + cualquier valor que ya
+  // exista en las solicitudes, para no perder el filtro con tipos legados/desactivados.
+  const contentTypeLabelByValue = useMemo(() => {
+    const map = new Map<string, string>();
+    maestros.tiposContenido.forEach(t => map.set(t.value, t.label));
+    solicitudes.forEach(s => {
+      const ct = (s as any).contentType;
+      if (ct && !map.has(ct)) map.set(ct, ct.replace(/_/g, " "));
+    });
+    return map;
+  }, [maestros.tiposContenido, solicitudes]);
+  const contentTypeOptions = useMemo(
+    () => [...contentTypeLabelByValue.entries()].sort((a, b) => a[1].localeCompare(b[1])),
+    [contentTypeLabelByValue],
+  );
+
   const filtered = solicitudes
     .filter((s) => {
       const matchSearch =
@@ -51,12 +70,13 @@ const SolicitudesPage: React.FC = () => {
       const matchStatus = statusFilter ? s.status === statusFilter : s.status !== "PUBLICADA";
       const matchSolicitante = solicitanteFilter ? s.solicitanteName === solicitanteFilter : true;
       const matchBrand = brandFilter ? s.brand === brandFilter : true;
+      const matchContentType = contentTypeFilter ? (s as any).contentType === contentTypeFilter : true;
       const matchDate = dateFilter 
         ? new Date(s.createdAt).toISOString().split('T')[0] === dateFilter 
         : true;
       // Si es solicitante y no tiene permiso de ver otros, solo ve las propias
       const matchOwnership = canSeeOthers ? true : (s.solicitanteId === user?.id || s.solicitanteName === user?.name);
-      return matchSearch && matchStatus && matchSolicitante && matchBrand && matchDate && matchOwnership;
+      return matchSearch && matchStatus && matchSolicitante && matchBrand && matchContentType && matchDate && matchOwnership;
     })
     .sort((a, b) => {
       const da = a.createdAt || "";
@@ -119,14 +139,18 @@ const SolicitudesPage: React.FC = () => {
               <option value="">Todas las marcas</option>
               {brands.map((b) => <option key={b} value={b}>{b}</option>)}
             </select>
+            <select value={contentTypeFilter} onChange={(e) => setContentTypeFilter(e.target.value)} className="flex h-10 rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring min-w-[160px]">
+              <option value="">Todos los tipos</option>
+              {contentTypeOptions.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+            </select>
             <input 
               type="date" 
               value={dateFilter} 
               onChange={(e) => setDateFilter(e.target.value)} 
               className="flex h-10 rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring min-w-[140px]"
             />
-            {(searchTerm || statusFilter || solicitanteFilter || brandFilter || dateFilter) && (
-              <Button variant="ghost" size="sm" className="gap-1 text-slate-500" onClick={() => { setSearchTerm(""); setStatusFilter(""); setSolicitanteFilter(""); setBrandFilter(""); setDateFilter(""); }}>
+            {(searchTerm || statusFilter || solicitanteFilter || brandFilter || contentTypeFilter || dateFilter) && (
+              <Button variant="ghost" size="sm" className="gap-1 text-slate-500" onClick={() => { setSearchTerm(""); setStatusFilter(""); setSolicitanteFilter(""); setBrandFilter(""); setContentTypeFilter(""); setDateFilter(""); }}>
                 <X size={14} /> Limpiar
               </Button>
             )}
@@ -178,7 +202,7 @@ const SolicitudesPage: React.FC = () => {
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-3">
                       <div>
                         <p className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Tipo</p>
-                        <p className="text-sm text-slate-700 dark:text-slate-300">{solicitud.contentType?.replace("_", " ")}</p>
+                        <p className="text-sm text-slate-700 dark:text-slate-300">{contentTypeLabelByValue.get((solicitud as any).contentType) || solicitud.contentType}</p>
                       </div>
                       <div>
                         <p className="text-[10px] uppercase font-bold text-slate-400 tracking-wider cursor-pointer hover:text-slate-600 flex items-center gap-1" onClick={() => setSortAsc((v) => !v)}>

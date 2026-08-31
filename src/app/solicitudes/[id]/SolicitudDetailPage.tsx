@@ -10,6 +10,7 @@ import { Solicitud, Comment, DocumentVersion } from '../../../types';
 import { useAuth } from '../../../contexts/AuthContext';
 import { useNotifications } from '../../../contexts/NotificationContext';
 import { useConfig } from '../../../contexts/ConfigContext';
+import { useMaestros } from '../../../contexts/MaestrosContext';
 import { solicitudesApi } from '../../../lib/api';
 import { comentariosApi, versionesApi, anotacionesApi, uploadCommentImage, getImageUrl } from '../../../lib/api';
 import PdfViewer from '../../../components/ui/PdfViewer';
@@ -21,6 +22,7 @@ const SolicitudDetailPage: React.FC = () => {
   const { user } = useAuth();
   const { notify } = useNotifications();
   const { hasPermission } = useConfig();
+  const { config: maestros } = useMaestros();
   const navigate = useNavigate();
   const [solicitud, setSolicitud] = useState<Solicitud | null>(null);
   const [newComment, setNewComment] = useState('');
@@ -788,7 +790,7 @@ const SolicitudDetailPage: React.FC = () => {
             <CardContent className="space-y-6">
               <div className="grid grid-cols-2 md:grid-cols-3 gap-6">
                 <div><p className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">Marca / Asunto</p><p className="text-sm font-medium text-slate-800 dark:text-slate-200">{solicitud.brand} - {solicitud.product}</p></div>
-                <div><p className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">Tipo de Contenido</p><p className="text-sm font-medium text-slate-800 dark:text-slate-200">{solicitud.contentType.replace('_', ' ')}</p></div>
+                <div><p className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">Tipo de Contenido</p><p className="text-sm font-medium text-slate-800 dark:text-slate-200">{maestros.tiposContenido.find(t => t.value === solicitud.contentType)?.label || solicitud.contentType.replace(/_/g, ' ')}</p></div>
                 <div><p className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">Solicitante</p><p className="text-sm font-medium text-slate-800 dark:text-slate-200">{solicitud.solicitanteName}</p></div>
                 <div><p className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">Área</p><p className="text-sm font-medium text-slate-800 dark:text-slate-200">{solicitud.area}</p></div>
                 <div><p className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">Fecha Límite</p><p className="text-sm font-medium text-slate-800 dark:text-slate-200">{formatDate(solicitud.deadline)}</p></div>

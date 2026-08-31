@@ -1,15 +1,16 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { Search, Clock, ChevronRight, ChevronUp, ChevronDown, CheckCircle2, Loader2, Eye, RefreshCw, Archive, CheckSquare, Square } from 'lucide-react';
 import { Button } from '../../components/ui/Button';
 import { Card, CardContent } from '../../components/ui/Card';
 import { Input } from '../../components/ui/Input';
 import { Badge } from '../../components/ui/Badge';
-import { STATUS_LABELS, CONTENT_TYPES } from '../../lib/constants';
+import { STATUS_LABELS } from '../../lib/constants';
 import { formatDate, cn } from '../../lib/utils';
 import { useSolicitudes } from '../../hooks/useSolicitudes';
 import { useAuth } from '../../contexts/AuthContext';
 import { useConfig } from '../../contexts/ConfigContext';
+import { useMaestros } from '../../contexts/MaestrosContext';
 import { apiFetch } from '../../lib/api';
 
 type QueueTab = 'PENDIENTES' | 'APROBADAS' | 'RECHAZADAS' | 'CON_COMENTARIOS' | 'PUBLICADAS' | 'TODAS';
@@ -46,11 +47,29 @@ const RevisionQueuePage: React.FC = () => {
   const { solicitudes, loading, refetch } = useSolicitudes();
   const { user } = useAuth();
   const { hasPermission } = useConfig();
+  const { config: maestros } = useMaestros();
   const [search, setSearch] = useState('');
   const [sortAsc, setSortAsc] = useState(false);
   const [activeQueueTab, setActiveQueueTab] = useState<QueueTab>('PENDIENTES');
   const [solicitanteFilter, setSolicitanteFilter] = useState('');
   const [contentTypeFilter, setContentTypeFilter] = useState('');
+
+  // Mapa label por value de los tipos de contenido configurados en maestros (dinámico).
+  // Si una solicitud trae un contentType que ya no está en maestros (tipo legado o
+  // desactivado), se incluye igual para no perder el filtro ni el label.
+  const contentTypeLabelByValue = useMemo(() => {
+    const map = new Map<string, string>();
+    maestros.tiposContenido.forEach(t => map.set(t.value, t.label));
+    solicitudes.forEach(s => {
+      const ct = (s as any).contentType;
+      if (ct && !map.has(ct)) map.set(ct, ct.replace(/_/g, ' '));
+    });
+    return map;
+  }, [maestros.tiposContenido, solicitudes]);
+  const contentTypeOptions = useMemo(
+    () => [...contentTypeLabelByValue.entries()].sort((a, b) => a[1].localeCompare(b[1])),
+    [contentTypeLabelByValue],
+  );
   const [seenIds, setSeenIds] = useState<Set<string>>(new Set());
   const [checkedIds, setCheckedIds] = useState<Set<string>>(new Set());
 
@@ -219,7 +238,7 @@ const RevisionQueuePage: React.FC = () => {
         </select>
         <select value={contentTypeFilter} onChange={e => setContentTypeFilter(e.target.value)} className="flex h-10 rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring w-full sm:w-auto sm:min-w-[160px]">
           <option value="">Todos los tipos</option>
-          {CONTENT_TYPES.map(ct => <option key={ct.value} value={ct.value}>{ct.label}</option>)}
+          {contentTypeOptions.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
         </select>
       </div>
 
@@ -317,7 +336,7 @@ const RevisionQueuePage: React.FC = () => {
                     {/* Tipo de contenido */}
                     <div className="hidden lg:block min-w-0">
                       <p className="text-[10px] font-semibold text-slate-600 dark:text-slate-400 truncate">
-                        {CONTENT_TYPES.find(ct => ct.value === (s as any).contentType)?.label || (s as any).contentType || '—'}
+                        {contentTypeLabelByValue.get((s as any).contentType) || (s as any).contentType || '—'}
                       </p>
                     </div>
 

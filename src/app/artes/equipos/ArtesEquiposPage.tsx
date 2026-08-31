@@ -11,7 +11,7 @@ import { useArtes } from '../../../contexts/ArtesContext';
 import { useNotifications } from '../../../contexts/NotificationContext';
 import { artesApi } from '../../../lib/artes-api';
 import { usuariosApi } from '../../../lib/api';
-import { CONTENT_TYPES } from '../../../lib/constants';
+import { useMaestros } from '../../../contexts/MaestrosContext';
 import { cn } from '../../../lib/utils';
 import { DAY_LABELS } from '../../../types/artes';
 import type { ArtesConfig, ArteTeam } from '../../../types/artes';
@@ -221,7 +221,13 @@ const EmailList: React.FC<{ value: string[]; onChange: (v: string[]) => void; pl
 
 const ArtesEquiposPage: React.FC = () => {
   const { config, loading, saveConfig, reload, canGestionarEquipos } = useArtes();
+  const { config: maestros } = useMaestros();
   const { notify } = useNotifications();
+  // Tipos de contenido activos configurados en Maestros (dinámico, no hardcodeado)
+  const tiposContenidoDisponibles = useMemo(
+    () => maestros.tiposContenido.filter(t => t.activo).sort((a, b) => a.label.localeCompare(b.label)),
+    [maestros.tiposContenido],
+  );
   const [local, setLocal] = useState<ArtesConfig>(config);
   const [guardando, setGuardando] = useState(false);
   const [enviando, setEnviando] = useState(false);
@@ -428,8 +434,9 @@ const ArtesEquiposPage: React.FC = () => {
         <CardContent className="space-y-5">
           <div>
             <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Tipos de contenido que entran al flujo</label>
+            <p className="text-[11px] text-slate-400 mt-0.5">Se toman de Maestros &gt; Tipos de contenido. Si creas uno nuevo ahí, aparece aquí automáticamente.</p>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 mt-2">
-              {CONTENT_TYPES.map(ct => {
+              {tiposContenidoDisponibles.map(ct => {
                 const activo = local.contentTypes.includes(ct.value);
                 return (
                   <button
