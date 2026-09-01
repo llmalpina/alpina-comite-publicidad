@@ -7,24 +7,16 @@ import { Badge } from '../../../components/ui/Badge';
 import { usuariosApi } from '../../../lib/api';
 import { useNotifications } from '../../../contexts/NotificationContext';
 import { useMaestros } from '../../../contexts/MaestrosContext';
-import { UserRole } from '../../../types';
+import { useConfig } from '../../../contexts/ConfigContext';
 import { cn } from '../../../lib/utils';
 
-const ROLE_LABELS: Record<UserRole, { label: string; color: string }> = {
-  SOLICITANTE:   { label: 'Solicitante',        color: 'bg-blue-100 text-blue-700' },
-  REVISOR_ARA:   { label: 'Revisor ARA',         color: 'bg-purple-100 text-purple-700' },
-  REVISOR_LEGAL: { label: 'Revisor Legal',       color: 'bg-amber-100 text-amber-700' },
-  REVISOR_BOYDORR: { label: 'Revisor Boydorr',   color: 'bg-emerald-100 text-emerald-700' },
-  ADMIN:         { label: 'Administrador',       color: 'bg-slate-200 text-slate-700' },
-};
-
-const ROLES: UserRole[] = ['SOLICITANTE', 'REVISOR_ARA', 'REVISOR_LEGAL', 'REVISOR_BOYDORR', 'ADMIN'];
+const DEFAULT_ROLE_COLOR = 'bg-slate-100 text-slate-700';
 
 interface UserRow {
   id: string;
   name: string;
   email: string;
-  role: UserRole;
+  role: string;
   area: string;
   activo: boolean;
   createdAt: string;
@@ -33,12 +25,13 @@ interface UserRow {
 const UsuariosPage: React.FC = () => {
   const { notify } = useNotifications();
   const { config } = useMaestros();
+  const { roles } = useConfig();
   const [users, setUsers] = useState<UserRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [showForm, setShowForm] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [form, setForm] = useState({ name: '', email: '', role: 'SOLICITANTE' as UserRole, area: '' });
+  const [form, setForm] = useState({ name: '', email: '', role: 'SOLICITANTE', area: '' });
   const [currentPage, setCurrentPage] = useState(1);
   const [editingUser, setEditingUser] = useState<UserRow | null>(null);
   const [editForm, setEditForm] = useState({ name: '', email: '' });
@@ -72,7 +65,7 @@ const UsuariosPage: React.FC = () => {
     }
   };
 
-  const handleRoleChange = async (userId: string, newRole: UserRole) => {
+  const handleRoleChange = async (userId: string, newRole: string) => {
     try {
       await usuariosApi.updateRole(userId, newRole);
       setUsers(prev => prev.map(u => u.id === userId ? { ...u, role: newRole } : u));
@@ -209,8 +202,8 @@ const UsuariosPage: React.FC = () => {
               </div>
               <div className="space-y-1">
                 <label className="text-xs font-semibold text-slate-600 dark:text-slate-400">Rol</label>
-                <select className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" value={form.role} onChange={e => setForm(f => ({ ...f, role: e.target.value as UserRole }))}>
-                  {ROLES.map(r => <option key={r} value={r}>{ROLE_LABELS[r].label}</option>)}
+                <select className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" value={form.role} onChange={e => setForm(f => ({ ...f, role: e.target.value }))}>
+                  {roles.map(role => <option key={role.id} value={role.id}>{role.label}</option>)}
                 </select>
               </div>
               <div className="space-y-1">
@@ -286,10 +279,14 @@ const UsuariosPage: React.FC = () => {
                       <td className="p-4">
                         <select
                           value={u.role}
-                          onChange={e => handleRoleChange(u.id, e.target.value as UserRole)}
-                          className={cn('text-xs font-semibold px-2 py-1 rounded-full border-0 cursor-pointer focus:outline-none focus:ring-2 focus:ring-[#1e3a5f]', ROLE_LABELS[u.role]?.color)}
+                          onChange={e => handleRoleChange(u.id, e.target.value)}
+                          className={cn(
+                            'text-xs font-semibold px-2 py-1 rounded-full border-0 cursor-pointer focus:outline-none focus:ring-2 focus:ring-[#1e3a5f]',
+                            roles.find(role => role.id === u.role)?.color ?? DEFAULT_ROLE_COLOR,
+                          )}
                         >
-                          {ROLES.map(r => <option key={r} value={r}>{ROLE_LABELS[r].label}</option>)}
+                          {!roles.some(role => role.id === u.role) && <option value={u.role}>{u.role}</option>}
+                          {roles.map(role => <option key={role.id} value={role.id}>{role.label}</option>)}
                         </select>
                       </td>
                       <td className="p-4">
