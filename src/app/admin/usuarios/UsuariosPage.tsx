@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { UserPlus, Search, ToggleLeft, ToggleRight, Loader2, KeyRound, ChevronLeft, ChevronRight, Pencil, Trash2, X } from 'lucide-react';
+import { UserPlus, Search, ToggleLeft, ToggleRight, Loader2, KeyRound, ChevronLeft, ChevronRight, Pencil, Trash2, X, List, BarChart3 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '../../../components/ui/Card';
 import { Button } from '../../../components/ui/Button';
 import { Input } from '../../../components/ui/Input';
@@ -9,6 +9,7 @@ import { useNotifications } from '../../../contexts/NotificationContext';
 import { useMaestros } from '../../../contexts/MaestrosContext';
 import { useConfig } from '../../../contexts/ConfigContext';
 import { cn } from '../../../lib/utils';
+import UsoUsuariosPanel from './UsoUsuariosPanel';
 
 const DEFAULT_ROLE_COLOR = 'bg-slate-100 text-slate-700';
 
@@ -20,7 +21,11 @@ interface UserRow {
   area: string;
   activo: boolean;
   createdAt: string;
+  lastLogin?: string;
+  loginCount?: number;
 }
+
+type UsuariosTab = 'lista' | 'uso';
 
 const UsuariosPage: React.FC = () => {
   const { notify } = useNotifications();
@@ -29,6 +34,7 @@ const UsuariosPage: React.FC = () => {
   const [users, setUsers] = useState<UserRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
+  const [roleFilter, setRoleFilter] = useState('');
   const [showForm, setShowForm] = useState(false);
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState({ name: '', email: '', role: 'SOLICITANTE', area: '' });
@@ -37,6 +43,7 @@ const UsuariosPage: React.FC = () => {
   const [editForm, setEditForm] = useState({ name: '', email: '' });
   const [editSaving, setEditSaving] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<UsuariosTab>('lista');
   const ITEMS_PER_PAGE = 15;
 
   const areasActivas = config.areas.filter(a => a.activo);
@@ -144,11 +151,25 @@ const UsuariosPage: React.FC = () => {
     } catch (e: any) { notify(e.message, 'error'); }
   };
 
-  const filtered = users.filter(u =>
-    u.name?.toLowerCase().includes(search.toLowerCase()) ||
-    u.email?.toLowerCase().includes(search.toLowerCase()) ||
-    u.area?.toLowerCase().includes(search.toLowerCase())
-  );
+  const roleOptions = [
+    ...roles.map(role => ({ id: role.id, label: role.label })),
+    ...Array.from(new Set(
+      users
+        .map(user => user.role)
+        .filter(role => role && !roles.some(configuredRole => configuredRole.id === role)),
+    )).map(role => ({ id: role, label: role })),
+  ];
+
+  const normalizedSearch = search.toLowerCase();
+  const filtered = users.filter(u => {
+    const matchesSearch =
+      u.name?.toLowerCase().includes(normalizedSearch) ||
+      u.email?.toLowerCase().includes(normalizedSearch) ||
+      u.area?.toLowerCase().includes(normalizedSearch);
+    const matchesRole = !roleFilter || u.role === roleFilter;
+
+    return matchesSearch && matchesRole;
+  });
 
   // Paginación
   const totalPages = Math.ceil(filtered.length / ITEMS_PER_PAGE);
@@ -157,8 +178,8 @@ const UsuariosPage: React.FC = () => {
     return filtered.slice(start, start + ITEMS_PER_PAGE);
   }, [filtered, currentPage]);
 
-  // Reset page cuando cambia búsqueda
-  useEffect(() => { setCurrentPage(1); }, [search]);
+  // Reset page cuando cambia la búsqueda o el filtro
+  useEffect(() => { setCurrentPage(1); }, [search, roleFilter]);
 
   const getPageNumbers = () => {
     const pages: number[] = [];
@@ -171,19 +192,49 @@ const UsuariosPage: React.FC = () => {
   };
 
   return (
-    <div className="space-y-6 max-w-5xl">
+    <div className="space-y-6">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
           <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Gestión de Usuarios</h1>
-          <p className="text-slate-500 dark:text-slate-400">Administra los usuarios y sus roles en la plataforma.</p>
+          <p className="text-slate-500 dark:text-slate-400">Administra los usuarios, sus roles y el uso de la plataforma.</p>
         </div>
-        <Button onClick={() => setShowForm(v => !v)} className="gap-2">
-          <UserPlus size={18} /> Nuevo Usuario
-        </Button>
+        {activeTab === 'lista' && (
+          <Button onClick={() => setShowForm(v => !v)} className="gap-2">
+            <UserPlus size={18} /> Nuevo Usuario
+          </Button>
+        )}
       </div>
 
+      {/* Pestañas */}
+      <div className="flex gap-1 bg-slate-100 dark:bg-slate-800 rounded-lg p-0.5 w-fit">
+        <button
+          onClick={() => setActiveTab('lista')}
+          className={cn('flex items-center gap-2 px-4 py-1.5 text-xs font-semibold rounded-md transition-all',
+            activeTab === 'lista' ? 'bg-white dark:bg-slate-700 text-[#1e3a5f] shadow-sm' : 'text-slate-500 hover:text-slate-700')}
+        >
+          <List size={14} /> Lista de usuarios
+        </button>
+        <button
+          onClick={() => setActiveTab('uso')}
+          className={cn('flex items-center gap-2 px-4 py-1.5 text-xs font-semibold rounded-md transition-all',
+            activeTab === 'uso' ? 'bg-white dark:bg-slate-700 text-[#1e3a5f] shadow-sm' : 'text-slate-500 hover:text-slate-700')}
+        >
+          <BarChart3 size={14} /> Seguimiento de uso
+        </button>
+      </div>
+
+      {activeTab === 'uso' && (
+        loading ? (
+          <div className="flex items-center justify-center py-20 gap-3 text-slate-400">
+            <Loader2 size={24} className="animate-spin" /> Cargando datos de uso...
+          </div>
+        ) : (
+          <UsoUsuariosPanel users={users} />
+        )
+      )}
+
       {/* Formulario nuevo usuario */}
-      {showForm && (
+      {activeTab === 'lista' && showForm && (
         <Card className="border-blue-100 bg-blue-50/50 dark:bg-blue-900/10">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-bold text-blue-800 dark:text-blue-300 flex items-center gap-2">
@@ -225,13 +276,27 @@ const UsuariosPage: React.FC = () => {
         </Card>
       )}
 
-      {/* Buscador */}
-      <div className="relative">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
-        <Input placeholder="Buscar por nombre, correo o área..." className="pl-10" value={search} onChange={e => setSearch(e.target.value)} />
+      {/* Filtros */}
+      {activeTab === 'lista' && (
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-[minmax(0,1fr)_12rem]">
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+          <Input placeholder="Buscar por nombre, correo o área..." className="pl-10" value={search} onChange={e => setSearch(e.target.value)} />
+        </div>
+        <select
+          aria-label="Filtrar por rol"
+          className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          value={roleFilter}
+          onChange={e => setRoleFilter(e.target.value)}
+        >
+          <option value="">Todos los roles</option>
+          {roleOptions.map(role => <option key={role.id} value={role.id}>{role.label}</option>)}
+        </select>
       </div>
+      )}
 
       {/* Tabla */}
+      {activeTab === 'lista' && (
       <Card>
         <CardContent className="p-0">
           {loading ? (
@@ -321,9 +386,10 @@ const UsuariosPage: React.FC = () => {
           )}
         </CardContent>
       </Card>
+      )}
 
       {/* Paginación */}
-      {!loading && totalPages > 1 && (
+      {activeTab === 'lista' && !loading && totalPages > 1 && (
         <div className="flex items-center justify-between">
           <p className="text-sm text-slate-500 dark:text-slate-400">
             Mostrando {((currentPage - 1) * ITEMS_PER_PAGE) + 1}-{Math.min(currentPage * ITEMS_PER_PAGE, filtered.length)} de {filtered.length} usuarios
