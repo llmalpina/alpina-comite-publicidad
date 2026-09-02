@@ -241,6 +241,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (data.ChallengeName === 'NEW_PASSWORD_REQUIRED') {
       return { challenge: 'NEW_PASSWORD_REQUIRED', session: data.Session };
     }
+    // Cualquier otro challenge (MFA, etc.) no está soportado en esta pantalla.
+    if (data.ChallengeName) {
+      throw new Error('Tu cuenta requiere un paso adicional de verificación no disponible aquí. Contacta al administrador.');
+    }
+    // Si Cognito no devolvió tokens, no intentamos desestructurar (evita el error
+    // "Cannot destructure property 'IdToken'"). Damos un mensaje entendible.
+    if (!data.AuthenticationResult?.IdToken) {
+      throw new Error('No se pudo iniciar sesión. Intenta de nuevo; si persiste, contacta al administrador.');
+    }
     const { IdToken, AccessToken, RefreshToken } = data.AuthenticationResult;
     localStorage.setItem('alpina_id_token', IdToken);
     localStorage.setItem('alpina_access_token', AccessToken);
@@ -255,6 +264,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   /** Completa el challenge NEW_PASSWORD_REQUIRED */
   const completeNewPassword = async (email: string, newPassword: string, session: string) => {
     const data = await cognitoCompleteNewPassword(email, newPassword, session);
+    if (!data.AuthenticationResult?.IdToken) {
+      throw new Error('No se pudo establecer la contraseña. Solicita al administrador una nueva contraseña temporal e intenta otra vez.');
+    }
     const { IdToken, AccessToken, RefreshToken } = data.AuthenticationResult;
     localStorage.setItem('alpina_id_token', IdToken);
     localStorage.setItem('alpina_access_token', AccessToken);
