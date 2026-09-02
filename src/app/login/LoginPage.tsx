@@ -55,7 +55,12 @@ const LoginPage: React.FC = () => {
 
   const handleNewPassword = async (e: React.FormEvent) => {
     e.preventDefault();
+    // Política de contraseña de Cognito: 8+, mayúscula, minúscula, número y símbolo.
     if (newPassword.length < 8) { setError('La contraseña debe tener al menos 8 caracteres'); return; }
+    if (!/[A-Z]/.test(newPassword)) { setError('La contraseña debe incluir al menos una mayúscula'); return; }
+    if (!/[a-z]/.test(newPassword)) { setError('La contraseña debe incluir al menos una minúscula'); return; }
+    if (!/[0-9]/.test(newPassword)) { setError('La contraseña debe incluir al menos un número'); return; }
+    if (!/[^A-Za-z0-9]/.test(newPassword)) { setError('La contraseña debe incluir al menos un símbolo (ej: ! @ # $)'); return; }
     if (newPassword !== confirmPassword) { setError('Las contraseñas no coinciden'); return; }
     setLoading(true);
     setError('');
@@ -63,7 +68,20 @@ const LoginPage: React.FC = () => {
       await completeNewPassword(email.trim(), newPassword, cognitoSession);
       navigate(redirectTo);
     } catch (err: any) {
-      setError(err.message || 'Error al cambiar la contraseña');
+      const msg = (err.message || '').toLowerCase();
+      // Si la sesión del challenge ya se consumió, hay que reiniciar el login.
+      if (msg.includes('session') || msg.includes('sesión')) {
+        setNeedsNewPassword(false);
+        setCognitoSession('');
+        setNewPassword('');
+        setConfirmPassword('');
+        setPassword('');
+        setError('La sesión expiró. Vuelve a iniciar sesión con tu contraseña temporal para intentarlo de nuevo.');
+      } else if (msg.includes('policy')) {
+        setError('La contraseña no cumple la política: mínimo 8 caracteres, con mayúscula, minúscula, número y símbolo.');
+      } else {
+        setError(err.message || 'Error al cambiar la contraseña');
+      }
     } finally {
       setLoading(false);
     }
@@ -110,6 +128,7 @@ const LoginPage: React.FC = () => {
                     className="w-full border border-slate-200 dark:border-slate-700 dark:bg-slate-800 dark:text-white rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-brand focus:border-transparent transition-all"
                     autoFocus
                   />
+                  <p className="text-[11px] text-slate-400 mt-1.5">Debe tener al menos 8 caracteres e incluir mayúscula, minúscula, número y símbolo (ej: ! @ # $).</p>
                 </div>
                 <div>
                   <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1.5">Confirmar contraseña</label>
