@@ -58,9 +58,15 @@ const UsuariosPage: React.FC = () => {
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.name || !form.email || !form.role) { notify('Completa todos los campos', 'error'); return; }
+    const emailNorm = form.email.trim().toLowerCase();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailNorm)) { notify('Correo inválido', 'error'); return; }
+    if (users.some(u => u.email?.trim().toLowerCase() === emailNorm)) {
+      notify('Ya existe un usuario con ese correo', 'error');
+      return;
+    }
     setSaving(true);
     try {
-      const newUser = await usuariosApi.create(form);
+      const newUser = await usuariosApi.create({ ...form, email: emailNorm });
       setUsers(prev => [newUser, ...prev]);
       setForm({ name: '', email: '', role: 'SOLICITANTE', area: '' });
       setShowForm(false);
