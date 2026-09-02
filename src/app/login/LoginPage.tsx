@@ -69,8 +69,8 @@ const LoginPage: React.FC = () => {
       navigate(redirectTo);
     } catch (err: any) {
       const msg = (err.message || '').toLowerCase();
-      // Si la sesión del challenge ya se consumió, hay que reiniciar el login.
-      if (msg.includes('session') || msg.includes('sesión')) {
+      // Si la sesión del challenge ya se consumió/venció, hay que reiniciar el login.
+      if (msg.includes('session') || msg.includes('sesión') || msg.includes('used once') || msg.includes('not authorized') || msg.includes('no se pudo establecer')) {
         setNeedsNewPassword(false);
         setCognitoSession('');
         setNewPassword('');
@@ -149,6 +149,20 @@ const LoginPage: React.FC = () => {
                   className="w-full bg-brand text-white py-3 rounded-xl font-bold text-sm hover:bg-brand-600 transition-colors shadow-lg shadow-brand/20 disabled:opacity-60"
                 >
                   {loading ? 'Guardando...' : 'Establecer contraseña e ingresar'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setNeedsNewPassword(false);
+                    setCognitoSession('');
+                    setNewPassword('');
+                    setConfirmPassword('');
+                    setPassword('');
+                    setError('');
+                  }}
+                  className="w-full text-slate-500 dark:text-slate-400 text-xs font-medium hover:text-slate-700 dark:hover:text-slate-200 transition-colors"
+                >
+                  ← Volver al inicio de sesión
                 </button>
               </form>
             </>
