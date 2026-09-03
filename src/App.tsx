@@ -5,7 +5,7 @@ import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { NotificationProvider } from './contexts/NotificationContext';
 import { ThemeProvider } from './contexts/ThemeContext';
 import { MaestrosProvider } from './contexts/MaestrosContext';
-import { ConfigProvider } from './contexts/ConfigContext';
+import { ConfigProvider, useConfig } from './contexts/ConfigContext';
 import Sidebar from './components/layout/Sidebar';
 import Header from './components/layout/Header';
 import LoginPage from './app/login/LoginPage';
@@ -27,8 +27,9 @@ import ArtesEquiposPage from './app/artes/equipos/ArtesEquiposPage';
 import ArteDetailPage from './app/artes/[id]/ArteDetailPage';
 import { BrowserRouter } from 'react-router-dom';
 
-const ProtectedRoute: React.FC<{ children: React.ReactNode; roles?: string[] }> = ({ children, roles }) => {
+const ProtectedRoute: React.FC<{ children: React.ReactNode; roles?: string[]; permission?: string }> = ({ children, roles, permission }) => {
   const { isAuthenticated, user, loading } = useAuth();
+  const { hasPermission } = useConfig();
   const location = useLocation();
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -43,7 +44,12 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode; roles?: string[] }> 
   );
 
   if (!isAuthenticated) return <Navigate to="/login" state={{ from: location }} replace />;
-  if (roles && user && !roles.includes(user.role)) return <Navigate to="/dashboard" replace />;
+  // Acceso: por rol permitido O por permiso configurado (roles personalizados).
+  if (roles && user) {
+    const allowedByRole = roles.includes(user.role);
+    const allowedByPermission = permission ? hasPermission(user.role, permission as any) : false;
+    if (!allowedByRole && !allowedByPermission) return <Navigate to="/dashboard" replace />;
+  }
 
   return (
     <div className="flex flex-col h-screen overflow-hidden text-slate-900 dark:text-slate-100">
@@ -83,8 +89,8 @@ const AppRoutes: React.FC = () => (
   <Routes>
     <Route path="/login" element={<LoginPage />} />
     <Route path="/dashboard" element={<ProtectedRoute><DashboardPage /></ProtectedRoute>} />
-    <Route path="/solicitudes" element={<ProtectedRoute roles={['SOLICITANTE','ADMIN']}><SolicitudesPage /></ProtectedRoute>} />
-    <Route path="/solicitudes/nueva" element={<ProtectedRoute roles={['SOLICITANTE','ADMIN']}><NuevaSolicitudPage /></ProtectedRoute>} />
+    <Route path="/solicitudes" element={<ProtectedRoute roles={['SOLICITANTE','ADMIN']} permission="crear_solicitud"><SolicitudesPage /></ProtectedRoute>} />
+    <Route path="/solicitudes/nueva" element={<ProtectedRoute roles={['SOLICITANTE','ADMIN']} permission="crear_solicitud"><NuevaSolicitudPage /></ProtectedRoute>} />
     <Route path="/solicitudes/:id" element={<ProtectedRoute><SolicitudDetailPage /></ProtectedRoute>} />
     <Route path="/revision" element={<ProtectedRoute roles={['REVISOR_ARA','REVISOR_LEGAL','REVISOR_BOYDORR','ADMIN']}><RevisionQueuePage /></ProtectedRoute>} />
     <Route path="/revision/:id" element={<ProtectedRoute roles={['REVISOR_ARA','REVISOR_LEGAL','REVISOR_BOYDORR','ADMIN']}><RevisionDetailPage /></ProtectedRoute>} />

@@ -5,6 +5,7 @@ import { getAssetPath } from '../../lib/constants';
 import { LayoutDashboard, FileText, CheckSquare, Settings, BarChart3, Users, PlusCircle, SlidersHorizontal, BookOpen, PenTool, Archive, UsersRound } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { useArtes } from '../../contexts/ArtesContext';
+import { useConfig } from '../../contexts/ConfigContext';
 
 interface SidebarProps {
   collapsed: boolean;
@@ -18,11 +19,11 @@ const NAV_GROUPS = [
     { label: 'Dashboard', icon: LayoutDashboard, path: '/dashboard', roles: ['SOLICITANTE','REVISOR_ARA','REVISOR_LEGAL','REVISOR_BOYDORR','ADMIN'] },
   ]},
   { label: 'Solicitudes', items: [
-    { label: 'Mis Solicitudes', icon: FileText, path: '/solicitudes', roles: ['SOLICITANTE'] },
-    { label: 'Nueva Solicitud', icon: PlusCircle, path: '/solicitudes/nueva', roles: ['SOLICITANTE'] },
+    { label: 'Mis Solicitudes', icon: FileText, path: '/solicitudes', roles: ['SOLICITANTE'], permission: 'crear_solicitud' },
+    { label: 'Nueva Solicitud', icon: PlusCircle, path: '/solicitudes/nueva', roles: ['SOLICITANTE'], permission: 'crear_solicitud' },
   ]},
   { label: 'Revisión', items: [
-    { label: 'Cola de Revisión', icon: CheckSquare, path: '/revision', roles: ['REVISOR_ARA','REVISOR_LEGAL','REVISOR_BOYDORR','ADMIN'] },
+    { label: 'Cola de Revisión', icon: CheckSquare, path: '/revision', roles: ['REVISOR_ARA','REVISOR_LEGAL','REVISOR_BOYDORR','ADMIN'], permission: 'revisar_solicitud' },
   ]},
   { label: 'Administración', items: [
     { label: 'Reportes', icon: BarChart3, path: '/admin/reportes', roles: ['ADMIN'] },
@@ -39,6 +40,7 @@ const Sidebar: React.FC<SidebarProps> = ({ collapsed, onToggle, mobileOpen, onMo
   const { user } = useAuth();
   const navigate = useNavigate();
   const { canVerCola, canVerRepositorio, canGestionarEquipos, myTeams } = useArtes();
+  const { hasPermission } = useConfig();
 
   // El módulo de artes no se filtra por rol: se muestra a quien pertenece a un
   // equipo o tiene el permiso correspondiente.
@@ -49,7 +51,12 @@ const Sidebar: React.FC<SidebarProps> = ({ collapsed, onToggle, mobileOpen, onMo
   ].filter(Boolean) as { label: string; icon: any; path: string }[];
 
   const filteredGroups = [
-    ...NAV_GROUPS.map(g => ({ ...g, items: g.items.filter(i => i.roles.includes(user?.role || '')) })),
+    ...NAV_GROUPS.map(g => ({ ...g, items: g.items.filter(i => {
+      // Se muestra si el rol está permitido O si el rol tiene el permiso configurado.
+      const byRole = i.roles.includes(user?.role || '');
+      const byPermission = (i as any).permission ? hasPermission(user?.role || '', (i as any).permission) : false;
+      return byRole || byPermission;
+    }) })),
     ...(artesItems.length
       ? [{
           label: myTeams.length > 0
