@@ -48,6 +48,7 @@ const ArteDetailPage: React.FC = () => {
   const [exportando, setExportando] = useState(false);
   const [subiendo, setSubiendo] = useState(false);
   const [notaVersion, setNotaVersion] = useState('');
+  const [avisoVersion, setAvisoVersion] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
   const cargar = useCallback(async () => {
@@ -75,7 +76,13 @@ const ArteDetailPage: React.FC = () => {
   const myTeamIds = useMemo(() => (data?.myTeams || []).map(t => t.id), [data]);
   const esMiTurno = !!flow?.currentTeamId && myTeamIds.includes(flow.currentTeamId);
   const esDiseno = !!data?.designTeam && myTeamIds.includes(data.designTeam.id);
-  const puedeFirmar = !!flow && flow.estado === 'EN_CURSO' && (esMiTurno || isArtesAdmin) && canAprobar;
+  // El backend calcula callerCanSign considerando el integrante asignado y la
+  // config anyMemberCanSign. Un admin de flujo siempre puede. Si no viene el
+  // dato (respuesta antigua), se cae al comportamiento por turno + permiso.
+  const puedoFirmarEsteEquipo = data?.callerCanSign ?? (esMiTurno && canAprobar);
+  const puedeFirmar = !!flow && flow.estado === 'EN_CURSO' && (isArtesAdmin || (puedoFirmarEsteEquipo && canAprobar));
+  // Correo asignado al equipo del turno (para avisar a quién le toca).
+  const asignadoTurno = flow?.currentTeamId ? (flow.assignees || {})[flow.currentTeamId] : '';
   const puedeSubirVersion = !!flow && flow.estado !== 'APROBADO' && (esDiseno || isArtesAdmin) && canSubirAjuste;
 
   const decidir = async (decision: 'APROBADO' | 'RECHAZADO') => {
@@ -124,8 +131,10 @@ const ArteDetailPage: React.FC = () => {
         s3Key, fileName: file.name, fileSize: file.size, changeNote: notaVersion.trim(),
       });
       notify(`Versión v${siguiente} subida. El flujo de firmas se reinició.`, 'success');
+      setAvisoVersion(`Se subió la versión v${siguiente} y el flujo de firmas se reinició. La versión anterior queda disponible en la pestaña Versiones.`);
       setNotaVersion('');
       if (fileRef.current) fileRef.current.value = '';
+      setPanel('VERSIONES');
       await cargar();
     } catch (e: any) {
       notify(e?.message || 'No se pudo subir la versión', 'error');
@@ -226,6 +235,18 @@ const ArteDetailPage: React.FC = () => {
         </div>
       </div>
 
+      {avisoVersion && (
+        <div className="bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 rounded-lg px-4 py-3 flex items-start justify-between gap-3">
+          <div className="flex items-start gap-2">
+            <CheckCircle2 size={18} className="text-emerald-600 mt-0.5 shrink-0" />
+            <p className="text-sm text-emerald-800 dark:text-emerald-300">{avisoVersion}</p>
+          </div>
+          <button className="text-emerald-500 hover:text-emerald-700 shrink-0" onClick={() => setAvisoVersion(null)} title="Cerrar">
+            <X size={16} />
+          </button>
+        </div>
+      )}
+
       {viendoVersion !== null && (
         <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 rounded-lg px-4 py-2.5 flex items-center justify-between gap-3">
           <p className="text-sm text-amber-800 dark:text-amber-300">
@@ -304,7 +325,9 @@ const ArteDetailPage: React.FC = () => {
                     Esperando la firma de {flow.currentTeamLabel}
                   </p>
                   <p className="text-xs text-slate-500 mt-0.5">
-                    Se le notificó por correo a todos los integrantes de ese equipo.
+                    {asignadoTurno
+                      ? `Se le notificó por correo a ${asignadoTurno}, responsable asignado de este equipo.`
+                      : 'Se le notificó por correo al equipo responsable.'}
                   </p>
                 </div>
               </CardContent>
@@ -381,7 +404,7 @@ const ArteDetailPage: React.FC = () => {
           <div className="flex gap-1 p-1 bg-slate-100 dark:bg-slate-800 rounded-lg">
             {([
               { key: 'FIRMAS', label: 'Firmas', icon: Check },
-              { key: 'VERSIONES', label: `Versiones (${data.versions.length + 1})`, icon: History },
+              { key: 'VERSIONES', label: `Versiones (${Math.max(data.versions.length, 1)})`, icon: History },
               { key: 'HISTORIAL', label: 'Historial', icon: Clock },
             ] as const).map(t => (
               <button

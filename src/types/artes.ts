@@ -55,6 +55,8 @@ export interface ArtesConfig {
    *  REJECTING → retoma en el equipo que devolvió el arte
    */
   onRejectRestart: 'FIRST' | 'REJECTING';
+  /** Si true, cualquier integrante del equipo puede firmar; si false, solo el asignado. */
+  anyMemberCanSign?: boolean;
   /** Copia para todos los correos del flujo */
   ccEmails: string[];
   teams: ArteTeam[];
@@ -84,6 +86,8 @@ export interface ArteFlow {
   /** Número de ronda: sube cada vez que Diseño sube un ajuste */
   cycle: number;
   approvals: Record<string, ArteApprovalSummary>;
+  /** Integrante asignado por equipo para firmar (correo). Opcional. */
+  assignees?: Record<string, string>;
   rejectedByTeamId: string | null;
   // datos de la solicitud, desnormalizados para listar y filtrar
   consecutive: string;
@@ -164,6 +168,10 @@ export interface ArteDetailResponse {
   isAdmin: boolean;
   teams: ArteTeamRef[];
   designTeam: ArteTeam | null;
+  /** Si cualquier integrante del equipo puede firmar (config del flujo). */
+  anyMemberCanSign?: boolean;
+  /** Si el usuario actual puede firmar por el equipo del turno. */
+  callerCanSign?: boolean;
 }
 
 /** Etiquetas y colores de los estados del flujo */

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { Search, Loader2, RefreshCw, CheckCircle2, Clock, PlayCircle, Users } from 'lucide-react';
+import { Search, Loader2, RefreshCw, CheckCircle2, Clock, PlayCircle, Users, X } from 'lucide-react';
 import { Button } from '../../../components/ui/Button';
 import { Input } from '../../../components/ui/Input';
 import { Card, CardContent } from '../../../components/ui/Card';
@@ -31,6 +31,9 @@ const ArtesColaPage: React.FC = () => {
   // Piezas elegibles sin flujo (solo para el admin del flujo)
   const [pendientesInicio, setPendientesInicio] = useState<any[]>([]);
   const [iniciando, setIniciando] = useState<string | null>(null);
+  // Modal de asignación de responsables por equipo al iniciar
+  const [asignarPara, setAsignarPara] = useState<any | null>(null);
+  const [asignados, setAsignados] = useState<Record<string, string>>({});
 
   const cargar = useCallback(async () => {
     setLoading(true);
@@ -118,11 +121,26 @@ const ArtesColaPage: React.FC = () => {
     [items, tab, coincide, porTab, esMiTurno],
   );
 
-  const iniciarFlujo = async (solicitudId: string) => {
+  // Equipos que firman (activos, no diseño), en orden, para el modal de asignación
+  const equiposAsignables = useMemo(
+    () => config.teams.filter(t => t.activo && !t.isDesign).sort((a, b) => a.order - b.order),
+    [config.teams],
+  );
+
+  const abrirAsignacion = (s: any) => {
+    setAsignados({});
+    setAsignarPara(s);
+  };
+
+  const confirmarInicio = async () => {
+    if (!asignarPara) return;
+    const solicitudId = asignarPara.id;
     setIniciando(solicitudId);
     try {
-      await artesApi.start(solicitudId);
-      notify('Flujo de firmas iniciado. Se notificó al primer equipo.', 'success');
+      await artesApi.start(solicitudId, false, asignados);
+      notify('Flujo de firmas iniciado. Se notificó al responsable del primer equipo.', 'success');
+      setAsignarPara(null);
+      setAsignados({});
       await cargar();
     } catch (e: any) {
       notify(e?.message || 'No se pudo iniciar el flujo', 'error');
@@ -198,7 +216,7 @@ const ArtesColaPage: React.FC = () => {
                   <p className="text-sm font-semibold text-slate-800 dark:text-slate-200 truncate">{s.title}</p>
                   <p className="text-[11px] text-slate-500 truncate">{s.consecutive} · {s.brand}</p>
                 </div>
-                <Button size="sm" variant="outline" className="gap-1 shrink-0" disabled={iniciando === s.id} onClick={() => iniciarFlujo(s.id)}>
+                <Button size="sm" variant="outline" className="gap-1 shrink-0" disabled={iniciando === s.id} onClick={() => abrirAsignacion(s)}>
                   {iniciando === s.id ? <Loader2 size={14} className="animate-spin" /> : <PlayCircle size={14} />} Iniciar flujo
                 </Button>
               </div>
@@ -282,6 +300,57 @@ const ArtesColaPage: React.FC = () => {
               accionLabel={canAprobar ? 'Revisar y firmar' : 'Revisar'}
             />
           ))}
+        </div>
+      )}
+
+      {/* Modal: asignar responsable por equipo al iniciar el flujo */}
+      {asignarPara && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={() => setAsignarPara(null)}>
+          <Card className="w-full max-w-lg max-h-[90vh] overflow-y-auto" onClick={(e: React.MouseEvent) => e.stopPropagation()}>
+            <CardContent className="p-5 space-y-4">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <h3 className="text-base font-bold text-slate-900 dark:text-white">Iniciar flujo de firmas</h3>
+                  <p className="text-xs text-slate-500 mt-0.5">{asignarPara.title} · {asignarPara.consecutive}</p>
+                </div>
+                <button onClick={() => setAsignarPara(null)} className="text-slate-400 hover:text-slate-600 shrink-0"><X size={18} /></button>
+              </div>
+
+              <p className="text-xs text-slate-500">
+                Elige el responsable de firma de cada equipo. Solo esa persona recibirá el correo y podrá firmar por su equipo.
+                Si dejas un equipo sin responsable, el correo se enviará a todos sus integrantes.
+              </p>
+
+              <div className="space-y-3">
+                {equiposAsignables.map(team => (
+                  <div key={team.id} className="space-y-1">
+                    <label className="text-xs font-semibold text-slate-600 dark:text-slate-400">{team.label}</label>
+                    <select
+                      value={asignados[team.id] || ''}
+                      onChange={e => setAsignados(prev => ({ ...prev, [team.id]: e.target.value }))}
+                      className="flex h-10 w-full rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 text-sm"
+                    >
+                      <option value="">Todo el equipo</option>
+                      {(team.members || []).map(m => (
+                        <option key={m.email} value={m.email}>{m.name || m.email} ({m.email})</option>
+                      ))}
+                    </select>
+                    {(team.members || []).length === 0 && (
+                      <p className="text-[11px] text-amber-600">Este equipo no tiene integrantes configurados.</p>
+                    )}
+                  </div>
+                ))}
+              </div>
+
+              <div className="flex justify-end gap-2 pt-2">
+                <Button variant="outline" size="sm" onClick={() => setAsignarPara(null)}>Cancelar</Button>
+                <Button size="sm" className="gap-1" disabled={iniciando === asignarPara.id} onClick={confirmarInicio}>
+                  {iniciando === asignarPara.id ? <Loader2 size={14} className="animate-spin" /> : <PlayCircle size={14} />}
+                  Iniciar flujo
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
         </div>
       )}
     </div>

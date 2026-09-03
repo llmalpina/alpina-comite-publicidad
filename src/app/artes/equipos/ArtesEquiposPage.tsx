@@ -511,6 +511,23 @@ const ArtesEquiposPage: React.FC = () => {
               <EmailList value={local.ccEmails} onChange={v => setLocal(prev => ({ ...prev, ccEmails: v }))} />
             </div>
           </div>
+
+          <div className="flex items-center justify-between gap-3 pt-1">
+            <div>
+              <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Quién puede firmar por equipo</label>
+              <p className="text-[11px] text-slate-400 mt-0.5">
+                {local.anyMemberCanSign
+                  ? 'Cualquier integrante del equipo puede firmar.'
+                  : 'Solo el integrante asignado al iniciar el flujo puede firmar.'}
+              </p>
+            </div>
+            <button
+              onClick={() => setLocal(prev => ({ ...prev, anyMemberCanSign: !prev.anyMemberCanSign }))}
+              className={cn('relative w-12 h-6 rounded-full transition-colors shrink-0', local.anyMemberCanSign ? 'bg-emerald-500' : 'bg-slate-200 dark:bg-slate-600')}
+            >
+              <span className={cn('absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white transition-transform', local.anyMemberCanSign && 'translate-x-6')} />
+            </button>
+          </div>
         </CardContent>
       </Card>
 

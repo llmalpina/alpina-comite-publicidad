@@ -17,6 +17,7 @@ const DEFAULT_CONFIG: ArtesConfig = {
   contentTypes: ['PAQUETE_ARTES'],
   startOnStatuses: ['APROBADA', 'APROBADA_OBSERVACIONES'],
   onRejectRestart: 'REJECTING',
+  anyMemberCanSign: false,
   ccEmails: [],
   teams: [
     { id: 'EMPAQUES',   label: 'Empaques',   order: 1,  activo: true, isDesign: false, color: 'bg-blue-100 text-blue-700',       members: [] },
