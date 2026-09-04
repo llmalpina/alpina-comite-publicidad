@@ -289,9 +289,52 @@ const ArtesEquiposPage: React.FC = () => {
     setLocal(prev => {
       const restantes = prev.teams.filter(t => t.id !== teamId);
       const aprob = restantes.filter(t => !t.isDesign).sort((a, b) => a.order - b.order).map((t, i) => ({ ...t, order: i + 1 }));
-      return { ...prev, teams: [...aprob, ...restantes.filter(t => t.isDesign)] };
+      // También lo quitamos de cualquier ruta que lo referencie.
+      const routes = (prev.routes || []).map(r => ({ ...r, teamOrder: r.teamOrder.filter(id => id !== teamId) }));
+      return { ...prev, teams: [...aprob, ...restantes.filter(t => t.isDesign)], routes };
     });
   };
+
+  // ── Rutas de firmas ─────────────────────────────────────────────────────────
+  const rutas = local.routes || [];
+
+  const agregarRuta = () => {
+    const n = rutas.length + 1;
+    const id = `RUTA_${Date.now()}`;
+    setLocal(prev => ({ ...prev, routes: [...(prev.routes || []), { id, label: `Ruta ${n}`, teamOrder: [] }] }));
+  };
+
+  const actualizarRuta = (id: string, patch: Partial<{ label: string; teamOrder: string[] }>) =>
+    setLocal(prev => ({ ...prev, routes: (prev.routes || []).map(r => r.id === id ? { ...r, ...patch } : r) }));
+
+  const eliminarRuta = (id: string) => {
+    if (!confirm('¿Eliminar esta ruta de firmas?')) return;
+    setLocal(prev => ({ ...prev, routes: (prev.routes || []).filter(r => r.id !== id) }));
+  };
+
+  const toggleEquipoEnRuta = (rutaId: string, teamId: string) =>
+    setLocal(prev => ({
+      ...prev,
+      routes: (prev.routes || []).map(r => {
+        if (r.id !== rutaId) return r;
+        const has = r.teamOrder.includes(teamId);
+        return { ...r, teamOrder: has ? r.teamOrder.filter(id => id !== teamId) : [...r.teamOrder, teamId] };
+      }),
+    }));
+
+  const moverEnRuta = (rutaId: string, teamId: string, dir: -1 | 1) =>
+    setLocal(prev => ({
+      ...prev,
+      routes: (prev.routes || []).map(r => {
+        if (r.id !== rutaId) return r;
+        const arr = r.teamOrder.slice();
+        const i = arr.indexOf(teamId);
+        const j = i + dir;
+        if (i < 0 || j < 0 || j >= arr.length) return r;
+        [arr[i], arr[j]] = [arr[j], arr[i]];
+        return { ...r, teamOrder: arr };
+      }),
+    }));
 
   const guardar = async () => {
     if (local.teams.filter(t => t.activo && !t.isDesign).length === 0) {
@@ -528,6 +571,81 @@ const ArtesEquiposPage: React.FC = () => {
               <span className={cn('absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white transition-transform', local.anyMemberCanSign && 'translate-x-6')} />
             </button>
           </div>
+        </CardContent>
+      </Card>
+
+      {/* Rutas de firmas */}
+      <Card>
+        <CardHeader className="pb-3 flex flex-row items-center justify-between">
+          <CardTitle className="text-base flex items-center gap-2"><Settings2 size={16} /> Rutas de firmas</CardTitle>
+          <Button size="sm" variant="outline" className="gap-1" onClick={agregarRuta}><Plus size={14} /> Nueva ruta</Button>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <p className="text-xs text-slate-500">
+            Cada ruta define qué equipos firman y en qué orden. Al iniciar el flujo de una pieza se elige la ruta que aplica.
+            Si no hay rutas, se usa el orden general de los equipos.
+          </p>
+
+          {rutas.length === 0 && (
+            <p className="text-[11px] text-slate-400 text-center py-3">Aún no hay rutas configuradas.</p>
+          )}
+
+          {rutas.map(ruta => {
+            const aprob = local.teams.filter(t => t.activo && !t.isDesign);
+            const enRuta = ruta.teamOrder
+              .map(id => aprob.find(t => t.id === id))
+              .filter((t): t is typeof aprob[number] => !!t);
+            const fuera = aprob.filter(t => !ruta.teamOrder.includes(t.id));
+            return (
+              <div key={ruta.id} className="border border-slate-200 dark:border-slate-700 rounded-lg p-3 space-y-3">
+                <div className="flex items-center gap-2">
+                  <Input
+                    value={ruta.label}
+                    onChange={e => actualizarRuta(ruta.id, { label: e.target.value })}
+                    placeholder="Nombre de la ruta"
+                    className="h-9 text-sm font-semibold"
+                  />
+                  <button onClick={() => eliminarRuta(ruta.id)} className="p-1.5 rounded hover:bg-red-50 dark:hover:bg-red-900/20 text-red-500 shrink-0" title="Eliminar ruta">
+                    <Trash2 size={16} />
+                  </button>
+                </div>
+
+                {/* Secuencia elegida */}
+                <div className="space-y-1.5">
+                  <p className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Secuencia de firmas</p>
+                  {enRuta.length === 0 && (
+                    <p className="text-[11px] text-slate-400">Agrega equipos desde la lista de abajo.</p>
+                  )}
+                  {enRuta.map((t, i) => (
+                    <div key={t.id} className="flex items-center gap-2 bg-slate-50 dark:bg-slate-800 rounded px-2 py-1.5">
+                      <span className="text-[11px] font-bold text-slate-400 w-5 text-center">{i + 1}</span>
+                      <Badge className={cn('text-[10px]', t.color)}>{t.label}</Badge>
+                      <div className="ml-auto flex items-center gap-0.5">
+                        <button onClick={() => moverEnRuta(ruta.id, t.id, -1)} disabled={i === 0} className="p-1 rounded hover:bg-slate-200 dark:hover:bg-slate-700 disabled:opacity-30" title="Subir"><ChevronUp size={14} /></button>
+                        <button onClick={() => moverEnRuta(ruta.id, t.id, 1)} disabled={i === enRuta.length - 1} className="p-1 rounded hover:bg-slate-200 dark:hover:bg-slate-700 disabled:opacity-30" title="Bajar"><ChevronDown size={14} /></button>
+                        <button onClick={() => toggleEquipoEnRuta(ruta.id, t.id)} className="p-1 rounded hover:bg-red-50 dark:hover:bg-red-900/20 text-red-500" title="Quitar de la ruta"><X size={14} /></button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Equipos disponibles para agregar */}
+                {fuera.length > 0 && (
+                  <div className="flex flex-wrap gap-1.5 pt-1">
+                    {fuera.map(t => (
+                      <button
+                        key={t.id}
+                        onClick={() => toggleEquipoEnRuta(ruta.id, t.id)}
+                        className="text-[11px] px-2 py-1 rounded-full border border-dashed border-slate-300 dark:border-slate-600 text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800 flex items-center gap-1"
+                      >
+                        <Plus size={11} /> {t.label}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            );
+          })}
         </CardContent>
       </Card>
 

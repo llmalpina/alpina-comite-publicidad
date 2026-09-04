@@ -52,11 +52,11 @@ export const artesApi = {
 
   get: (solicitudId: string) => apiFetch<ArteDetailResponse>(`/artes/${solicitudId}${toQuery(devIdentity())}`),
 
-  /** Inicia el flujo manualmente. assignees: { teamId: email } responsable por equipo. */
-  start: (solicitudId: string, force = false, assignees?: Record<string, string>) =>
+  /** Inicia el flujo manualmente. assignees: { teamId: email } responsable por equipo; routeId: ruta de firmas. */
+  start: (solicitudId: string, force = false, assignees?: Record<string, string>, routeId?: string) =>
     apiFetch<ArteFlow>('/artes', {
       method: 'POST',
-      body: JSON.stringify({ solicitudId, force, assignees: assignees || {}, ...devIdentity() }),
+      body: JSON.stringify({ solicitudId, force, assignees: assignees || {}, routeId: routeId || undefined, ...devIdentity() }),
     }),
 
   /** Firma o devuelve el arte en nombre del equipo */

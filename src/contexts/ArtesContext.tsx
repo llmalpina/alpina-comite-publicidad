@@ -19,6 +19,7 @@ const DEFAULT_CONFIG: ArtesConfig = {
   onRejectRestart: 'REJECTING',
   anyMemberCanSign: false,
   ccEmails: [],
+  routes: [],
   teams: [
     { id: 'EMPAQUES',   label: 'Empaques',   order: 1,  activo: true, isDesign: false, color: 'bg-blue-100 text-blue-700',       members: [] },
     { id: 'MERCADEO',   label: 'Mercadeo',   order: 2,  activo: true, isDesign: false, color: 'bg-purple-100 text-purple-700',   members: [] },
@@ -71,6 +72,7 @@ function normalize(raw: Partial<ArtesConfig> | null): ArtesConfig {
     .sort((a, b) => a.order - b.order);
   cfg.reminder = { ...DEFAULT_CONFIG.reminder, ...(raw?.reminder || {}) };
   cfg.ccEmails = Array.isArray(cfg.ccEmails) ? cfg.ccEmails : [];
+  cfg.routes = Array.isArray(cfg.routes) ? cfg.routes : [];
   cfg.contentTypes = Array.isArray(cfg.contentTypes) && cfg.contentTypes.length
     ? cfg.contentTypes : DEFAULT_CONFIG.contentTypes;
   cfg.startOnStatuses = Array.isArray(cfg.startOnStatuses) && cfg.startOnStatuses.length

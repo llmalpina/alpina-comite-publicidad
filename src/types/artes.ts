@@ -60,7 +60,17 @@ export interface ArtesConfig {
   /** Copia para todos los correos del flujo */
   ccEmails: string[];
   teams: ArteTeam[];
+  /** Rutas de firmas: cada una define un orden propio de equipos aprobadores. */
+  routes?: ArteRoute[];
   reminder: ArteReminderConfig;
+}
+
+/** Ruta de firmas: secuencia de equipos que aplica a una pieza. */
+export interface ArteRoute {
+  id: string;
+  label: string;
+  /** Ids de equipos aprobadores, en orden de firma */
+  teamOrder: string[];
 }
 
 /** Resumen de la firma de un equipo dentro del ciclo actual */
@@ -88,6 +98,9 @@ export interface ArteFlow {
   approvals: Record<string, ArteApprovalSummary>;
   /** Integrante asignado por equipo para firmar (correo). Opcional. */
   assignees?: Record<string, string>;
+  /** Ruta de firmas elegida al iniciar (si aplica). */
+  routeId?: string | null;
+  routeLabel?: string | null;
   rejectedByTeamId: string | null;
   // datos de la solicitud, desnormalizados para listar y filtrar
   consecutive: string;
@@ -158,6 +171,7 @@ export interface ArtesListResponse {
   myTeams: ArteTeamRef[];
   isAdmin: boolean;
   teams: ArteTeamRef[];
+  routes?: ArteRoute[];
 }
 
 export interface ArteDetailResponse {
@@ -172,6 +186,8 @@ export interface ArteDetailResponse {
   anyMemberCanSign?: boolean;
   /** Si el usuario actual puede firmar por el equipo del turno. */
   callerCanSign?: boolean;
+  /** Rutas de firmas configuradas. */
+  routes?: ArteRoute[];
 }
 
 /** Etiquetas y colores de los estados del flujo */

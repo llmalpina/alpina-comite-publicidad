@@ -34,6 +34,7 @@ const ArtesColaPage: React.FC = () => {
   // Modal de asignación de responsables por equipo al iniciar
   const [asignarPara, setAsignarPara] = useState<any | null>(null);
   const [asignados, setAsignados] = useState<Record<string, string>>({});
+  const [rutaSel, setRutaSel] = useState<string>('');
 
   const cargar = useCallback(async () => {
     setLoading(true);
@@ -121,14 +122,25 @@ const ArtesColaPage: React.FC = () => {
     [items, tab, coincide, porTab, esMiTurno],
   );
 
-  // Equipos que firman (activos, no diseño), en orden, para el modal de asignación
-  const equiposAsignables = useMemo(
-    () => config.teams.filter(t => t.activo && !t.isDesign).sort((a, b) => a.order - b.order),
-    [config.teams],
-  );
+  const routes = config.routes || [];
+
+  // Equipos a asignar en el modal: si hay ruta elegida, los de esa ruta (en su
+  // orden); si no, todos los aprobadores activos en su orden.
+  const equiposAsignables = useMemo(() => {
+    const aprob = config.teams.filter(t => t.activo && !t.isDesign);
+    const ruta = routes.find(r => r.id === rutaSel);
+    if (ruta) {
+      return ruta.teamOrder
+        .map(id => aprob.find(t => t.id === id))
+        .filter((t): t is typeof aprob[number] => !!t);
+    }
+    return aprob.slice().sort((a, b) => a.order - b.order);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [config.teams, rutaSel, routes]);
 
   const abrirAsignacion = (s: any) => {
     setAsignados({});
+    setRutaSel(routes.length ? routes[0].id : '');
     setAsignarPara(s);
   };
 
@@ -137,10 +149,11 @@ const ArtesColaPage: React.FC = () => {
     const solicitudId = asignarPara.id;
     setIniciando(solicitudId);
     try {
-      await artesApi.start(solicitudId, false, asignados);
+      await artesApi.start(solicitudId, false, asignados, rutaSel || undefined);
       notify('Flujo de firmas iniciado. Se notificó al responsable del primer equipo.', 'success');
       setAsignarPara(null);
       setAsignados({});
+      setRutaSel('');
       await cargar();
     } catch (e: any) {
       notify(e?.message || 'No se pudo iniciar el flujo', 'error');
@@ -315,6 +328,22 @@ const ArtesColaPage: React.FC = () => {
                 </div>
                 <button onClick={() => setAsignarPara(null)} className="text-slate-400 hover:text-slate-600 shrink-0"><X size={18} /></button>
               </div>
+
+              {routes.length > 0 && (
+                <div className="space-y-1">
+                  <label className="text-xs font-semibold text-slate-600 dark:text-slate-400">Ruta de firmas</label>
+                  <select
+                    value={rutaSel}
+                    onChange={e => { setRutaSel(e.target.value); setAsignados({}); }}
+                    className="flex h-10 w-full rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 text-sm"
+                  >
+                    {routes.map(r => <option key={r.id} value={r.id}>{r.label}</option>)}
+                  </select>
+                  <p className="text-[11px] text-slate-400">
+                    Define qué equipos firman y en qué orden. Se aplica a esta pieza.
+                  </p>
+                </div>
+              )}
 
               <p className="text-xs text-slate-500">
                 Elige el responsable de firma de cada equipo. Solo esa persona recibirá el correo y podrá firmar por su equipo.
