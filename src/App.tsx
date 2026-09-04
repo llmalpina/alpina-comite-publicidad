@@ -110,7 +110,7 @@ const AppRoutes: React.FC = () => (
 
 export default function App() {
   return (
-    <BrowserRouter basename="/comite-publicidad">
+    <BrowserRouter basename="/apprueba">
       <ThemeProvider>
         <AuthProvider>
           <MaestrosProvider>

@@ -1,2 +1,5 @@
-/wasm/<*>    /wasm/<*>   200
-/*    /index.html   200
+/apprueba/assets/<*>            /assets/<*>            200
+/apprueba/pdf.worker.min.mjs    /pdf.worker.min.mjs    200
+/apprueba/wasm/<*>              /wasm/<*>              200
+/apprueba/<*>                   /index.html            200
+/apprueba                       /index.html            200

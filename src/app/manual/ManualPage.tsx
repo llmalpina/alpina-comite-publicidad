@@ -7,7 +7,7 @@ import { Document, Page, pdfjs } from 'react-pdf';
 import 'react-pdf/dist/Page/AnnotationLayer.css';
 import 'react-pdf/dist/Page/TextLayer.css';
 
-pdfjs.GlobalWorkerOptions.workerSrc = '/comite-publicidad/pdf.worker.min.mjs';
+pdfjs.GlobalWorkerOptions.workerSrc = '/apprueba/pdf.worker.min.mjs';
 
 const ManualPage: React.FC = () => {
   const { manualConfig, loading } = useManualConfig();
