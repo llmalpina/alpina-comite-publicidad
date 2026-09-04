@@ -229,6 +229,7 @@ const ArtesEquiposPage: React.FC = () => {
     [maestros.tiposContenido],
   );
   const [local, setLocal] = useState<ArtesConfig>(config);
+  const [seccion, setSeccion] = useState<'SECUENCIA' | 'REGLAS' | 'RUTAS' | 'RECORDATORIO'>('SECUENCIA');
   const [guardando, setGuardando] = useState(false);
   const [enviando, setEnviando] = useState(false);
   const [usuarios, setUsuarios] = useState<{ name: string; email: string }[]>([]);
@@ -389,7 +390,7 @@ const ArtesEquiposPage: React.FC = () => {
   }
 
   return (
-    <div className="space-y-6 max-w-5xl">
+    <div className="space-y-6 max-w-6xl">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
         <div>
           <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Equipos y firmas de artes</h1>
@@ -423,7 +424,27 @@ const ArtesEquiposPage: React.FC = () => {
         </CardContent>
       </Card>
 
+      {/* Pestañas de secciones (evita scroll largo) */}
+      <div className="flex gap-1 p-1 bg-slate-100 dark:bg-slate-800 rounded-lg overflow-x-auto">
+        {([
+          { key: 'SECUENCIA', label: 'Secuencia de firmas', icon: Users },
+          { key: 'REGLAS', label: 'Reglas del flujo', icon: Settings2 },
+          { key: 'RUTAS', label: 'Rutas de firmas', icon: PenTool },
+          { key: 'RECORDATORIO', label: 'Recordatorio', icon: Bell },
+        ] as const).map(s => (
+          <button
+            key={s.key}
+            onClick={() => setSeccion(s.key)}
+            className={cn('flex items-center gap-1.5 px-3 py-2 text-xs font-bold uppercase tracking-wider rounded-md transition-colors whitespace-nowrap',
+              seccion === s.key ? 'bg-white dark:bg-slate-700 text-brand shadow-sm' : 'text-slate-400 hover:text-slate-600')}
+          >
+            <s.icon size={14} /> {s.label}
+          </button>
+        ))}
+      </div>
+
       {/* Secuencia de equipos */}
+      {seccion === 'SECUENCIA' && (
       <div className="space-y-3">
         <div className="flex items-center justify-between">
           <div>
@@ -468,8 +489,10 @@ const ArtesEquiposPage: React.FC = () => {
           </>
         )}
       </div>
+      )}
 
       {/* Reglas del flujo */}
+      {seccion === 'REGLAS' && (
       <Card>
         <CardHeader className="pb-3">
           <CardTitle className="text-base flex items-center gap-2"><Settings2 size={16} /> Reglas del flujo</CardTitle>
@@ -573,8 +596,10 @@ const ArtesEquiposPage: React.FC = () => {
           </div>
         </CardContent>
       </Card>
+      )}
 
       {/* Rutas de firmas */}
+      {seccion === 'RUTAS' && (
       <Card>
         <CardHeader className="pb-3 flex flex-row items-center justify-between">
           <CardTitle className="text-base flex items-center gap-2"><Settings2 size={16} /> Rutas de firmas</CardTitle>
@@ -648,8 +673,10 @@ const ArtesEquiposPage: React.FC = () => {
           })}
         </CardContent>
       </Card>
+      )}
 
       {/* Recordatorio */}
+      {seccion === 'RECORDATORIO' && (
       <Card>
         <CardHeader className="pb-3">
           <CardTitle className="text-base flex items-center gap-2"><Bell size={16} /> Recordatorio de pendientes</CardTitle>
@@ -739,6 +766,7 @@ const ArtesEquiposPage: React.FC = () => {
           </div>
         </CardContent>
       </Card>
+      )}
     </div>
   );
 };
