@@ -120,12 +120,30 @@ const SolicitudesPage: React.FC = () => {
       )}
 
       <Card>
-        <CardContent className="p-4">
+        <CardContent className="p-4 space-y-3">
+          {/* Buscador principal: fila propia, grande y legible */}
+          <div className="relative w-full">
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-brand" size={24} />
+            <Input
+              placeholder="Buscar por título, No. consecutivo (ej: 318) o marca..."
+              className="pr-12 h-14 text-lg font-medium"
+              style={{ paddingLeft: '3.25rem' }}
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
+            {searchTerm && (
+              <button
+                onClick={() => setSearchTerm("")}
+                className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                title="Limpiar búsqueda"
+              >
+                <X size={20} />
+              </button>
+            )}
+          </div>
+
+          {/* Filtros secundarios */}
           <div className="flex flex-col md:flex-row gap-3">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
-              <Input placeholder="Buscar por titulo, consecutivo o marca..." className="pl-10" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
-            </div>
             <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value as RequestStatus | "")} className="flex h-10 rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring min-w-[180px]">
               {STATUS_FILTER_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
             </select>
