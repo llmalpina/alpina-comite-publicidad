@@ -229,7 +229,6 @@ const ArtesEquiposPage: React.FC = () => {
     [maestros.tiposContenido],
   );
   const [local, setLocal] = useState<ArtesConfig>(config);
-  const [seccion, setSeccion] = useState<'SECUENCIA' | 'REGLAS' | 'RUTAS' | 'RECORDATORIO'>('SECUENCIA');
   const [guardando, setGuardando] = useState(false);
   const [enviando, setEnviando] = useState(false);
   const [usuarios, setUsuarios] = useState<{ name: string; email: string }[]>([]);
@@ -390,7 +389,7 @@ const ArtesEquiposPage: React.FC = () => {
   }
 
   return (
-    <div className="space-y-6 max-w-6xl">
+    <div className="space-y-6 max-w-5xl">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
         <div>
           <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Equipos y firmas de artes</h1>
@@ -424,27 +423,7 @@ const ArtesEquiposPage: React.FC = () => {
         </CardContent>
       </Card>
 
-      {/* Pestañas de secciones (evita scroll largo) */}
-      <div className="flex gap-1 p-1 bg-slate-100 dark:bg-slate-800 rounded-lg overflow-x-auto">
-        {([
-          { key: 'SECUENCIA', label: 'Secuencia de firmas', icon: Users },
-          { key: 'REGLAS', label: 'Reglas del flujo', icon: Settings2 },
-          { key: 'RUTAS', label: 'Rutas de firmas', icon: PenTool },
-          { key: 'RECORDATORIO', label: 'Recordatorio', icon: Bell },
-        ] as const).map(s => (
-          <button
-            key={s.key}
-            onClick={() => setSeccion(s.key)}
-            className={cn('flex items-center gap-1.5 px-3 py-2 text-xs font-bold uppercase tracking-wider rounded-md transition-colors whitespace-nowrap',
-              seccion === s.key ? 'bg-white dark:bg-slate-700 text-brand shadow-sm' : 'text-slate-400 hover:text-slate-600')}
-          >
-            <s.icon size={14} /> {s.label}
-          </button>
-        ))}
-      </div>
-
       {/* Secuencia de equipos */}
-      {seccion === 'SECUENCIA' && (
       <div className="space-y-3">
         <div className="flex items-center justify-between">
           <div>
@@ -489,10 +468,8 @@ const ArtesEquiposPage: React.FC = () => {
           </>
         )}
       </div>
-      )}
 
       {/* Reglas del flujo */}
-      {seccion === 'REGLAS' && (
       <Card>
         <CardHeader className="pb-3">
           <CardTitle className="text-base flex items-center gap-2"><Settings2 size={16} /> Reglas del flujo</CardTitle>
@@ -550,6 +527,82 @@ const ArtesEquiposPage: React.FC = () => {
           </div>
 
           <div>
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Solo ciertos solicitantes inician el flujo</label>
+                <p className="text-[11px] text-slate-400 mt-0.5">
+                  {local.restrictBySolicitante
+                    ? 'Solo las piezas de los solicitantes seleccionados entran al flujo de artes.'
+                    : 'Cualquier solicitante (con el tipo de contenido correcto) inicia el flujo.'}
+                </p>
+              </div>
+              <button
+                onClick={() => setLocal(prev => ({ ...prev, restrictBySolicitante: !prev.restrictBySolicitante }))}
+                className={cn('relative w-12 h-6 rounded-full transition-colors shrink-0', local.restrictBySolicitante ? 'bg-emerald-500' : 'bg-slate-200 dark:bg-slate-600')}
+              >
+                <span className={cn('absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white transition-transform', local.restrictBySolicitante && 'translate-x-6')} />
+              </button>
+            </div>
+
+            {local.restrictBySolicitante && (
+              <div className="mt-3 space-y-2">
+                <select
+                  value=""
+                  onChange={e => {
+                    const email = e.target.value;
+                    if (!email) return;
+                    setLocal(prev => ({
+                      ...prev,
+                      allowedSolicitantes: [...new Set([...(prev.allowedSolicitantes || []), email])],
+                    }));
+                  }}
+                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                >
+                  <option value="">+ Agregar solicitante permitido...</option>
+                  {usuarios
+                    .filter(u => !(local.allowedSolicitantes || []).includes(u.email))
+                    .map(u => <option key={u.email} value={u.email}>{u.name} ({u.email})</option>)}
+                </select>
+
+                {(local.allowedSolicitantes || []).length > 0 ? (
+                  <div className="space-y-1.5">
+                    {(local.allowedSolicitantes || []).map(email => {
+                      const u = usuarios.find(x => x.email === email);
+                      return (
+                        <div key={email} className="flex items-center justify-between p-2 rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
+                          <div className="flex items-center gap-2">
+                            <div className="w-7 h-7 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center text-xs font-bold text-blue-700 dark:text-blue-400">
+                              {(u?.name || email).charAt(0).toUpperCase()}
+                            </div>
+                            <div>
+                              <p className="text-sm font-medium text-slate-800 dark:text-slate-200">{u?.name || email.split('@')[0]}</p>
+                              <p className="text-[11px] text-slate-400">{email}</p>
+                            </div>
+                          </div>
+                          <button
+                            onClick={() => setLocal(prev => ({
+                              ...prev,
+                              allowedSolicitantes: (prev.allowedSolicitantes || []).filter(x => x !== email),
+                            }))}
+                            className="text-red-500 hover:text-red-600 p-1"
+                            title="Quitar"
+                          >
+                            <Trash2 size={15} />
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div className="text-[11px] text-amber-600 dark:text-amber-400 p-2 rounded-lg bg-amber-50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-900/30">
+                    ⚠️ Si activas esta opción pero no agregas a nadie, ninguna pieza entrará al flujo automáticamente.
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
+          <div>
             <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Cuando Diseño sube un ajuste</label>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-2">
               {([
@@ -596,10 +649,8 @@ const ArtesEquiposPage: React.FC = () => {
           </div>
         </CardContent>
       </Card>
-      )}
 
       {/* Rutas de firmas */}
-      {seccion === 'RUTAS' && (
       <Card>
         <CardHeader className="pb-3 flex flex-row items-center justify-between">
           <CardTitle className="text-base flex items-center gap-2"><Settings2 size={16} /> Rutas de firmas</CardTitle>
@@ -673,10 +724,8 @@ const ArtesEquiposPage: React.FC = () => {
           })}
         </CardContent>
       </Card>
-      )}
 
       {/* Recordatorio */}
-      {seccion === 'RECORDATORIO' && (
       <Card>
         <CardHeader className="pb-3">
           <CardTitle className="text-base flex items-center gap-2"><Bell size={16} /> Recordatorio de pendientes</CardTitle>
@@ -766,7 +815,6 @@ const ArtesEquiposPage: React.FC = () => {
           </div>
         </CardContent>
       </Card>
-      )}
     </div>
   );
 };

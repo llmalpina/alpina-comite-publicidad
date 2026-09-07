@@ -49,6 +49,10 @@ export interface ArtesConfig {
   contentTypes: string[];
   /** Estados del comité que disparan el flujo */
   startOnStatuses: string[];
+  /** Si true, solo los solicitantes de la lista pueden iniciar el flujo de artes */
+  restrictBySolicitante?: boolean;
+  /** Correos de solicitantes autorizados a iniciar el flujo (si restrictBySolicitante) */
+  allowedSolicitantes?: string[];
   /**
    * Qué pasa cuando Diseño sube una corrección:
    *  FIRST     → el ciclo reinicia desde el primer equipo

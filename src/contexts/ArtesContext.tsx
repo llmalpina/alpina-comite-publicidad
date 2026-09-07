@@ -43,6 +43,8 @@ interface ArtesContextType {
   designTeam: ArteTeam | null;
   /** Administra todo el flujo (ve y opera sobre cualquier pieza) */
   isArtesAdmin: boolean;
+  /** El usuario actual pertenece al equipo de Diseño */
+  esDiseno: boolean;
   /** Puede ver la cola de aprobación */
   canVerCola: boolean;
   /** Puede firmar en nombre de su equipo */
@@ -133,6 +135,7 @@ export const ArtesProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     approvalTeams,
     designTeam,
     isArtesAdmin,
+    esDiseno,
     // Pertenecer a un equipo ya da acceso a la cola y al repositorio;
     // los permisos del rol sirven para dar acceso a quien no está en un equipo.
     canVerCola: isArtesAdmin || enEquipo || hasPermission(role, 'artes_ver_cola'),

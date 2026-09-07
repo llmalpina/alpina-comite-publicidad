@@ -14,7 +14,9 @@ import type { ArteFlow, ArteTeamRef } from '../../../types/artes';
 type Tab = 'MI_TURNO' | 'EN_CURSO' | 'DEVUELTOS' | 'APROBADOS' | 'TODAS';
 
 const ArtesColaPage: React.FC = () => {
-  const { config, canVerCola, canAprobar, isArtesAdmin, designTeam } = useArtes();
+  const { config, canVerCola, canAprobar, isArtesAdmin, esDiseno, designTeam } = useArtes();
+  // Quién puede iniciar el flujo manualmente: admin del flujo o el equipo de Diseño
+  const puedeIniciarFlujo = isArtesAdmin || esDiseno;
   const { notify } = useNotifications();
 
   const [items, setItems] = useState<ArteFlow[]>([]);
@@ -56,7 +58,7 @@ const ArtesColaPage: React.FC = () => {
 
   // El admin puede arrancar el flujo de piezas aprobadas antes de este módulo
   const cargarPendientesInicio = useCallback(async (flujos: ArteFlow[]) => {
-    if (!isArtesAdmin) return;
+    if (!puedeIniciarFlujo) return;
     try {
       const solicitudes = await solicitudesApi.list();
       const conFlujo = new Set(flujos.map(f => f.solicitudId));
@@ -67,7 +69,7 @@ const ArtesColaPage: React.FC = () => {
           && !conFlujo.has(s.id))
       );
     } catch { setPendientesInicio([]); }
-  }, [isArtesAdmin, config.contentTypes, config.startOnStatuses]);
+  }, [puedeIniciarFlujo, config.contentTypes, config.startOnStatuses]);
 
   useEffect(() => { if (!loading) cargarPendientesInicio(items); }, [loading, items, cargarPendientesInicio]);
 
@@ -216,12 +218,12 @@ const ArtesColaPage: React.FC = () => {
         </div>
       )}
 
-      {/* Piezas listas para entrar al flujo (admin) */}
-      {isArtesAdmin && pendientesInicio.length > 0 && (
-        <Card className="border-dashed">
+      {/* Piezas aprobadas por el comité, listas para que Diseño inicie el flujo */}
+      {puedeIniciarFlujo && pendientesInicio.length > 0 && (
+        <Card className="border-dashed border-brand/40 bg-brand-50/30 dark:bg-blue-900/10">
           <CardContent className="p-4 space-y-2">
-            <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">
-              {pendientesInicio.length} pieza{pendientesInicio.length === 1 ? '' : 's'} aprobada{pendientesInicio.length === 1 ? '' : 's'} por el comité sin flujo de firmas
+            <p className="text-xs font-bold text-brand uppercase tracking-wider">
+              {pendientesInicio.length} pieza{pendientesInicio.length === 1 ? '' : 's'} aprobada{pendientesInicio.length === 1 ? '' : 's'} por el comité · lista{pendientesInicio.length === 1 ? '' : 's'} para iniciar el flujo de firmas
             </p>
             {pendientesInicio.slice(0, 8).map((s: any) => (
               <div key={s.id} className="flex items-center justify-between gap-3 bg-slate-50 dark:bg-slate-900/40 rounded-lg px-3 py-2">

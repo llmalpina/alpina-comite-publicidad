@@ -182,7 +182,9 @@ const SolicitudDetailPage: React.FC = () => {
   if (!solicitud) return <div>Cargando...</div>;
 
   const canComment = !!user;
-  const canUploadVersion = user?.role === 'SOLICITANTE' || user?.role === 'ADMIN';
+  // Usa el PERMISO configurable (no el rol hardcodeado) para que roles personalizados
+  // como "Diseño Artes" también puedan subir la pieza final si tienen 'subir_version'.
+  const canUploadVersion = user?.role === 'ADMIN' || hasPermission(user?.role || '', 'subir_version');
 
   // --- Timeline dinámico basado en aprobaciones reales ---
   const araApproved = solicitud.approvalARA?.approved === true;
@@ -479,7 +481,7 @@ const SolicitudDetailPage: React.FC = () => {
               {uploadingVersion ? 'Subiendo...' : solicitud.status === 'APROBADA_OBSERVACIONES' ? 'Subir Pieza Final' : 'Subir Corrección'}
             </Button>
           )}
-          {(user?.role === 'SOLICITANTE' || user?.role === 'ADMIN') && (solicitud.status === 'APROBADA') && (
+          {canUploadVersion && (solicitud.status === 'APROBADA') && (
             <Button
               className="gap-2 bg-violet-600 hover:bg-violet-700 text-white"
               onClick={async () => {
