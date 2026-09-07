@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
-import { Search, Clock, ChevronRight, ChevronUp, ChevronDown, CheckCircle2, Loader2, Eye, RefreshCw, Archive, CheckSquare, Square } from 'lucide-react';
+import { Search, Clock, ChevronRight, ChevronUp, ChevronDown, CheckCircle2, Loader2, Eye, RefreshCw, Archive, CheckSquare, Square, X } from 'lucide-react';
 import { Button } from '../../components/ui/Button';
 import { Card, CardContent } from '../../components/ui/Card';
 import { Input } from '../../components/ui/Input';
@@ -227,19 +227,39 @@ const RevisionQueuePage: React.FC = () => {
         ))}
       </div>
 
-      <div className="flex flex-col sm:flex-row gap-3">
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
-          <Input placeholder="Buscar por marca, consecutivo, título o solicitante..." className="pl-10" value={search} onChange={e => setSearch(e.target.value)} />
+      <div className="space-y-3">
+        {/* Buscador principal: fila propia, grande y legible */}
+        <div className="relative w-full">
+          <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-brand" size={24} />
+          <Input
+            placeholder="Buscar por marca, No. consecutivo (ej: 318), título o solicitante..."
+            className="pr-12 h-14 text-lg font-medium"
+            style={{ paddingLeft: '3.25rem' }}
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+          />
+          {search && (
+            <button
+              onClick={() => setSearch('')}
+              className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+              title="Limpiar búsqueda"
+            >
+              <X size={20} />
+            </button>
+          )}
         </div>
-        <select value={solicitanteFilter} onChange={e => setSolicitanteFilter(e.target.value)} className="flex h-10 rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring w-full sm:w-auto sm:min-w-[160px]">
-          <option value="">Todos los solicitantes</option>
-          {solicitantes.map(s => <option key={s} value={s}>{s}</option>)}
-        </select>
-        <select value={contentTypeFilter} onChange={e => setContentTypeFilter(e.target.value)} className="flex h-10 rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring w-full sm:w-auto sm:min-w-[160px]">
-          <option value="">Todos los tipos</option>
-          {contentTypeOptions.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
-        </select>
+
+        {/* Filtros secundarios */}
+        <div className="flex flex-col sm:flex-row gap-3">
+          <select value={solicitanteFilter} onChange={e => setSolicitanteFilter(e.target.value)} className="flex h-10 rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring w-full sm:w-auto sm:min-w-[160px]">
+            <option value="">Todos los solicitantes</option>
+            {solicitantes.map(s => <option key={s} value={s}>{s}</option>)}
+          </select>
+          <select value={contentTypeFilter} onChange={e => setContentTypeFilter(e.target.value)} className="flex h-10 rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring w-full sm:w-auto sm:min-w-[160px]">
+            <option value="">Todos los tipos</option>
+            {contentTypeOptions.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+          </select>
+        </div>
       </div>
 
       {loading ? (
