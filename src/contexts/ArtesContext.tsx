@@ -45,6 +45,8 @@ interface ArtesContextType {
   isArtesAdmin: boolean;
   /** El usuario actual pertenece al equipo de Diseño */
   esDiseno: boolean;
+  /** Puede iniciar/disparar el flujo manualmente (admin, Diseño, o correo en la lista de starters) */
+  puedeIniciarFlujo: boolean;
   /** Puede ver la cola de aprobación */
   canVerCola: boolean;
   /** Puede firmar en nombre de su equipo */
@@ -125,6 +127,16 @@ export const ArtesProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const enEquipo = myTeams.length > 0;
   const esDiseno = !!designTeam && myTeams.some(t => t.id === designTeam.id);
 
+  // Quién puede iniciar/disparar el flujo manualmente:
+  //  - admin siempre
+  //  - si hay lista configurada (starterEmails), solo esos correos
+  //  - si no hay lista, por defecto el equipo de Diseño o quien gestiona equipos
+  const starters = (config.starterEmails || []).map(e => String(e).trim().toLowerCase());
+  const puedeIniciarFlujo = isArtesAdmin
+    || (starters.length > 0
+      ? starters.includes(email)
+      : esDiseno || hasPermission(role, 'artes_gestionar_equipos'));
+
   const value: ArtesContextType = {
     config,
     loading,
@@ -136,6 +148,7 @@ export const ArtesProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     designTeam,
     isArtesAdmin,
     esDiseno,
+    puedeIniciarFlujo,
     // Pertenecer a un equipo ya da acceso a la cola y al repositorio;
     // los permisos del rol sirven para dar acceso a quien no está en un equipo.
     canVerCola: isArtesAdmin || enEquipo || hasPermission(role, 'artes_ver_cola'),

@@ -229,6 +229,7 @@ const ArtesEquiposPage: React.FC = () => {
     [maestros.tiposContenido],
   );
   const [local, setLocal] = useState<ArtesConfig>(config);
+  const [seccion, setSeccion] = useState<'SECUENCIA' | 'REGLAS' | 'RUTAS' | 'RECORDATORIO'>('SECUENCIA');
   const [guardando, setGuardando] = useState(false);
   const [enviando, setEnviando] = useState(false);
   const [usuarios, setUsuarios] = useState<{ name: string; email: string }[]>([]);
@@ -423,7 +424,27 @@ const ArtesEquiposPage: React.FC = () => {
         </CardContent>
       </Card>
 
+      {/* Pestañas de secciones */}
+      <div className="flex gap-1 p-1 bg-slate-100 dark:bg-slate-800 rounded-lg overflow-x-auto">
+        {([
+          { key: 'SECUENCIA', label: 'Secuencia de firmas', icon: Users },
+          { key: 'REGLAS', label: 'Reglas del flujo', icon: Settings2 },
+          { key: 'RUTAS', label: 'Rutas de firmas', icon: PenTool },
+          { key: 'RECORDATORIO', label: 'Recordatorio', icon: Bell },
+        ] as const).map(s => (
+          <button
+            key={s.key}
+            onClick={() => setSeccion(s.key)}
+            className={cn('flex items-center gap-1.5 px-3 py-2 text-xs font-bold uppercase tracking-wider rounded-md transition-colors whitespace-nowrap',
+              seccion === s.key ? 'bg-white dark:bg-slate-700 text-brand shadow-sm' : 'text-slate-400 hover:text-slate-600')}
+          >
+            <s.icon size={14} /> {s.label}
+          </button>
+        ))}
+      </div>
+
       {/* Secuencia de equipos */}
+      {seccion === 'SECUENCIA' && (
       <div className="space-y-3">
         <div className="flex items-center justify-between">
           <div>
@@ -468,8 +489,10 @@ const ArtesEquiposPage: React.FC = () => {
           </>
         )}
       </div>
+      )}
 
       {/* Reglas del flujo */}
+      {seccion === 'REGLAS' && (
       <Card>
         <CardHeader className="pb-3">
           <CardTitle className="text-base flex items-center gap-2"><Settings2 size={16} /> Reglas del flujo</CardTitle>
@@ -523,6 +546,61 @@ const ArtesEquiposPage: React.FC = () => {
                   </button>
                 );
               })}
+            </div>
+          </div>
+
+          <div>
+            <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Quién puede iniciar el flujo</label>
+            <p className="text-[11px] text-slate-400 mt-0.5">
+              {(local.starterEmails || []).length > 0
+                ? 'Solo las personas de la lista (y los administradores) pueden disparar el flujo.'
+                : 'Por defecto: el equipo de Diseño y los administradores pueden iniciar el flujo.'}
+            </p>
+            <div className="mt-2 space-y-2">
+              <select
+                value=""
+                onChange={e => {
+                  const email = e.target.value;
+                  if (!email) return;
+                  setLocal(prev => ({
+                    ...prev,
+                    starterEmails: [...new Set([...(prev.starterEmails || []), email])],
+                  }));
+                }}
+                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              >
+                <option value="">+ Agregar persona que puede iniciar el flujo...</option>
+                {usuarios
+                  .filter(u => !(local.starterEmails || []).includes(u.email))
+                  .map(u => <option key={u.email} value={u.email}>{u.name} ({u.email})</option>)}
+              </select>
+              {(local.starterEmails || []).length > 0 && (
+                <div className="space-y-1.5">
+                  {(local.starterEmails || []).map(em => {
+                    const u = usuarios.find(x => x.email === em);
+                    return (
+                      <div key={em} className="flex items-center justify-between p-2 rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
+                        <div className="flex items-center gap-2">
+                          <div className="w-7 h-7 rounded-full bg-pink-100 dark:bg-pink-900/30 flex items-center justify-center text-xs font-bold text-pink-700 dark:text-pink-400">
+                            {(u?.name || em).charAt(0).toUpperCase()}
+                          </div>
+                          <div>
+                            <p className="text-sm font-medium text-slate-800 dark:text-slate-200">{u?.name || em.split('@')[0]}</p>
+                            <p className="text-[11px] text-slate-400">{em}</p>
+                          </div>
+                        </div>
+                        <button
+                          onClick={() => setLocal(prev => ({ ...prev, starterEmails: (prev.starterEmails || []).filter(x => x !== em) }))}
+                          className="text-red-500 hover:text-red-600 p-1"
+                          title="Quitar"
+                        >
+                          <Trash2 size={15} />
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           </div>
 
@@ -649,8 +727,10 @@ const ArtesEquiposPage: React.FC = () => {
           </div>
         </CardContent>
       </Card>
+      )}
 
       {/* Rutas de firmas */}
+      {seccion === 'RUTAS' && (
       <Card>
         <CardHeader className="pb-3 flex flex-row items-center justify-between">
           <CardTitle className="text-base flex items-center gap-2"><Settings2 size={16} /> Rutas de firmas</CardTitle>
@@ -724,8 +804,10 @@ const ArtesEquiposPage: React.FC = () => {
           })}
         </CardContent>
       </Card>
+      )}
 
       {/* Recordatorio */}
+      {seccion === 'RECORDATORIO' && (
       <Card>
         <CardHeader className="pb-3">
           <CardTitle className="text-base flex items-center gap-2"><Bell size={16} /> Recordatorio de pendientes</CardTitle>
@@ -815,6 +897,7 @@ const ArtesEquiposPage: React.FC = () => {
           </div>
         </CardContent>
       </Card>
+      )}
     </div>
   );
 };

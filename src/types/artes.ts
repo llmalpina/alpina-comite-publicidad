@@ -54,6 +54,12 @@ export interface ArtesConfig {
   /** Correos de solicitantes autorizados a iniciar el flujo (si restrictBySolicitante) */
   allowedSolicitantes?: string[];
   /**
+   * Correos de las personas autorizadas a INICIAR (disparar) el flujo manualmente.
+   * Si está vacío, por defecto puede iniciarlo el equipo de Diseño y los admin.
+   * Si tiene correos, solo esas personas (además de los admin) pueden iniciarlo.
+   */
+  starterEmails?: string[];
+  /**
    * Qué pasa cuando Diseño sube una corrección:
    *  FIRST     → el ciclo reinicia desde el primer equipo
    *  REJECTING → retoma en el equipo que devolvió el arte

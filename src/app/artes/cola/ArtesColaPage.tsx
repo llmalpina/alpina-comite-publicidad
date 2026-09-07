@@ -14,9 +14,7 @@ import type { ArteFlow, ArteTeamRef } from '../../../types/artes';
 type Tab = 'MI_TURNO' | 'EN_CURSO' | 'DEVUELTOS' | 'APROBADOS' | 'TODAS';
 
 const ArtesColaPage: React.FC = () => {
-  const { config, canVerCola, canAprobar, isArtesAdmin, esDiseno, designTeam } = useArtes();
-  // Quién puede iniciar el flujo manualmente: admin del flujo o el equipo de Diseño
-  const puedeIniciarFlujo = isArtesAdmin || esDiseno;
+  const { config, canVerCola, canAprobar, isArtesAdmin, puedeIniciarFlujo, designTeam } = useArtes();
   const { notify } = useNotifications();
 
   const [items, setItems] = useState<ArteFlow[]>([]);
