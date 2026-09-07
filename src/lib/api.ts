@@ -35,7 +35,7 @@ export const solicitudesApi = {
   get: (id: string) => apiFetch<any>(`/solicitudes/${id}`),
   create: (data: any) => apiFetch<any>('/solicitudes', { method: 'POST', body: JSON.stringify(data) }),
   updateStatus: (id: string, status: string, nota?: string, files?: any[], currentVersion?: number) =>
-    apiFetch<any>(`/solicitudes/${id}/status`, { method: 'PATCH', body: JSON.stringify({ status, nota, files, currentVersion }) }),
+    apiFetch<any>(`/solicitudes/${id}/status`, { method: 'PATCH', body: JSON.stringify({ status, nota, files, currentVersion, ...getUserIdentity() }) }),
 };
 
 // ─── Comentarios ─────────────────────────────────────────────────────────────
@@ -67,6 +67,23 @@ export const versionesApi = {
 };
 
 // ─── Maestros ────────────────────────────────────────────────────────────────
+
+/** Identidad del usuario actual, para auditoría en el backend (log de peticiones). */
+export function getUserIdentity(): { _userId?: string; _email?: string; _userName?: string; _role?: string } {
+  try {
+    const devUser = localStorage.getItem('alpina_dev_user');
+    if (devUser) {
+      const u = JSON.parse(devUser);
+      return { _userId: u.id, _email: u.email, _userName: u.name, _role: u.role };
+    }
+    const token = localStorage.getItem('alpina_id_token');
+    if (token) {
+      const p = JSON.parse(atob(token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')));
+      return { _userId: p.sub, _email: p.email, _userName: p.name || p['cognito:username'], _role: p['custom:role'] };
+    }
+  } catch {}
+  return {};
+}
 
 function getUserRole(): string {
   try {

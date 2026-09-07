@@ -8,7 +8,7 @@ import { Badge } from "../../components/ui/Badge";
 import { STATUS_LABELS } from "../../lib/constants";
 import { formatDate, cn } from "../../lib/utils";
 import { useSolicitudes } from "../../hooks/useSolicitudes";
-import { solicitudesApi, apiFetch } from "../../lib/api";
+import { solicitudesApi, apiFetch, getUserIdentity } from "../../lib/api";
 import { useAuth } from "../../contexts/AuthContext";
 import { useConfig } from "../../contexts/ConfigContext";
 import { useMaestros } from "../../contexts/MaestrosContext";
@@ -87,7 +87,7 @@ const SolicitudesPage: React.FC = () => {
   const handleArchive = async (solicitudId: string) => {
     if (!confirm('¿Archivar esta solicitud? No se eliminará, solo se ocultará de la lista.')) return;
     try {
-      await apiFetch(`/solicitudes/${solicitudId}/status`, { method: 'PATCH', body: JSON.stringify({ active: 0 }) });
+      await apiFetch(`/solicitudes/${solicitudId}/status`, { method: 'PATCH', body: JSON.stringify({ active: 0, ...getUserIdentity() }) });
       setSolicitudes(prev => prev.filter(s => s.id !== solicitudId));
     } catch {}
   };
@@ -95,7 +95,7 @@ const SolicitudesPage: React.FC = () => {
   const handleCancel = async (solicitudId: string) => {
     if (!confirm('¿Cancelar esta solicitud? Esta acción no se puede deshacer.')) return;
     try {
-      await apiFetch(`/solicitudes/${solicitudId}/status`, { method: 'PATCH', body: JSON.stringify({ status: 'CANCELADA', active: 0 }) });
+      await apiFetch(`/solicitudes/${solicitudId}/status`, { method: 'PATCH', body: JSON.stringify({ status: 'CANCELADA', active: 0, ...getUserIdentity() }) });
       setSolicitudes(prev => prev.filter(s => s.id !== solicitudId));
     } catch {}
   };

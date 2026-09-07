@@ -11,7 +11,7 @@ import { useSolicitudes } from '../../hooks/useSolicitudes';
 import { useAuth } from '../../contexts/AuthContext';
 import { useConfig } from '../../contexts/ConfigContext';
 import { useMaestros } from '../../contexts/MaestrosContext';
-import { apiFetch } from '../../lib/api';
+import { apiFetch, getUserIdentity } from '../../lib/api';
 
 type QueueTab = 'PENDIENTES' | 'APROBADAS' | 'RECHAZADAS' | 'CON_COMENTARIOS' | 'PUBLICADAS' | 'TODAS';
 
@@ -117,7 +117,7 @@ const RevisionQueuePage: React.FC = () => {
   const handleArchive = async (solicitudId: string) => {
     if (!confirm('¿Archivar esta solicitud? No se eliminará, solo se ocultará de la lista.')) return;
     try {
-      await apiFetch(`/solicitudes/${solicitudId}/status`, { method: 'PATCH', body: JSON.stringify({ active: 0 }) });
+      await apiFetch(`/solicitudes/${solicitudId}/status`, { method: 'PATCH', body: JSON.stringify({ active: 0, ...getUserIdentity() }) });
       refetch();
     } catch {}
   };
