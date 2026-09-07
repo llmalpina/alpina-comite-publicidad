@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Plus, Trash2, Save, Mail, Shield, Check, X, Bell, ChevronDown, ChevronUp, BookOpen } from 'lucide-react';
+import { Plus, Trash2, Save, Mail, Shield, Check, X, Bell, ChevronDown, ChevronUp, BookOpen, Filter } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '../../../components/ui/Card';
 import { Button } from '../../../components/ui/Button';
 import { Input } from '../../../components/ui/Input';
@@ -8,6 +8,7 @@ import { useConfig, PermissionKey, NotificationRule, NotificationEvent } from '.
 import { useNotifications } from '../../../contexts/NotificationContext';
 import { cn } from '../../../lib/utils';
 import TabManual from './TabManual';
+import TabFiltrosArtes from './TabFiltrosArtes';
 
 const PERMISSION_LABELS: Record<PermissionKey, string> = {
   crear_solicitud:          'Crear solicitudes',
@@ -730,13 +731,13 @@ const TabHorario: React.FC = () => {
 // ─── Página principal ─────────────────────────────────────────────────────────
 
 const ConfiguracionPage: React.FC = () => {
-  const [tab, setTab] = useState<'roles' | 'correos' | 'horario' | 'manual'>('roles');
+  const [tab, setTab] = useState<'roles' | 'correos' | 'horario' | 'artes' | 'manual'>('roles');
 
   return (
     <div className="space-y-6 max-w-5xl">
       <div>
         <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Configuración</h1>
-        <p className="text-slate-500 dark:text-slate-400">Gestiona roles, permisos y notificaciones del sistema.</p>
+        <p className="text-slate-500 dark:text-slate-400">Gestiona roles, permisos, notificaciones y flujo de artes.</p>
       </div>
 
       <div className="flex gap-1 border-b">
@@ -744,6 +745,7 @@ const ConfiguracionPage: React.FC = () => {
           { key: 'roles', label: 'Roles y Permisos', icon: Shield },
           { key: 'correos', label: 'Correos', icon: Mail },
           { key: 'horario', label: 'Horario', icon: Bell },
+          { key: 'artes', label: 'Filtros Artes', icon: Filter },
           { key: 'manual', label: 'Manual / Ayuda', icon: BookOpen },
         ] as const).map(t => (
           <button
@@ -756,7 +758,7 @@ const ConfiguracionPage: React.FC = () => {
         ))}
       </div>
 
-      {tab === 'roles' ? <TabRoles /> : tab === 'correos' ? <TabCorreos /> : tab === 'manual' ? <TabManual /> : <TabHorario />}
+      {tab === 'roles' ? <TabRoles /> : tab === 'correos' ? <TabCorreos /> : tab === 'horario' ? <TabHorario /> : tab === 'artes' ? <TabFiltrosArtes /> : <TabManual />}
     </div>
   );
 };

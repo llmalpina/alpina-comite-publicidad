@@ -16,6 +16,7 @@ import { comentariosApi, versionesApi, anotacionesApi, uploadCommentImage, getIm
 import PdfViewer from '../../../components/ui/PdfViewer';
 import { exportPdfWithAnnotations } from '../../../lib/pdf-export';
 import { useDropzone } from 'react-dropzone';
+import DebugPanel from './DebugPanel';
 
 const SolicitudDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();

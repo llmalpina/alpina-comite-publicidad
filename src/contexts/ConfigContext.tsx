@@ -80,6 +80,17 @@ export interface ScheduleConfig {
   reportTopN: number;
 }
 
+export interface ArtesFilterConfig {
+  /** Si true, aplica filtros para iniciar automáticamente el flujo de artes */
+  enabled: boolean;
+  /** Tipos de contenido permitidos para iniciar flujo (ej: 'PAQUETE_ARTES') */
+  allowedContentTypes: string[];
+  /** Emails de solicitantes permitidos para iniciar flujo */
+  allowedSolicitantes: string[];
+  /** Si true, solo los solicitantes en la lista pueden subir artes */
+  restrictByEmail: boolean;
+}
+
 /** Una regla define: qué evento → quién recibe el correo */
 export interface NotificationRule {
   id: string;
@@ -114,6 +125,7 @@ interface ConfigContextType {
   roles: RoleConfig[];
   emailConfig: EmailConfig;
   scheduleConfig: ScheduleConfig;
+  artesFilterConfig: ArtesFilterConfig;
   loadingConfig: boolean;
   hasPermission: (roleId: string, permission: PermissionKey) => boolean;
   canSubmitNow: (roleId: string) => { allowed: boolean; message?: string };
@@ -123,6 +135,7 @@ interface ConfigContextType {
   togglePermission: (roleId: string, permission: PermissionKey) => void;
   updateEmailConfig: (config: Partial<EmailConfig>) => Promise<void>;
   updateScheduleConfig: (config: Partial<ScheduleConfig>) => Promise<void>;
+  updateArtesFilterConfig: (config: Partial<ArtesFilterConfig>) => Promise<void>;
   updateRule: (rule: NotificationRule) => Promise<void>;
   addRule: (rule: Omit<NotificationRule, 'id' | 'system'>) => Promise<void>;
   removeRule: (id: string) => Promise<void>;
@@ -199,6 +212,13 @@ const DEFAULT_SCHEDULE: ScheduleConfig = {
   reportHour: 8,
   reportMinute: 0,
   reportTopN: 10,
+};
+
+const DEFAULT_ARTES_FILTER: ArtesFilterConfig = {
+  enabled: true,
+  allowedContentTypes: ['PAQUETE_ARTES'],
+  allowedSolicitantes: [],
+  restrictByEmail: false,
 };
 
 const DEFAULT_EMAIL: EmailConfig = {
@@ -366,6 +386,12 @@ export const ConfigProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       return saved ? JSON.parse(saved) : DEFAULT_SCHEDULE;
     } catch { return DEFAULT_SCHEDULE; }
   });
+  const [artesFilterConfig, setArtesFilterConfig] = useState<ArtesFilterConfig>(() => {
+    try {
+      const saved = localStorage.getItem('alpina_artes_filter_config');
+      return saved ? JSON.parse(saved) : DEFAULT_ARTES_FILTER;
+    } catch { return DEFAULT_ARTES_FILTER; }
+  });
   const [loadingConfig, setLoadingConfig] = useState(true);
 
   // Al montar: carga desde DynamoDB con timeout de 3s, si falla usa defaults
@@ -375,22 +401,28 @@ export const ConfigProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         const timeout = new Promise<never>((_, reject) =>
           setTimeout(() => reject(new Error('timeout')), 3000)
         );
-        const [dbRoles, dbEmail, dbSchedule] = await Promise.race([
+        const [dbRoles, dbEmail, dbSchedule, dbArtesFilter] = await Promise.race([
           Promise.all([
             fetchFromDynamo<RoleConfig[]>('config-roles', DEFAULT_ROLES),
             fetchFromDynamo<EmailConfig>('config-email', DEFAULT_EMAIL),
             fetchFromDynamo<ScheduleConfig>('config-schedule', DEFAULT_SCHEDULE),
+            fetchFromDynamo<ArtesFilterConfig>('config-artes-filter', DEFAULT_ARTES_FILTER),
           ]),
           timeout,
-        ]) as [RoleConfig[], EmailConfig, ScheduleConfig];
+        ]) as [RoleConfig[], EmailConfig, ScheduleConfig, ArtesFilterConfig];
         setRoles(mergeRolesWithDefaults(dbRoles));
         setEmailConfig(dbEmail);
         setScheduleConfig(dbSchedule);
+        setArtesFilterConfig(dbArtesFilter);
       } catch {
         // Timeout o error — intenta cargar schedule desde localStorage
         try {
           const saved = localStorage.getItem('alpina_schedule_config');
           if (saved) setScheduleConfig(JSON.parse(saved));
+        } catch { /* usa defaults */ }
+        try {
+          const saved = localStorage.getItem('alpina_artes_filter_config');
+          if (saved) setArtesFilterConfig(JSON.parse(saved));
         } catch { /* usa defaults */ }
       } finally {
         setLoadingConfig(false);
@@ -413,6 +445,12 @@ export const ConfigProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     setScheduleConfig(next);
     localStorage.setItem('alpina_schedule_config', JSON.stringify(next));
     await saveToDynamo('config-schedule', next);
+  };
+
+  const persistArtesFilter = async (next: ArtesFilterConfig) => {
+    setArtesFilterConfig(next);
+    localStorage.setItem('alpina_artes_filter_config', JSON.stringify(next));
+    await saveToDynamo('config-artes-filter', next);
   };
 
   const canSubmitNow = (roleId: string): { allowed: boolean; message?: string; outOfCycle?: boolean } => {
@@ -486,6 +524,10 @@ export const ConfigProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     await persistSchedule({ ...scheduleConfig, ...partial });
   };
 
+  const updateArtesFilterConfig = async (partial: Partial<ArtesFilterConfig>) => {
+    await persistArtesFilter({ ...artesFilterConfig, ...partial });
+  };
+
   const updateRule = async (rule: NotificationRule) => {
     const next = { ...emailConfig, rules: emailConfig.rules.map(r => r.id === rule.id ? rule : r) };
     await persistEmail(next);
@@ -503,7 +545,7 @@ export const ConfigProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   };
 
   return (
-    <ConfigContext.Provider value={{ roles, emailConfig, scheduleConfig, loadingConfig, hasPermission, canSubmitNow, updateRole, addRole, removeRole, togglePermission, updateEmailConfig, updateScheduleConfig, updateRule, addRule, removeRule }}>
+    <ConfigContext.Provider value={{ roles, emailConfig, scheduleConfig, artesFilterConfig, loadingConfig, hasPermission, canSubmitNow, updateRole, addRole, removeRole, togglePermission, updateEmailConfig, updateScheduleConfig, updateArtesFilterConfig, updateRule, addRule, removeRule }}>
       {children}
     </ConfigContext.Provider>
   );
