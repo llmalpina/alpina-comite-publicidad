@@ -838,7 +838,7 @@ const SolicitudDetailPage: React.FC = () => {
             <CardContent className="space-y-6">
               <div className="grid grid-cols-2 md:grid-cols-3 gap-6">
                 <div><p className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">Marca / Asunto</p><p className="text-sm font-medium text-slate-800 dark:text-slate-200">{solicitud.brand} - {solicitud.product}</p></div>
-                <div>
+                <div className="min-w-0">
                   <p className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider flex items-center gap-1">
                     Tipo de Contenido
                     {user && hasPermission(user.role, 'editar_tipo_pieza') && !editingContentType && (
@@ -846,13 +846,13 @@ const SolicitudDetailPage: React.FC = () => {
                     )}
                   </p>
                   {user && hasPermission(user.role, 'editar_tipo_pieza') && editingContentType ? (
-                    <div className="flex items-center gap-1 mt-0.5">
+                    <div className="flex flex-col gap-1 mt-0.5 min-w-0">
                       <select
                         autoFocus
                         disabled={savingContentType}
                         defaultValue={solicitud.contentType}
                         onChange={e => handleChangeContentType(e.target.value)}
-                        className="text-sm font-medium border rounded-lg px-2 py-1 bg-white dark:bg-slate-800 focus:ring-2 focus:ring-blue-400 outline-none"
+                        className="w-full max-w-full text-sm font-medium border rounded-lg px-2 py-1 bg-white dark:bg-slate-800 focus:ring-2 focus:ring-blue-400 outline-none truncate"
                       >
                         {maestros.tiposContenido.map(t => (
                           <option key={t.value} value={t.value}>{t.label}</option>
@@ -861,7 +861,7 @@ const SolicitudDetailPage: React.FC = () => {
                           <option value={solicitud.contentType}>{solicitud.contentType.replace(/_/g, ' ')}</option>
                         )}
                       </select>
-                      <button onClick={() => setEditingContentType(false)} className="text-[10px] text-slate-400 hover:text-slate-600 px-1">cancelar</button>
+                      <button onClick={() => setEditingContentType(false)} className="self-start text-[10px] text-slate-400 hover:text-slate-600">cancelar</button>
                     </div>
                   ) : (
                     <p className="text-sm font-medium text-slate-800 dark:text-slate-200">{maestros.tiposContenido.find(t => t.value === solicitud.contentType)?.label || solicitud.contentType.replace(/_/g, ' ')}</p>
