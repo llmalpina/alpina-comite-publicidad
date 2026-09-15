@@ -50,6 +50,8 @@ const SolicitudDetailPage: React.FC = () => {
   const [savingAnnotation, setSavingAnnotation] = useState(false);
   const [editingAnnotation, setEditingAnnotation] = useState<string | null>(null);
   const [editAnnotationText, setEditAnnotationText] = useState('');
+  const [editingContentType, setEditingContentType] = useState(false);
+  const [savingContentType, setSavingContentType] = useState(false);
   const currentPdfPageRef = useRef(1);
 
   const { getRootProps: getVersionRootProps, getInputProps: getVersionInputProps, isDragActive: isVersionDragActive } = useDropzone({
@@ -284,13 +286,35 @@ const SolicitudDetailPage: React.FC = () => {
     anotacionesApi.create(solicitud.id, {
       text: ann.text, page: ann.page, x: ann.x, y: ann.y,
       userName: user.name, userRole: user.role, area: user.area || '', userId: user.id, imageKey,
-    } as any).catch(console.error).finally(() => setSavingAnnotation(false));
+    } as any)
+      .then(created => mergeCreatedAnnotation(ann.id, created))
+      .catch(console.error)
+      .finally(() => setSavingAnnotation(false));
     setAnnotationText('');
     setPendingAnnotation(null);
     setAddingAnnotation(false);
     clearPendingImage();
     notify('Anotación agregada al PDF', 'success');
     setActiveTab('anotaciones');
+  };
+
+  /**
+   * Fusiona el `sk` real que devuelve el backend al crear una anotación dentro de
+   * la anotación local optimista. Evita el 404 al editar/eliminar una anotación
+   * recién creada (antes se reconstruía un `sk` con un `createdAt` distinto al del
+   * servidor y no coincidía).
+   */
+  const mergeCreatedAnnotation = (localId: string, created: any) => {
+    if (!created) return;
+    setSolicitud(prev => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        annotations: prev.annotations.map(a =>
+          a.id === localId ? { ...a, sk: created.sk, createdAt: created.createdAt || a.createdAt } : a
+        ),
+      };
+    });
   };
 
   const handleEditAnnotation = (annId: string) => {
@@ -312,6 +336,27 @@ const SolicitudDetailPage: React.FC = () => {
     setEditingAnnotation(null);
     setEditAnnotationText('');
     notify('Anotación actualizada', 'success');
+  };
+
+  /** Cambia el tipo de pieza/contenido (permiso 'editar_tipo_pieza'). */
+  const handleChangeContentType = async (nuevo: string) => {
+    if (!solicitud || savingContentType) return;
+    const anterior = solicitud.contentType;
+    if (nuevo === anterior) { setEditingContentType(false); return; }
+    setSavingContentType(true);
+    // Optimista
+    setSolicitud(prev => prev ? { ...prev, contentType: nuevo as any } : prev);
+    try {
+      await solicitudesApi.updateContentType(solicitud.id, nuevo);
+      notify('Tipo de pieza actualizado', 'success');
+      setEditingContentType(false);
+    } catch (e: any) {
+      // Revertir si falla
+      setSolicitud(prev => prev ? { ...prev, contentType: anterior } : prev);
+      notify(e.message || 'No se pudo actualizar el tipo de pieza', 'error');
+    } finally {
+      setSavingContentType(false);
+    }
   };
 
   const handleDeleteAnnotation = (annId: string) => {
@@ -793,7 +838,35 @@ const SolicitudDetailPage: React.FC = () => {
             <CardContent className="space-y-6">
               <div className="grid grid-cols-2 md:grid-cols-3 gap-6">
                 <div><p className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">Marca / Asunto</p><p className="text-sm font-medium text-slate-800 dark:text-slate-200">{solicitud.brand} - {solicitud.product}</p></div>
-                <div><p className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">Tipo de Contenido</p><p className="text-sm font-medium text-slate-800 dark:text-slate-200">{maestros.tiposContenido.find(t => t.value === solicitud.contentType)?.label || solicitud.contentType.replace(/_/g, ' ')}</p></div>
+                <div>
+                  <p className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider flex items-center gap-1">
+                    Tipo de Contenido
+                    {user && hasPermission(user.role, 'editar_tipo_pieza') && !editingContentType && (
+                      <button onClick={() => setEditingContentType(true)} className="text-blue-500 hover:text-blue-600 text-[10px] font-semibold normal-case underline">editar</button>
+                    )}
+                  </p>
+                  {user && hasPermission(user.role, 'editar_tipo_pieza') && editingContentType ? (
+                    <div className="flex items-center gap-1 mt-0.5">
+                      <select
+                        autoFocus
+                        disabled={savingContentType}
+                        defaultValue={solicitud.contentType}
+                        onChange={e => handleChangeContentType(e.target.value)}
+                        className="text-sm font-medium border rounded-lg px-2 py-1 bg-white dark:bg-slate-800 focus:ring-2 focus:ring-blue-400 outline-none"
+                      >
+                        {maestros.tiposContenido.map(t => (
+                          <option key={t.value} value={t.value}>{t.label}</option>
+                        ))}
+                        {!maestros.tiposContenido.some(t => t.value === solicitud.contentType) && (
+                          <option value={solicitud.contentType}>{solicitud.contentType.replace(/_/g, ' ')}</option>
+                        )}
+                      </select>
+                      <button onClick={() => setEditingContentType(false)} className="text-[10px] text-slate-400 hover:text-slate-600 px-1">cancelar</button>
+                    </div>
+                  ) : (
+                    <p className="text-sm font-medium text-slate-800 dark:text-slate-200">{maestros.tiposContenido.find(t => t.value === solicitud.contentType)?.label || solicitud.contentType.replace(/_/g, ' ')}</p>
+                  )}
+                </div>
                 <div><p className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">Solicitante</p><p className="text-sm font-medium text-slate-800 dark:text-slate-200">{solicitud.solicitanteName}</p></div>
                 <div><p className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">Área</p><p className="text-sm font-medium text-slate-800 dark:text-slate-200">{solicitud.area}</p></div>
                 <div><p className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">Fecha Límite</p><p className="text-sm font-medium text-slate-800 dark:text-slate-200">{formatDate(solicitud.deadline)}</p></div>
@@ -991,7 +1064,7 @@ const SolicitudDetailPage: React.FC = () => {
                       </div>
                       {editingAnnotation === ann.id ? (
                         <div className="space-y-2">
-                          <textarea value={editAnnotationText} onChange={e => setEditAnnotationText(e.target.value)} className="w-full border rounded-lg p-2 text-sm resize-none focus:ring-2 focus:ring-yellow-400" rows={2} autoFocus />
+                          <textarea value={editAnnotationText} onChange={e => setEditAnnotationText(e.target.value)} className="w-full border rounded-lg p-2.5 text-sm resize-y focus:ring-2 focus:ring-yellow-400 min-h-[120px] leading-relaxed" autoFocus />
                           <div className="flex gap-2">
                             <Button size="sm" onClick={handleSaveEditAnnotation} disabled={!editAnnotationText.trim()}>Guardar</Button>
                             <Button size="sm" variant="ghost" onClick={() => setEditingAnnotation(null)}>Cancelar</Button>

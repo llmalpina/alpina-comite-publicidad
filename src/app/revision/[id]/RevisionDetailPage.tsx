@@ -532,7 +532,10 @@ const RevisionDetailPage: React.FC = () => {
       area: user.area || '',
       userId: user.id,
       imageKey,
-    } as any).catch(console.error).finally(() => setSavingAnnotation(false));
+    } as any)
+      .then(created => mergeCreatedAnnotation(ann.id, created))
+      .catch(console.error)
+      .finally(() => setSavingAnnotation(false));
     setAnnotationText('');
     setPendingAnnotation(null);
     setAddingAnnotation(false);
@@ -554,7 +557,10 @@ const RevisionDetailPage: React.FC = () => {
       userName: user.name, userRole: user.role, area: user.area || '',
       userId: user.id,
       x2: ann.x2, y2: ann.y2, tool: ann.tool, color: ann.color, points: ann.points,
-    } as any).catch(console.error).finally(() => setSavingAnnotation(false));
+    } as any)
+      .then(created => mergeCreatedAnnotation(ann.id, created))
+      .catch(console.error)
+      .finally(() => setSavingAnnotation(false));
     setShapeAnnotationText('');
     setPendingShapeAnnotation(null);
     notify('Anotación agregada', 'success');
@@ -563,6 +569,26 @@ const RevisionDetailPage: React.FC = () => {
     if (reviewingField) {
       apiFetch(`/solicitudes/${solicitud.id}/status`, { method: 'PATCH', body: JSON.stringify({ [reviewingField]: true }) }).catch(() => {});
     }
+  };
+
+  /**
+   * Fusiona los campos que devuelve el backend al crear una anotación (sobre todo
+   * el `sk`, la sort key real de DynamoDB) dentro de la anotación local que se
+   * agregó de forma optimista. Sin esto, editar/eliminar/resolver una anotación
+   * recién creada usa un `sk` reconstruido que no coincide con el real y el
+   * backend responde 404 ("Anotación no encontrada").
+   */
+  const mergeCreatedAnnotation = (localId: string, created: any) => {
+    if (!created) return;
+    setSolicitud(prev => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        annotations: prev.annotations.map(a =>
+          a.id === localId ? { ...a, sk: created.sk, createdAt: created.createdAt || a.createdAt } : a
+        ),
+      };
+    });
   };
 
   const handleResolveAnnotation = (annId: string) => {
@@ -1260,7 +1286,7 @@ const RevisionDetailPage: React.FC = () => {
                 {activeTab === 'COMENTARIOS' && (
                   <div className="relative">
                     <MiniFormatBar textareaRef={commentTextareaRef} onChange={setComment} />
-                    <textarea ref={commentTextareaRef} className="w-full p-3 pr-10 text-xs border rounded-lg focus:ring-1 focus:ring-blue-500 outline-none min-h-[80px] bg-white dark:bg-slate-800" placeholder="Escribe tu comentario... (Ctrl+V para pegar imagen)" value={comment} onChange={e => setComment(e.target.value)} onPaste={handlePaste} />
+                    <textarea ref={commentTextareaRef} className="w-full p-3 pr-10 text-xs border rounded-lg focus:ring-1 focus:ring-blue-500 outline-none min-h-[120px] resize-y bg-white dark:bg-slate-800" placeholder="Escribe tu comentario... (Ctrl+V para pegar imagen)" value={comment} onChange={e => setComment(e.target.value)} onPaste={handlePaste} />
                     {/* Image preview */}
                     {pendingImagePreview && (
                       <div className="relative mt-1 mb-1 inline-block">
@@ -1288,7 +1314,7 @@ const RevisionDetailPage: React.FC = () => {
                   <div className="space-y-2">
                     <p className="text-xs font-semibold text-yellow-700 dark:text-yellow-400 flex items-center gap-1"><Pin size={12} /> Anotación en posición {Math.round(pendingAnnotation.x)}%, {Math.round(pendingAnnotation.y)}%</p>
                     <MiniFormatBar textareaRef={annotationTextareaRef} onChange={setAnnotationText} />
-                    <textarea ref={annotationTextareaRef} className="w-full p-3 text-xs border border-yellow-300 rounded-lg focus:ring-1 focus:ring-yellow-400 outline-none min-h-[70px] bg-white dark:bg-slate-800" placeholder="Escribe la observación para este punto del PDF..." value={annotationText} onChange={e => setAnnotationText(e.target.value)} onPaste={handlePaste} />
+                    <textarea ref={annotationTextareaRef} className="w-full p-3 text-xs border border-yellow-300 rounded-lg focus:ring-1 focus:ring-yellow-400 outline-none min-h-[130px] resize-y bg-white dark:bg-slate-800" placeholder="Escribe la observación para este punto del PDF..." value={annotationText} onChange={e => setAnnotationText(e.target.value)} onPaste={handlePaste} />
                     {/* Image preview */}
                     {pendingImagePreview && (
                       <div className="relative inline-block">
@@ -1344,7 +1370,10 @@ const RevisionDetailPage: React.FC = () => {
                           };
                           setSolicitud(prev => prev ? { ...prev, annotations: [...prev.annotations, ann] } : prev);
                           if (imageKey && pendingImagePreview) setImageUrls(prev => ({ ...prev, [imageKey!]: pendingImagePreview! }));
-                          anotacionesApi.create(solicitud.id, { text: ann.text, page: ann.page, x: ann.x, y: ann.y, userName: user.name, userRole: user.role, area: user.area || '', imageKey } as any).catch(console.error).finally(() => setSavingAnnotation(false));
+                          anotacionesApi.create(solicitud.id, { text: ann.text, page: ann.page, x: ann.x, y: ann.y, userName: user.name, userRole: user.role, area: user.area || '', imageKey } as any)
+                            .then(created => mergeCreatedAnnotation(ann.id, created))
+                            .catch(console.error)
+                            .finally(() => setSavingAnnotation(false));
                           setAnnotationText(''); clearPendingImage();
                           notify('Anotación con imagen agregada', 'success');
                         }}>

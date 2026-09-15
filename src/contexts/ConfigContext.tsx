@@ -20,6 +20,7 @@ export type PermissionKey =
   | 'aprobar_rechazar'
   | 'agregar_comentario'
   | 'agregar_anotacion_pdf'
+  | 'editar_tipo_pieza'
   | 'subir_version'
   | 'subir_fuera_horario'
   | 'enviar_informe'
@@ -91,6 +92,35 @@ export interface ArtesFilterConfig {
   restrictByEmail: boolean;
 }
 
+/**
+ * Anuncio/mensaje global que se muestra como popup al ingresar a la app.
+ * Sirve para avisos de mantenimiento, recordatorios ("suban bien la info"), etc.
+ * Se puede programar por rango de fechas, horario y días de la semana.
+ */
+export interface AnnouncementConfig {
+  /** Si el anuncio está activo (además debe caer dentro de la ventana programada) */
+  enabled: boolean;
+  /**
+   * Identificador de versión del mensaje. Al cambiarlo (o al editar el mensaje)
+   * el "no volver a mostrar" se reinicia y el popup vuelve a aparecer para todos.
+   */
+  version: string;
+  title: string;
+  message: string;
+  /** Estilo/severidad del anuncio */
+  type: 'info' | 'warning' | 'maintenance';
+  /** Ventana de fechas (YYYY-MM-DD). Vacío = sin límite por ese lado. */
+  startDate: string;
+  endDate: string;
+  /** Ventana horaria (0-23). Si start<=end aplica en el día; si vacíos, todo el día. */
+  startHour: number | null;
+  endHour: number | null;
+  /** Días de la semana en que aplica (0=dom … 6=sáb). Vacío = todos los días. */
+  daysOfWeek: number[];
+  /** Si true, el usuario puede marcar "no volver a mostrar" */
+  dismissible: boolean;
+}
+
 /** Una regla define: qué evento → quién recibe el correo */
 export interface NotificationRule {
   id: string;
@@ -126,6 +156,7 @@ interface ConfigContextType {
   emailConfig: EmailConfig;
   scheduleConfig: ScheduleConfig;
   artesFilterConfig: ArtesFilterConfig;
+  announcementConfig: AnnouncementConfig;
   loadingConfig: boolean;
   hasPermission: (roleId: string, permission: PermissionKey) => boolean;
   canSubmitNow: (roleId: string) => { allowed: boolean; message?: string };
@@ -136,6 +167,9 @@ interface ConfigContextType {
   updateEmailConfig: (config: Partial<EmailConfig>) => Promise<void>;
   updateScheduleConfig: (config: Partial<ScheduleConfig>) => Promise<void>;
   updateArtesFilterConfig: (config: Partial<ArtesFilterConfig>) => Promise<void>;
+  updateAnnouncementConfig: (config: Partial<AnnouncementConfig>) => Promise<void>;
+  /** True si el anuncio está habilitado y la fecha/hora/día actuales caen en su ventana */
+  isAnnouncementActive: (now?: Date) => boolean;
   updateRule: (rule: NotificationRule) => Promise<void>;
   addRule: (rule: Omit<NotificationRule, 'id' | 'system'>) => Promise<void>;
   removeRule: (id: string) => Promise<void>;
@@ -146,7 +180,7 @@ interface ConfigContextType {
 export const ALL_PERMISSIONS: PermissionKey[] = [
   'crear_solicitud', 'ver_solicitudes_propias', 'ver_todas_solicitudes', 'ver_solicitudes_otros',
   'revisar_solicitud', 'aprobar_rechazar', 'agregar_comentario',
-  'agregar_anotacion_pdf', 'subir_version', 'subir_fuera_horario', 'enviar_informe', 'ver_reportes',
+  'agregar_anotacion_pdf', 'editar_tipo_pieza', 'subir_version', 'subir_fuera_horario', 'enviar_informe', 'ver_reportes',
   'gestionar_maestros', 'gestionar_usuarios', 'gestionar_roles', 'configurar_correos', 'eliminar_solicitudes',
   'artes_ver_cola', 'artes_aprobar', 'artes_subir_ajuste', 'artes_ver_repositorio',
   'artes_gestionar_equipos', 'artes_admin_flujo',
@@ -219,6 +253,20 @@ const DEFAULT_ARTES_FILTER: ArtesFilterConfig = {
   allowedContentTypes: ['PAQUETE_ARTES'],
   allowedSolicitantes: [],
   restrictByEmail: false,
+};
+
+const DEFAULT_ANNOUNCEMENT: AnnouncementConfig = {
+  enabled: false,
+  version: 'v1',
+  title: '',
+  message: '',
+  type: 'info',
+  startDate: '',
+  endDate: '',
+  startHour: null,
+  endHour: null,
+  daysOfWeek: [],
+  dismissible: true,
 };
 
 const DEFAULT_EMAIL: EmailConfig = {
@@ -392,6 +440,12 @@ export const ConfigProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       return saved ? JSON.parse(saved) : DEFAULT_ARTES_FILTER;
     } catch { return DEFAULT_ARTES_FILTER; }
   });
+  const [announcementConfig, setAnnouncementConfig] = useState<AnnouncementConfig>(() => {
+    try {
+      const saved = localStorage.getItem('alpina_announcement_config');
+      return saved ? { ...DEFAULT_ANNOUNCEMENT, ...JSON.parse(saved) } : DEFAULT_ANNOUNCEMENT;
+    } catch { return DEFAULT_ANNOUNCEMENT; }
+  });
   const [loadingConfig, setLoadingConfig] = useState(true);
 
   // Al montar: carga desde DynamoDB con timeout de 3s, si falla usa defaults
@@ -401,19 +455,22 @@ export const ConfigProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         const timeout = new Promise<never>((_, reject) =>
           setTimeout(() => reject(new Error('timeout')), 3000)
         );
-        const [dbRoles, dbEmail, dbSchedule, dbArtesFilter] = await Promise.race([
+        const [dbRoles, dbEmail, dbSchedule, dbArtesFilter, dbAnnouncement] = await Promise.race([
           Promise.all([
             fetchFromDynamo<RoleConfig[]>('config-roles', DEFAULT_ROLES),
             fetchFromDynamo<EmailConfig>('config-email', DEFAULT_EMAIL),
             fetchFromDynamo<ScheduleConfig>('config-schedule', DEFAULT_SCHEDULE),
             fetchFromDynamo<ArtesFilterConfig>('config-artes-filter', DEFAULT_ARTES_FILTER),
+            fetchFromDynamo<AnnouncementConfig>('config-announcement', DEFAULT_ANNOUNCEMENT),
           ]),
           timeout,
-        ]) as [RoleConfig[], EmailConfig, ScheduleConfig, ArtesFilterConfig];
+        ]) as [RoleConfig[], EmailConfig, ScheduleConfig, ArtesFilterConfig, AnnouncementConfig];
         setRoles(mergeRolesWithDefaults(dbRoles));
         setEmailConfig(dbEmail);
         setScheduleConfig(dbSchedule);
         setArtesFilterConfig(dbArtesFilter);
+        setAnnouncementConfig({ ...DEFAULT_ANNOUNCEMENT, ...dbAnnouncement });
+        try { localStorage.setItem('alpina_announcement_config', JSON.stringify({ ...DEFAULT_ANNOUNCEMENT, ...dbAnnouncement })); } catch {}
       } catch {
         // Timeout o error — intenta cargar schedule desde localStorage
         try {
@@ -423,6 +480,10 @@ export const ConfigProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         try {
           const saved = localStorage.getItem('alpina_artes_filter_config');
           if (saved) setArtesFilterConfig(JSON.parse(saved));
+        } catch { /* usa defaults */ }
+        try {
+          const saved = localStorage.getItem('alpina_announcement_config');
+          if (saved) setAnnouncementConfig({ ...DEFAULT_ANNOUNCEMENT, ...JSON.parse(saved) });
         } catch { /* usa defaults */ }
       } finally {
         setLoadingConfig(false);
@@ -451,6 +512,12 @@ export const ConfigProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     setArtesFilterConfig(next);
     localStorage.setItem('alpina_artes_filter_config', JSON.stringify(next));
     await saveToDynamo('config-artes-filter', next);
+  };
+
+  const persistAnnouncement = async (next: AnnouncementConfig) => {
+    setAnnouncementConfig(next);
+    localStorage.setItem('alpina_announcement_config', JSON.stringify(next));
+    await saveToDynamo('config-announcement', next);
   };
 
   const canSubmitNow = (roleId: string): { allowed: boolean; message?: string; outOfCycle?: boolean } => {
@@ -528,6 +595,38 @@ export const ConfigProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     await persistArtesFilter({ ...artesFilterConfig, ...partial });
   };
 
+  const updateAnnouncementConfig = async (partial: Partial<AnnouncementConfig>) => {
+    await persistAnnouncement({ ...announcementConfig, ...partial });
+  };
+
+  /** Evalúa si el anuncio debe mostrarse ahora según fecha, hora y día configurados. */
+  const isAnnouncementActive = (now: Date = new Date()): boolean => {
+    const a = announcementConfig;
+    if (!a.enabled) return false;
+    if (!a.message?.trim() && !a.title?.trim()) return false;
+
+    // Rango de fechas (comparación por día en local, inclusivo)
+    const toDay = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    const today = toDay(now);
+    if (a.startDate && today < a.startDate) return false;
+    if (a.endDate && today > a.endDate) return false;
+
+    // Día de la semana
+    if (Array.isArray(a.daysOfWeek) && a.daysOfWeek.length > 0 && !a.daysOfWeek.includes(now.getDay())) return false;
+
+    // Ventana horaria (por hora entera). Soporta rangos que cruzan medianoche.
+    if (a.startHour !== null && a.endHour !== null) {
+      const h = now.getHours();
+      if (a.startHour <= a.endHour) {
+        if (h < a.startHour || h > a.endHour) return false;
+      } else {
+        // Ej: 22 → 6 (cruza medianoche)
+        if (h < a.startHour && h > a.endHour) return false;
+      }
+    }
+    return true;
+  };
+
   const updateRule = async (rule: NotificationRule) => {
     const next = { ...emailConfig, rules: emailConfig.rules.map(r => r.id === rule.id ? rule : r) };
     await persistEmail(next);
@@ -545,7 +644,7 @@ export const ConfigProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   };
 
   return (
-    <ConfigContext.Provider value={{ roles, emailConfig, scheduleConfig, artesFilterConfig, loadingConfig, hasPermission, canSubmitNow, updateRole, addRole, removeRole, togglePermission, updateEmailConfig, updateScheduleConfig, updateArtesFilterConfig, updateRule, addRule, removeRule }}>
+    <ConfigContext.Provider value={{ roles, emailConfig, scheduleConfig, artesFilterConfig, announcementConfig, loadingConfig, hasPermission, canSubmitNow, updateRole, addRole, removeRole, togglePermission, updateEmailConfig, updateScheduleConfig, updateArtesFilterConfig, updateAnnouncementConfig, isAnnouncementActive, updateRule, addRule, removeRule }}>
       {children}
     </ConfigContext.Provider>
   );

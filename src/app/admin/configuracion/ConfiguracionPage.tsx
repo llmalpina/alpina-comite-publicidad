@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Plus, Trash2, Save, Mail, Shield, Check, X, Bell, ChevronDown, ChevronUp, BookOpen, Filter } from 'lucide-react';
+import { Plus, Trash2, Save, Mail, Shield, Check, X, Bell, ChevronDown, ChevronUp, BookOpen, Filter, Megaphone } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '../../../components/ui/Card';
 import { Button } from '../../../components/ui/Button';
 import { Input } from '../../../components/ui/Input';
@@ -9,6 +9,7 @@ import { useNotifications } from '../../../contexts/NotificationContext';
 import { cn } from '../../../lib/utils';
 import TabManual from './TabManual';
 import TabFiltrosArtes from './TabFiltrosArtes';
+import TabAnuncios from './TabAnuncios';
 
 const PERMISSION_LABELS: Record<PermissionKey, string> = {
   crear_solicitud:          'Crear solicitudes',
@@ -19,6 +20,7 @@ const PERMISSION_LABELS: Record<PermissionKey, string> = {
   aprobar_rechazar:         'Aprobar / Rechazar',
   agregar_comentario:       'Agregar comentarios',
   agregar_anotacion_pdf:    'Anotar en PDF',
+  editar_tipo_pieza:        'Editar el tipo de pieza / contenido',
   subir_version:            'Subir nueva versión',
   subir_fuera_horario:      'Subir fuera de horario',
   enviar_informe:           'Enviar informe semanal',
@@ -38,7 +40,7 @@ const PERMISSION_LABELS: Record<PermissionKey, string> = {
 
 const PERMISSION_GROUPS = [
   { label: 'Solicitudes', keys: ['crear_solicitud', 'ver_solicitudes_propias', 'ver_todas_solicitudes', 'ver_solicitudes_otros', 'subir_version', 'subir_fuera_horario', 'eliminar_solicitudes'] as PermissionKey[] },
-  { label: 'Revisión', keys: ['revisar_solicitud', 'aprobar_rechazar', 'agregar_comentario', 'agregar_anotacion_pdf', 'enviar_informe'] as PermissionKey[] },
+  { label: 'Revisión', keys: ['revisar_solicitud', 'aprobar_rechazar', 'agregar_comentario', 'agregar_anotacion_pdf', 'editar_tipo_pieza', 'enviar_informe'] as PermissionKey[] },
   { label: 'Administración', keys: ['ver_reportes', 'gestionar_maestros', 'gestionar_usuarios', 'gestionar_roles', 'configurar_correos'] as PermissionKey[] },
   { label: 'Aprobación de artes por equipos', keys: ['artes_ver_cola', 'artes_aprobar', 'artes_subir_ajuste', 'artes_ver_repositorio', 'artes_gestionar_equipos', 'artes_admin_flujo'] as PermissionKey[] },
 ];
@@ -731,7 +733,7 @@ const TabHorario: React.FC = () => {
 // ─── Página principal ─────────────────────────────────────────────────────────
 
 const ConfiguracionPage: React.FC = () => {
-  const [tab, setTab] = useState<'roles' | 'correos' | 'horario' | 'artes' | 'manual'>('roles');
+  const [tab, setTab] = useState<'roles' | 'correos' | 'horario' | 'artes' | 'anuncios' | 'manual'>('roles');
 
   return (
     <div className="space-y-6 max-w-5xl">
@@ -746,6 +748,7 @@ const ConfiguracionPage: React.FC = () => {
           { key: 'correos', label: 'Correos', icon: Mail },
           { key: 'horario', label: 'Horario', icon: Bell },
           { key: 'artes', label: 'Filtros Artes', icon: Filter },
+          { key: 'anuncios', label: 'Anuncios', icon: Megaphone },
           { key: 'manual', label: 'Manual / Ayuda', icon: BookOpen },
         ] as const).map(t => (
           <button
@@ -758,7 +761,7 @@ const ConfiguracionPage: React.FC = () => {
         ))}
       </div>
 
-      {tab === 'roles' ? <TabRoles /> : tab === 'correos' ? <TabCorreos /> : tab === 'horario' ? <TabHorario /> : tab === 'artes' ? <TabFiltrosArtes /> : <TabManual />}
+      {tab === 'roles' ? <TabRoles /> : tab === 'correos' ? <TabCorreos /> : tab === 'horario' ? <TabHorario /> : tab === 'artes' ? <TabFiltrosArtes /> : tab === 'anuncios' ? <TabAnuncios /> : <TabManual />}
     </div>
   );
 };

@@ -2,7 +2,7 @@ import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { Document, Page, pdfjs } from 'react-pdf';
 import 'react-pdf/dist/Page/AnnotationLayer.css';
 import 'react-pdf/dist/Page/TextLayer.css';
-import { ZoomIn, ZoomOut, Loader2, FileText, Maximize2, Pin, Square, ArrowRight, Pencil, Strikethrough, Underline as UnderlineIcon, MousePointer2, Hand, Highlighter } from 'lucide-react';
+import { ZoomIn, ZoomOut, Loader2, FileText, Maximize2, Pin, Square, ArrowRight, Pencil, Strikethrough, Underline as UnderlineIcon, MousePointer2, Hand, Highlighter, RotateCw, RotateCcw } from 'lucide-react';
 import { Button } from './Button';
 import { cn } from '../../lib/utils';
 import type { AnnotationTool } from '../../types';
@@ -117,6 +117,7 @@ const PdfViewer: React.FC<PdfViewerProps> = ({
   const [numPages, setNumPages] = useState(0);
   const [currentPage, setCurrentPage] = useState(1);
   const [scale, setScale] = useState(1.0);
+  const [rotation, setRotation] = useState(0); // 0, 90, 180, 270
   const [containerWidth, setContainerWidth] = useState(0);
   const [fitToWidth, setFitToWidth] = useState(true);
   const [loading, setLoading] = useState(true);
@@ -170,7 +171,7 @@ const PdfViewer: React.FC<PdfViewerProps> = ({
       e.preventDefault();
       e.stopPropagation();
       const delta = e.deltaY > 0 ? -0.08 : 0.08;
-      const newScale = Math.min(4.0, Math.max(0.25, +(scaleRef.current + delta).toFixed(2)));
+      const newScale = Math.min(6.0, Math.max(0.1, +(scaleRef.current + delta).toFixed(2)));
       setFitToWidth(false);
       setScale(newScale);
     };
@@ -595,21 +596,30 @@ const PdfViewer: React.FC<PdfViewerProps> = ({
           </span>
         </div>
         <div className="flex items-center gap-1">
-          <Button variant="ghost" size="icon" className="h-7 w-7"
-            onClick={() => { setFitToWidth(false); setScale(s => Math.max(0.3, +(s - 0.15).toFixed(2))); }}>
+          <Button variant="ghost" size="icon" className="h-7 w-7" title="Alejar"
+            onClick={() => { setFitToWidth(false); setScale(s => Math.max(0.1, +(s - 0.15).toFixed(2))); }}>
             <ZoomOut size={14} />
           </Button>
           <span className="text-xs text-slate-600 dark:text-slate-400 w-10 text-center">
             {Math.round((fitToWidth ? (containerWidth > 0 ? (containerWidth / 595) : 1) : scale) * 100)}%
           </span>
-          <Button variant="ghost" size="icon" className="h-7 w-7"
-            onClick={() => { setFitToWidth(false); setScale(s => Math.min(3.0, +(s + 0.15).toFixed(2))); }}>
+          <Button variant="ghost" size="icon" className="h-7 w-7" title="Acercar"
+            onClick={() => { setFitToWidth(false); setScale(s => Math.min(6.0, +(s + 0.15).toFixed(2))); }}>
             <ZoomIn size={14} />
           </Button>
           <Button variant="ghost" size="sm" className="h-7 text-xs px-2"
             onClick={() => setFitToWidth(!fitToWidth)}
             title={fitToWidth ? "Usar zoom manual" : "Ajustar al ancho"}>
             {fitToWidth ? "Zoom" : "Ancho"}
+          </Button>
+          <div className="w-px h-5 bg-slate-300 mx-1" />
+          <Button variant="ghost" size="icon" className="h-7 w-7" title="Girar a la izquierda"
+            onClick={() => setRotation(r => (r + 270) % 360)}>
+            <RotateCcw size={14} />
+          </Button>
+          <Button variant="ghost" size="icon" className="h-7 w-7" title="Girar a la derecha"
+            onClick={() => setRotation(r => (r + 90) % 360)}>
+            <RotateCw size={14} />
           </Button>
           <div className="w-px h-5 bg-slate-300 mx-1" />
           <Button variant="ghost" size="icon" className="h-7 w-7" title="Pantalla completa"
@@ -664,6 +674,7 @@ const PdfViewer: React.FC<PdfViewerProps> = ({
                 <Page pageNumber={pageNum}
                   scale={fitToWidth && containerWidth > 0 ? undefined : scale}
                   width={fitToWidth && containerWidth > 0 ? containerWidth : undefined}
+                  rotate={rotation}
                   renderTextLayer renderAnnotationLayer className="bg-white"
                   canvasBackground="white"
                   error={() => <div className="bg-white p-4 text-red-500 text-xs">Error renderizando página</div>}
@@ -698,8 +709,8 @@ const PdfViewer: React.FC<PdfViewerProps> = ({
 
       {/* Inline annotation text input — works in fullscreen */}
       {(pendingShapeAnnotation || pendingPinAnnotation) && (
-        <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/30" onClick={e => { if (e.target === e.currentTarget) { onShapeCancel?.(); onPinCancel?.(); } }}>
-          <div className="bg-white dark:bg-slate-800 rounded-xl shadow-2xl p-5 w-[90%] max-w-sm space-y-3" onClick={e => e.stopPropagation()}>
+        <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/30 p-4" onClick={e => { if (e.target === e.currentTarget) { onShapeCancel?.(); onPinCancel?.(); } }}>
+          <div className="bg-white dark:bg-slate-800 rounded-xl shadow-2xl p-5 w-full max-w-2xl max-h-[85vh] flex flex-col space-y-3" onClick={e => e.stopPropagation()}>
             <div className="flex items-center gap-3">
               <div className="w-9 h-9 rounded-full flex items-center justify-center shrink-0" style={{ backgroundColor: pendingShapeAnnotation?.color || annotationColor }}>
                 <Pin size={16} className="text-white" />
@@ -712,8 +723,8 @@ const PdfViewer: React.FC<PdfViewerProps> = ({
             <FormatToolbar textareaRef={annotationTextareaRef} onChange={val => pendingShapeAnnotation ? onShapeTextChange?.(val) : onPinTextChange?.(val)} />
             <textarea
               ref={annotationTextareaRef}
-              className="w-full p-3 text-sm border rounded-lg focus:ring-2 focus:ring-blue-400 outline-none min-h-[80px] bg-slate-50 dark:bg-slate-900"
-              placeholder="Describe la observación..."
+              className="w-full flex-1 p-3 text-sm border rounded-lg focus:ring-2 focus:ring-blue-400 outline-none min-h-[220px] resize-y bg-slate-50 dark:bg-slate-900 leading-relaxed"
+              placeholder="Describe la observación con el detalle que necesites. Puedes escribir varias líneas y arrastrar la esquina inferior para agrandar la caja."
               value={pendingShapeAnnotation ? shapeAnnotationText : pinAnnotationText}
               onChange={e => pendingShapeAnnotation ? onShapeTextChange?.(e.target.value) : onPinTextChange?.(e.target.value)}
               autoFocus
@@ -721,15 +732,19 @@ const PdfViewer: React.FC<PdfViewerProps> = ({
                 // Ctrl+B / Ctrl+I shortcuts
                 if (e.ctrlKey && e.key === 'b') { e.preventDefault(); annotationTextareaRef.current && applyFormat(annotationTextareaRef.current, '**', '**', val => pendingShapeAnnotation ? onShapeTextChange?.(val) : onPinTextChange?.(val)); return; }
                 if (e.ctrlKey && e.key === 'i') { e.preventDefault(); annotationTextareaRef.current && applyFormat(annotationTextareaRef.current, '_', '_', val => pendingShapeAnnotation ? onShapeTextChange?.(val) : onPinTextChange?.(val)); return; }
-                if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); pendingShapeAnnotation ? onShapeSave?.() : onPinSave?.(); }
+                // Ctrl+Enter guarda; Enter simple agrega salto de línea (comportamiento de caja de texto larga)
+                if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); pendingShapeAnnotation ? onShapeSave?.() : onPinSave?.(); return; }
                 if (e.key === 'Escape') { onShapeCancel?.(); onPinCancel?.(); }
               }}
             />
-            <div className="flex gap-2 justify-end">
-              <button onClick={() => { onShapeCancel?.(); onPinCancel?.(); }} className="px-3 py-1.5 text-xs font-semibold text-slate-500 hover:bg-slate-100 rounded-lg">Cancelar</button>
-              <button onClick={() => { pendingShapeAnnotation ? onShapeSave?.() : onPinSave?.(); }} className="px-4 py-1.5 text-xs font-bold text-white rounded-lg" style={{ backgroundColor: pendingShapeAnnotation?.color || annotationColor }}>
-                Guardar
-              </button>
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-[10px] text-slate-400">Ctrl+Enter para guardar · Esc para cancelar</span>
+              <div className="flex gap-2">
+                <button onClick={() => { onShapeCancel?.(); onPinCancel?.(); }} className="px-3 py-1.5 text-xs font-semibold text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg">Cancelar</button>
+                <button onClick={() => { pendingShapeAnnotation ? onShapeSave?.() : onPinSave?.(); }} className="px-4 py-1.5 text-xs font-bold text-white rounded-lg" style={{ backgroundColor: pendingShapeAnnotation?.color || annotationColor }}>
+                  Guardar
+                </button>
+              </div>
             </div>
           </div>
         </div>

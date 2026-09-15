@@ -8,6 +8,7 @@ import { MaestrosProvider } from './contexts/MaestrosContext';
 import { ConfigProvider, useConfig } from './contexts/ConfigContext';
 import Sidebar from './components/layout/Sidebar';
 import Header from './components/layout/Header';
+import AnnouncementBanner from './components/layout/AnnouncementBanner';
 import LoginPage from './app/login/LoginPage';
 import DashboardPage from './app/dashboard/DashboardPage';
 import SolicitudesPage from './app/solicitudes/SolicitudesListPage';
@@ -53,6 +54,7 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode; roles?: string[]; pe
 
   return (
     <div className="flex flex-col h-screen overflow-hidden text-slate-900 dark:text-slate-100">
+      <AnnouncementBanner />
       <Header onMenuToggle={() => setMobileMenuOpen(v => !v)} />
       <div className="flex flex-1 overflow-hidden">
         {mobileMenuOpen && <div className="fixed inset-0 bg-black/40 z-40 md:hidden" onClick={() => setMobileMenuOpen(false)} />}

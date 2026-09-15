@@ -36,6 +36,9 @@ export const solicitudesApi = {
   create: (data: any) => apiFetch<any>('/solicitudes', { method: 'POST', body: JSON.stringify(data) }),
   updateStatus: (id: string, status: string, nota?: string, files?: any[], currentVersion?: number) =>
     apiFetch<any>(`/solicitudes/${id}/status`, { method: 'PATCH', body: JSON.stringify({ status, nota, files, currentVersion, ...getUserIdentity() }) }),
+  /** Corrige el tipo de pieza/contenido de una solicitud (requiere permiso 'editar_tipo_pieza'). */
+  updateContentType: (id: string, contentType: string) =>
+    apiFetch<any>(`/solicitudes/${id}/status`, { method: 'PATCH', body: JSON.stringify({ contentType, ...getUserIdentity() }) }),
 };
 
 // ─── Comentarios ─────────────────────────────────────────────────────────────

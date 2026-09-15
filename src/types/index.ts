@@ -123,6 +123,8 @@ export interface PdfAnnotation {
   points?: { x: number; y: number }[];
   /** S3 key de imagen adjunta */
   imageKey?: string;
+  /** Sort key real de DynamoDB (necesaria para PATCH/DELETE). La devuelve el backend al crear. */
+  sk?: string;
 }
 
 export interface Solicitud {

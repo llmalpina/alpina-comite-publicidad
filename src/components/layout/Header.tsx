@@ -1,6 +1,8 @@
 import React from 'react';
+import { Bell } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useTheme } from '../../contexts/ThemeContext';
+import { useConfig } from '../../contexts/ConfigContext';
 import { ROLE_LABELS, getAssetPath } from '../../lib/constants';
 
 interface HeaderProps {
@@ -18,7 +20,9 @@ const ROLE_COLORS: Record<string, { bg: string; fg: string }> = {
 const Header: React.FC<HeaderProps> = ({ onMenuToggle }) => {
   const { user, logout } = useAuth();
   const { dark, toggleDark } = useTheme();
+  const { isAnnouncementActive } = useConfig();
   const rolStyle = user ? ROLE_COLORS[user.role] : null;
+  const hasAnnouncement = isAnnouncementActive();
 
   return (
     <header className="h-14 shrink-0 bg-brand-800 dark:bg-slate-950 border-b border-brand-700 dark:border-slate-800 flex items-center justify-between px-4 md:px-6 z-40 shadow-sm">
@@ -33,6 +37,16 @@ const Header: React.FC<HeaderProps> = ({ onMenuToggle }) => {
       </div>
 
       <div className="flex items-center gap-2">
+        {hasAnnouncement && (
+          <button
+            onClick={() => window.dispatchEvent(new Event('alpina:open-announcement'))}
+            className="relative p-2 rounded-lg text-brand-100 hover:bg-brand-700 dark:hover:bg-slate-800 transition-colors"
+            title="Ver aviso del comité"
+          >
+            <Bell size={18} />
+            <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-red-500 ring-2 ring-brand-800 dark:ring-slate-950" />
+          </button>
+        )}
         <button onClick={toggleDark} className="p-2 rounded-lg text-brand-100 hover:bg-brand-700 dark:hover:bg-slate-800 transition-colors" title={dark ? 'Modo claro' : 'Modo oscuro'}>
           {dark ? '☀️' : '🌙'}
         </button>
