@@ -12,11 +12,11 @@
  * Se puede reabrir desde la campana del Header disparando el evento
  * `window` 'alpina:open-announcement'.
  */
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Megaphone, AlertTriangle, Wrench, X } from 'lucide-react';
 import { useConfig } from '../../contexts/ConfigContext';
 
-const seenKey = (version: string) => `alpina_announcement_seen_${version}`;
+const seenKey = (sig: string) => `alpina_announcement_seen_${sig}`;
 
 const TYPE_STYLES = {
   info:        { icon: Megaphone,      accent: '#1450C9', bg: 'bg-blue-50 dark:bg-blue-900/20',   ring: 'border-blue-200' },
@@ -25,18 +25,23 @@ const TYPE_STYLES = {
 } as const;
 
 const AnnouncementBanner: React.FC = () => {
-  const { announcementConfig, isAnnouncementActive, loadingConfig } = useConfig();
+  const { announcementConfig, isAnnouncementActive, announcementSignature, loadingConfig } = useConfig();
   const [open, setOpen] = useState(false);
-
+  // Firma del contenido: clave estable para el "no volver a mostrar".
+  const sig = announcementSignature();
   const active = !loadingConfig && isAnnouncementActive();
+  // Evita reabrir el popup si el usuario ya lo cerró en esta sesión, aunque la
+  // config se recargue (localStorage → DynamoDB) y dispare el efecto de nuevo.
+  const dismissedThisSession = useRef<Record<string, boolean>>({});
 
   // Al cargar / cambiar el anuncio: abrir si está activo y no fue descartado.
   useEffect(() => {
     if (!active) { setOpen(false); return; }
+    if (dismissedThisSession.current[sig]) return;
     let seen = false;
-    try { seen = localStorage.getItem(seenKey(announcementConfig.version)) === '1'; } catch {}
+    try { seen = localStorage.getItem(seenKey(sig)) === '1'; } catch {}
     if (!seen) setOpen(true);
-  }, [active, announcementConfig.version]);
+  }, [active, sig]);
 
   // Permite reabrir desde la campana del Header.
   useEffect(() => {
@@ -52,7 +57,8 @@ const AnnouncementBanner: React.FC = () => {
 
   const close = () => setOpen(false);
   const dismissForever = () => {
-    try { localStorage.setItem(seenKey(announcementConfig.version), '1'); } catch {}
+    try { localStorage.setItem(seenKey(sig), '1'); } catch {}
+    dismissedThisSession.current[sig] = true;
     setOpen(false);
   };
 

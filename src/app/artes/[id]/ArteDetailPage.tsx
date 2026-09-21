@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '../../../components/ui
 import { Button } from '../../../components/ui/Button';
 import { Badge } from '../../../components/ui/Badge';
 import PdfViewer from '../../../components/ui/PdfViewer';
+import Loader from '../../../components/ui/Loader';
 import { useArtes } from '../../../contexts/ArtesContext';
 import { useAuth } from '../../../contexts/AuthContext';
 import { useNotifications } from '../../../contexts/NotificationContext';
@@ -223,9 +224,14 @@ const ArteDetailPage: React.FC = () => {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center py-20 gap-3 text-slate-400">
-        <Loader2 size={24} className="animate-spin" /> Cargando arte...
-      </div>
+      <Loader
+        variant="page"
+        messages={[
+          'Cargando el arte…',
+          'Trayendo las firmas y versiones…',
+          'Preparando el visor…',
+        ]}
+      />
     );
   }
 

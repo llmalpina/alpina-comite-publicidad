@@ -170,6 +170,13 @@ interface ConfigContextType {
   updateAnnouncementConfig: (config: Partial<AnnouncementConfig>) => Promise<void>;
   /** True si el anuncio está habilitado y la fecha/hora/día actuales caen en su ventana */
   isAnnouncementActive: (now?: Date) => boolean;
+  /**
+   * Firma estable del contenido del anuncio (título+mensaje+tipo+ventana). Se usa
+   * como clave del "no volver a mostrar": el mismo anuncio siempre produce la misma
+   * firma, sin depender del campo `version` (que puede diferir entre localStorage y
+   * DynamoDB). Cambia solo cuando el admin edita el contenido.
+   */
+  announcementSignature: () => string;
   updateRule: (rule: NotificationRule) => Promise<void>;
   addRule: (rule: Omit<NotificationRule, 'id' | 'system'>) => Promise<void>;
   removeRule: (id: string) => Promise<void>;
@@ -627,6 +634,22 @@ export const ConfigProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     return true;
   };
 
+  /**
+   * Firma estable del contenido del anuncio. Un hash corto y determinista de los
+   * campos que definen "de qué anuncio se trata". No depende de `version`, así el
+   * "no volver a mostrar" persiste aunque el campo version cambie entre orígenes
+   * (localStorage vs DynamoDB) o no venga.
+   */
+  const announcementSignature = (): string => {
+    const a = announcementConfig;
+    const seed = [a.title, a.message, a.type, a.startDate, a.endDate, a.startHour, a.endHour, (a.daysOfWeek || []).join(',')].join('|');
+    let h = 0x811c9dc5;
+    for (let i = 0; i < seed.length; i++) {
+      h = ((h ^ seed.charCodeAt(i)) * 0x01000193) >>> 0;
+    }
+    return h.toString(16).padStart(8, '0');
+  };
+
   const updateRule = async (rule: NotificationRule) => {
     const next = { ...emailConfig, rules: emailConfig.rules.map(r => r.id === rule.id ? rule : r) };
     await persistEmail(next);
@@ -644,7 +667,7 @@ export const ConfigProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   };
 
   return (
-    <ConfigContext.Provider value={{ roles, emailConfig, scheduleConfig, artesFilterConfig, announcementConfig, loadingConfig, hasPermission, canSubmitNow, updateRole, addRole, removeRole, togglePermission, updateEmailConfig, updateScheduleConfig, updateArtesFilterConfig, updateAnnouncementConfig, isAnnouncementActive, updateRule, addRule, removeRule }}>
+    <ConfigContext.Provider value={{ roles, emailConfig, scheduleConfig, artesFilterConfig, announcementConfig, loadingConfig, hasPermission, canSubmitNow, updateRole, addRole, removeRole, togglePermission, updateEmailConfig, updateScheduleConfig, updateArtesFilterConfig, updateAnnouncementConfig, isAnnouncementActive, announcementSignature, updateRule, addRule, removeRule }}>
       {children}
     </ConfigContext.Provider>
   );

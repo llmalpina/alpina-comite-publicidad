@@ -4,6 +4,7 @@ import { Button } from '../../../components/ui/Button';
 import { Input } from '../../../components/ui/Input';
 import { Card, CardContent } from '../../../components/ui/Card';
 import ArteFlowCard from '../../../components/artes/ArteFlowCard';
+import Loader from '../../../components/ui/Loader';
 import { useArtes } from '../../../contexts/ArtesContext';
 import { useNotifications } from '../../../contexts/NotificationContext';
 import { artesApi } from '../../../lib/artes-api';
@@ -198,10 +199,13 @@ const ArtesColaPage: React.FC = () => {
           <Button variant="ghost" size="icon" onClick={cargar} className="text-slate-400 hover:text-slate-600" title="Actualizar">
             <RefreshCw size={18} className={loading ? 'animate-spin' : ''} />
           </Button>
-          <div className="flex items-center gap-2 bg-brand-50 dark:bg-blue-900/20 px-3 py-1.5 rounded-lg border border-brand/10">
-            <Clock size={16} className="text-brand" />
-            <span className="text-sm font-bold text-brand-800 dark:text-brand-200">{counts.MI_TURNO} por firmar</span>
-          </div>
+          {/* El contador se oculta mientras carga para no mostrar "0 por firmar" y luego saltar al número real */}
+          {!loading && (
+            <div className="flex items-center gap-2 bg-brand-50 dark:bg-blue-900/20 px-3 py-1.5 rounded-lg border border-brand/10">
+              <Clock size={16} className="text-brand" />
+              <span className="text-sm font-bold text-brand-800 dark:text-brand-200">{counts.MI_TURNO} por firmar</span>
+            </div>
+          )}
         </div>
       </div>
 
@@ -241,6 +245,18 @@ const ArtesColaPage: React.FC = () => {
         </Card>
       )}
 
+      {/* Mientras carga: loader Alpina en vez de tabs/filtros/resultados con ceros */}
+      {loading ? (
+        <Loader
+          variant="page"
+          messages={[
+            'Cargando la cola de artes…',
+            'Revisando las firmas por equipo…',
+            'Ordenando por lo que espera por ti…',
+          ]}
+        />
+      ) : (
+      <>
       {/* Tabs */}
       <div className="flex gap-1 p-1 bg-slate-100 dark:bg-slate-800 rounded-lg overflow-x-auto">
         {TABS.map(t => (
@@ -286,11 +302,7 @@ const ArtesColaPage: React.FC = () => {
       </div>
 
       {/* Resultados */}
-      {loading ? (
-        <div className="flex items-center justify-center py-20 gap-3 text-slate-400">
-          <Loader2 size={24} className="animate-spin" /> Cargando artes...
-        </div>
-      ) : visibles.length === 0 ? (
+      {visibles.length === 0 ? (
         <div className="text-center py-20 bg-white dark:bg-slate-800 rounded-xl border">
           <CheckCircle2 size={48} className="mx-auto text-emerald-200 mb-4" />
           <h3 className="text-lg font-medium text-slate-900 dark:text-white">
@@ -314,6 +326,8 @@ const ArtesColaPage: React.FC = () => {
             />
           ))}
         </div>
+      )}
+      </>
       )}
 
       {/* Modal: asignar responsable por equipo al iniciar el flujo */}

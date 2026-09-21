@@ -1,0 +1,313 @@
+/* ==============================================================================
+   KIT LOADER ALPINA — estilos
+   Pegar al final del CSS global del proyecto (o importar este archivo).
+   Los tokens de abajo solo hacen falta si el proyecto NO tiene ya la paleta
+   Alpina; si ya la tiene, borra el bloque :root y quedate con el resto.
+   ============================================================================== */
+:root {
+  --brand-primary: #1450C9;
+  --brand-light:   #99DCF1;
+  --brand-soft:    #D9EEF9;
+  --card-bg:       #FFFFFF;
+  --border:        #E2E8F0;
+  --border-light:  #EEF2F7;
+  --text-light:    #475569;
+  --text-muted:    #94A3B8;
+  --radius-sm: 6px;  --radius: 10px;  --radius-lg: 14px;
+  --shadow:    0 4px 8px rgba(20,30,70,.06), 0 2px 4px rgba(20,30,70,.04);
+  --shadow-md: 0 8px 16px rgba(20,30,70,.08), 0 4px 6px rgba(20,30,70,.05);
+}
+
+.loader {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  color: var(--text-light);
+}
+.loader--panel { padding: 38px 20px; }
+.loader--page  { padding: 90px 20px; min-height: 340px; }
+
+.loader__mark {
+  position: relative;
+  display: grid;
+  place-items: center;
+}
+.loader--panel .loader__mark { width: 62px; height: 62px; }
+.loader--page  .loader__mark { width: 86px; height: 86px; }
+
+.loader__ring { position: absolute; inset: 0; width: 100%; height: 100%; animation: loader-spin 1.15s linear infinite; }
+.loader__ring-track {
+  fill: none;
+  stroke: var(--brand-soft);
+  stroke-width: 3.5;
+}
+.loader__ring-arc {
+  fill: none;
+  stroke: var(--brand-primary);
+  stroke-width: 3.5;
+  stroke-linecap: round;
+  stroke-dasharray: 90 42;
+  animation: loader-dash 1.6s ease-in-out infinite;
+}
+@keyframes loader-spin { to { transform: rotate(360deg); } }
+@keyframes loader-dash {
+  0%   { stroke-dasharray: 18 114; }
+  50%  { stroke-dasharray: 84 48; }
+  100% { stroke-dasharray: 18 114; }
+}
+
+.loader__logo {
+  width: 56%;
+  height: auto;
+  object-fit: contain;
+  /* Latido sutil para que el conjunto no se lea como una imagen congelada */
+  animation: loader-pulse 2.2s ease-in-out infinite;
+}
+@keyframes loader-pulse {
+  0%, 100% { opacity: 0.75; transform: scale(0.97); }
+  50%      { opacity: 1;    transform: scale(1.03); }
+}
+
+.loader__msg {
+  font-size: 0.88rem;
+  color: var(--text-light);
+  font-weight: 500;
+  text-align: center;
+  animation: loader-fade 0.45s ease;
+}
+@keyframes loader-fade {
+  from { opacity: 0; transform: translateY(4px); }
+  to   { opacity: 1; transform: none; }
+}
+
+.loader__dots { display: flex; gap: 5px; }
+.loader__dots span {
+  width: 5px; height: 5px;
+  border-radius: 50%;
+  background: var(--border);
+  transition: background 0.3s ease, transform 0.3s ease;
+}
+.loader__dots span.is-active { background: var(--brand-primary); transform: scale(1.25); }
+
+/* ── Ruta Alpina: recorrido de la leche dentro del Loader ──────────
+   Toda la animacion cuelga de UNA variable, `--p` (0..1), que el componente
+   RutaAlpina escribe por frame con requestAnimationFrame. La aparicion de cada hito
+   se resuelve aqui con clamp(), no en JS: asi no hay un re-render por frame.
+   `--nitidez` gradua que tan brusco entra un hito cuando el camion lo alcanza. */
+.ruta {
+  --p: 0;
+  --figura: 42px;     /* alto base de las figuras (cada hito lo escala con --esc) */
+  --via-y: 26px;      /* altura de la via desde el piso del lienzo */
+  --nitidez: 26;
+  /* Margen a lado y lado para que el primer y el ultimo hito no queden cortados
+     contra el borde: van centrados en su posicion, asi que la mitad de la figura
+     sobresaldria y `overflow: hidden` se la comeria (le pasaba a la tienda, al
+     Bon Yurt y al camion al final del recorrido). */
+  --margen: 40px;
+  width: 100%;
+  max-width: 640px;
+  margin-top: 4px;
+  overflow: hidden;   /* la "camara" de movil recorta aqui */
+}
+.ruta__lienzo {
+  position: relative;
+  width: 100%;
+  /* figura + aire sobre la via + via + espacio de la etiqueta debajo */
+  height: calc(var(--figura) + var(--via-y) + 32px);
+}
+/* Pista util: de --margen a (ancho - --margen). La usan hitos, camion y el trazo. */
+
+/* Via punteada + trazo solido que la va pintando: es la barra de progreso. */
+.ruta__via,
+.ruta__avance {
+  position: absolute;
+  bottom: var(--via-y);
+  height: 3px;
+  border-radius: 999px;
+}
+.ruta__via {
+  left: 0;
+  right: 0;
+  background-image: linear-gradient(90deg, var(--brand-light) 0 7px, transparent 7px 14px);
+  background-size: 14px 3px;
+  opacity: 0.85;
+}
+.ruta__avance {
+  left: 0;
+  width: calc(var(--margen) + var(--p) * (100% - 2 * var(--margen)));
+  background: var(--brand-primary);
+}
+
+/* Hito: aparece y "aterriza" cuando el camion pasa por su posicion --x.
+   El hito NO maqueta nada: es solo un ancla vertical de ancho cero sobre la pista.
+   La figura y la etiqueta se posicionan solas contra la via -una arriba, otra abajo-
+   en vez de depender de un `gap` calculado, que es lo que antes dejaba la linea
+   cruzando por la mitad de las imagenes. */
+.ruta__hito {
+  --t: clamp(0, calc((var(--p) - var(--x)) * var(--nitidez)), 1);
+  position: absolute;
+  left: calc(var(--margen) + var(--x) * (100% - 2 * var(--margen)));
+  bottom: 0;
+  top: 0;
+  width: 0;
+  opacity: var(--t);
+}
+.ruta__figura {
+  position: absolute;
+  left: 0;
+  /* 14px de aire por encima de la via. Con 5px la caja quedaba a 2px medidos de la
+     linea: tecnicamente separada, pero visualmente pegada -y con el sombreado propio
+     de los PNG se leia como que la linea cruzaba la figura. */
+  bottom: calc(var(--via-y) + 16px);
+  height: calc(var(--figura) * var(--esc, 1));
+  /* Ancho explicito: con la caja acotada en LOS DOS ejes y `object-fit: contain`,
+     ninguna imagen puede desbordar hacia abajo por mucho que su proporcion difiera
+     (al Bon Yurt, que es el mas alto, se le salia el pie por debajo de la via). */
+  width: calc(var(--figura) * 1.35 * var(--esc, 1));
+  overflow: hidden;                 /* red de seguridad: nada sale de la caja */
+  display: grid;
+  place-items: center;
+  transform-origin: bottom center;
+  transform:
+    translateX(-50%)
+    translateY(calc((1 - var(--t)) * 12px))
+    scale(calc(0.8 + var(--t) * 0.2));
+}
+/* La imagen se posiciona ABSOLUTA contra la caja del hito, no se dimensiona sola.
+   Medido en navegador: ni `max-height: 100%` ni `height: 100%` contenian el alto
+   -mandaba el ancho y el alto crecia libre por proporcion-, y el Bon Yurt (78x122
+   nativo) colgaba 17px POR DEBAJO de la via. Con `inset: 0` la caja de la imagen ES
+   la del hito, y `contain` encaja el dibujo dentro sin poder desbordarla. */
+.ruta__figura img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  object-position: bottom center;   /* las figuras se apoyan en la via, no flotan */
+}
+.ruta__etiqueta {
+  position: absolute;
+  left: 0;
+  bottom: 0;                          /* al piso, DEBAJO de la via */
+  transform: translateX(-50%);
+  font-size: 0.62rem;
+  font-weight: 600;
+  line-height: 1;
+  letter-spacing: 0.02em;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+/* Sustituto si el asset de marca aun no esta cargado en /public: el recorrido se
+   sigue leyendo en vez de mostrar el icono de imagen rota. */
+.ruta__punto {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--brand-light);
+  box-shadow: inset 0 0 0 2px var(--brand-primary);
+  display: block;
+}
+.ruta__punto--camion { width: 20px; height: 20px; background: var(--brand-primary); }
+
+/* Camion: viaja sobre la via y trepida un poco para que no parezca una calcomania. */
+.ruta__camion {
+  position: absolute;
+  left: calc(var(--margen) + var(--p) * (100% - 2 * var(--margen)));
+  bottom: calc(var(--via-y) + 1px);   /* rueda SOBRE la via */
+  transform: translateX(-50%);
+  width: calc(var(--figura) * 1.05);
+  height: calc(var(--figura) * 0.72);
+  z-index: 2;                         /* pasa POR DELANTE de lo que ya dejo */
+}
+.ruta__camion-cara {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  animation: ruta-bache 0.55s ease-in-out infinite;
+}
+.ruta__camion-cara img { max-width: 100%; max-height: 100%; object-fit: contain; }
+/* El relevo en la planta se hace por opacidad, no cambiando el src (evita el
+   parpadeo mientras el navegador decodifica la otra imagen). El 0.5 es la posicion
+   de la planta en RutaAlpina (X_PLANTA): si se mueve alla, se mueve aqui. */
+.ruta__camion-cara--acopio { opacity: clamp(0, calc((0.5 - var(--p)) * 40), 1); }
+.ruta__camion-cara--dist   { opacity: clamp(0, calc((var(--p) - 0.5) * 40), 1); }
+
+@keyframes ruta-bache {
+  0%, 100% { transform: translateY(0); }
+  50%      { transform: translateY(-1.5px); }
+}
+
+/* Version compacta para paneles: sin etiquetas, todo mas chico. */
+.ruta--panel {
+  --figura: 34px;
+  --via-y: 14px;
+  --margen: 26px;
+  max-width: 400px;
+}
+/* Sin etiquetas: en 400px se pisarian unas con otras. La via queda mas abajo porque
+   ya no hay texto que alojar debajo. */
+.ruta--panel .ruta__etiqueta { display: none; }
+.ruta--panel .ruta__lienzo { height: calc(var(--figura) + var(--via-y) + 12px); }
+
+/* Movil: camara que sigue al camion. El lienzo mide 170% del contenedor y se
+   desplaza en sentido contrario, de modo que se ven 3-4 hitos GRANDES en vez de 6
+   diminutos. El -41.2% es el sobrante (70%) expresado sobre el ancho del lienzo
+   (70/170), porque translateX en % se mide sobre el propio elemento. */
+@media (max-width: 768px) {
+  .ruta { --figura: 36px; }
+  .ruta__lienzo {
+    width: 170%;
+    transform: translateX(calc(var(--p) * -41.2%));
+  }
+  .ruta__etiqueta { font-size: 0.58rem; }
+  .ruta--panel { --figura: 30px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ruta__camion-cara { animation: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .loader__ring, .loader__ring-arc, .loader__logo, .loader__msg { animation: none; }
+}
+
+/* Overlay a pantalla completa (AuthGate / carga inicial) */
+.loading-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9998;
+  display: grid;
+  place-items: center;
+  background: rgba(244, 247, 251, 0.92);
+  backdrop-filter: blur(2px);
+}
+.loading-overlay__card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  padding: 34px 46px;
+  background: var(--card-bg);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-md);
+  /* Ancho DEFINIDO: el card se dimensionaba al contenido y el recorrido (width:100%
+     contra un padre auto) se colapsaba al ancho del logo. */
+  width: min(560px, 92vw);
+}
+@media (max-width: 768px) {
+  .loading-overlay__card { padding: 26px 16px; }
+}
+.loading-overlay__logo { width: 132px; height: auto; }
+.loading-overlay__msg { font-size: 0.88rem; color: var(--text-light); transition: opacity 0.2s ease; }
+.loading-spinner { width: 34px; height: 34px; animation: loader-spin 1.15s linear infinite; }
+.spinner-track { fill: none; stroke: var(--brand-soft); stroke-width: 4; }
+.spinner-arc {
+  fill: none; stroke: var(--brand-primary); stroke-width: 4; stroke-linecap: round;
+  stroke-dasharray: 90 42;
+  animation: loader-dash 1.6s ease-in-out infinite;
+}
