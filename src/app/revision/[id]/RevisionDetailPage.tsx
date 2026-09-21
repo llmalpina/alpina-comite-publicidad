@@ -11,6 +11,7 @@ import { cn, formatDate } from '../../../lib/utils';
 import { Solicitud, Comment, PdfAnnotation, AnnotationTool } from '../../../types';
 import { solicitudesApi, comentariosApi, anotacionesApi, versionesApi, apiFetch, uploadCommentImage, getImageUrl } from '../../../lib/api';
 import PdfViewer from '../../../components/ui/PdfViewer';
+import Loader from '../../../components/ui/Loader';
 import { FormattedText } from '../../../components/ui/FormattedText';
 import { exportPdfWithAnnotations } from '../../../lib/pdf-export';
 
@@ -224,9 +225,14 @@ const RevisionDetailPage: React.FC = () => {
   };
 
   if (loading) return (
-    <div className="flex items-center justify-center py-20 gap-3 text-slate-400">
-      <RefreshCw size={24} className="animate-spin" /> Cargando solicitud...
-    </div>
+    <Loader
+      variant="page"
+      messages={[
+        'Cargando la solicitud…',
+        'Trayendo comentarios y anotaciones…',
+        'Preparando el visor…',
+      ]}
+    />
   );
 
   if (!solicitud) return <div className="p-8 text-slate-500">Solicitud no encontrada.</div>;

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { ExternalLink, FileText, Sparkles, Download, ChevronLeft, ChevronRight, ZoomIn, ZoomOut } from 'lucide-react';
 import { Card, CardContent } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
+import Loader from '../../components/ui/Loader';
 import { useManualConfig } from '../../hooks/useManualConfig';
 import { Document, Page, pdfjs } from 'react-pdf';
 import 'react-pdf/dist/Page/AnnotationLayer.css';
@@ -53,14 +54,7 @@ const ManualPage: React.FC = () => {
   };
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <div className="flex flex-col items-center gap-3">
-          <div className="w-8 h-8 border-2 border-brand border-t-transparent rounded-full animate-spin" />
-          <p className="text-sm text-slate-400">Cargando manual...</p>
-        </div>
-      </div>
-    );
+    return <Loader variant="page" text="Cargando el manual…" />;
   }
 
   const hasManual = manualConfig?.pdfS3Key;

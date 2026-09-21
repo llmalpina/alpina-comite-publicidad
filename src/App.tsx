@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
-import { getAssetPath } from './lib/constants';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { NotificationProvider } from './contexts/NotificationContext';
 import { ThemeProvider } from './contexts/ThemeContext';
@@ -9,6 +8,8 @@ import { ConfigProvider, useConfig } from './contexts/ConfigContext';
 import Sidebar from './components/layout/Sidebar';
 import Header from './components/layout/Header';
 import AnnouncementBanner from './components/layout/AnnouncementBanner';
+import Loader from './components/ui/Loader';
+import { LoadingOverlay } from './components/ui/LoadingOverlay';
 import LoginPage from './app/login/LoginPage';
 import DashboardPage from './app/dashboard/DashboardPage';
 import SolicitudesPage from './app/solicitudes/SolicitudesListPage';
@@ -36,12 +37,13 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode; roles?: string[]; pe
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   if (loading) return (
-    <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-900">
-      <div className="flex flex-col items-center gap-3">
-        <img src={getAssetPath('Logo_azul_oscuro_alpina.png')} alt="Alpina" className="w-12 h-12 animate-pulse" />
-        <p className="text-sm text-slate-400">Verificando sesión...</p>
-      </div>
-    </div>
+    <LoadingOverlay
+      messages={[
+        'Conectando con el portal…',
+        'Verificando tu sesión…',
+        'Preparando tu espacio de trabajo…',
+      ]}
+    />
   );
 
   if (!isAuthenticated) return <Navigate to="/login" state={{ from: location }} replace />;
@@ -76,7 +78,7 @@ const ArtesRoute: React.FC<{ children: React.ReactNode; need: 'cola' | 'reposito
   const { loading, canVerCola, canVerRepositorio, canGestionarEquipos } = useArtes();
 
   if (loading) return (
-    <div className="flex items-center justify-center py-20 text-sm text-slate-400">Verificando acceso...</div>
+    <Loader variant="page" text="Verificando acceso…" />
   );
 
   const permitido = need === 'config' ? canGestionarEquipos

@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '../../../components/ui
 import { Button } from '../../../components/ui/Button';
 import { Input } from '../../../components/ui/Input';
 import { Badge } from '../../../components/ui/Badge';
+import Loader from '../../../components/ui/Loader';
 import { useArtes } from '../../../contexts/ArtesContext';
 import { useNotifications } from '../../../contexts/NotificationContext';
 import { artesApi } from '../../../lib/artes-api';
@@ -382,11 +383,7 @@ const ArtesEquiposPage: React.FC = () => {
   }
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center py-20 gap-3 text-slate-400">
-        <Loader2 size={24} className="animate-spin" /> Cargando configuración...
-      </div>
-    );
+    return <Loader variant="page" text="Cargando la configuración de equipos…" />;
   }
 
   return (

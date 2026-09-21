@@ -5,6 +5,7 @@ import { Button } from "../../components/ui/Button";
 import { Card, CardContent } from "../../components/ui/Card";
 import { Input } from "../../components/ui/Input";
 import { Badge } from "../../components/ui/Badge";
+import Loader from "../../components/ui/Loader";
 import { STATUS_LABELS } from "../../lib/constants";
 import { formatDate, cn } from "../../lib/utils";
 import { useSolicitudes } from "../../hooks/useSolicitudes";
@@ -177,9 +178,14 @@ const SolicitudesPage: React.FC = () => {
       </Card>
 
       {loading && (
-        <div className="flex items-center justify-center py-20 gap-3 text-slate-400">
-          <Loader2 size={24} className="animate-spin" /> Cargando solicitudes...
-        </div>
+        <Loader
+          variant="page"
+          messages={[
+            'Cargando tus solicitudes…',
+            'Ordenando por estado…',
+            'Casi listo…',
+          ]}
+        />
       )}
 
       {error && (

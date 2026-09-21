@@ -7,6 +7,7 @@ import { Button } from '../../../components/ui/Button';
 import { Input } from '../../../components/ui/Input';
 import { Card, CardContent } from '../../../components/ui/Card';
 import { Badge } from '../../../components/ui/Badge';
+import Loader from '../../../components/ui/Loader';
 import { useArtes } from '../../../contexts/ArtesContext';
 import { useNotifications } from '../../../contexts/NotificationContext';
 import { artesApi } from '../../../lib/artes-api';
@@ -155,9 +156,14 @@ const ArtesAprobadosPage: React.FC = () => {
       </div>
 
       {loading ? (
-        <div className="flex items-center justify-center py-20 gap-3 text-slate-400">
-          <Loader2 size={24} className="animate-spin" /> Cargando repositorio...
-        </div>
+        <Loader
+          variant="page"
+          messages={[
+            'Cargando el repositorio de artes…',
+            'Trayendo las piezas aprobadas…',
+            'Preparando las hojas de firmas…',
+          ]}
+        />
       ) : visibles.length === 0 ? (
         <div className="text-center py-20 bg-white dark:bg-slate-800 rounded-xl border">
           <Archive size={48} className="mx-auto text-slate-200 mb-4" />

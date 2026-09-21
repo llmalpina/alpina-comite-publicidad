@@ -14,6 +14,7 @@ import { useMaestros } from '../../../contexts/MaestrosContext';
 import { solicitudesApi } from '../../../lib/api';
 import { comentariosApi, versionesApi, anotacionesApi, uploadCommentImage, getImageUrl } from '../../../lib/api';
 import PdfViewer from '../../../components/ui/PdfViewer';
+import Loader from '../../../components/ui/Loader';
 import { exportPdfWithAnnotations } from '../../../lib/pdf-export';
 import { useDropzone } from 'react-dropzone';
 import DebugPanel from './DebugPanel';
@@ -181,7 +182,16 @@ const SolicitudDetailPage: React.FC = () => {
 
   const clearPendingImage = () => { setPendingImage(null); setPendingImagePreview(null); };
 
-  if (!solicitud) return <div>Cargando...</div>;
+  if (!solicitud) return (
+    <Loader
+      variant="page"
+      messages={[
+        'Cargando la solicitud…',
+        'Trayendo comentarios y anotaciones…',
+        'Preparando el visor…',
+      ]}
+    />
+  );
 
   const canComment = !!user;
   // Usa el PERMISO configurable (no el rol hardcodeado) para que roles personalizados

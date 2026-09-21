@@ -5,6 +5,7 @@ import { useConfig } from '../../contexts/ConfigContext';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { Badge } from '../../components/ui/Badge';
+import Loader from '../../components/ui/Loader';
 import { STATUS_LABELS } from '../../lib/constants';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, AreaChart, Area, Legend } from 'recharts';
 import { Link } from 'react-router-dom';
@@ -205,9 +206,14 @@ const DashboardPage: React.FC = () => {
       </div>
 
       {loading ? (
-        <div className="flex items-center justify-center py-20 gap-3 text-slate-400">
-          <Loader2 size={24} className="animate-spin" /> Cargando datos...
-        </div>
+        <Loader
+          variant="page"
+          messages={[
+            'Cargando tu tablero…',
+            'Calculando indicadores…',
+            'Armando las gráficas…',
+          ]}
+        />
       ) : (
         <>
           {/* KPIs */}

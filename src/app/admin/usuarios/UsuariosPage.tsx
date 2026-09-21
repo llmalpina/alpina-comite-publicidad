@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '../../../components/ui
 import { Button } from '../../../components/ui/Button';
 import { Input } from '../../../components/ui/Input';
 import { Badge } from '../../../components/ui/Badge';
+import Loader from '../../../components/ui/Loader';
 import { usuariosApi } from '../../../lib/api';
 import { useNotifications } from '../../../contexts/NotificationContext';
 import { useMaestros } from '../../../contexts/MaestrosContext';
@@ -231,9 +232,7 @@ const UsuariosPage: React.FC = () => {
 
       {activeTab === 'uso' && (
         loading ? (
-          <div className="flex items-center justify-center py-20 gap-3 text-slate-400">
-            <Loader2 size={24} className="animate-spin" /> Cargando datos de uso...
-          </div>
+          <Loader variant="page" text="Cargando datos de uso…" />
         ) : (
           <UsoUsuariosPanel users={users} />
         )
@@ -306,9 +305,7 @@ const UsuariosPage: React.FC = () => {
       <Card>
         <CardContent className="p-0">
           {loading ? (
-            <div className="flex items-center justify-center py-20 gap-3 text-slate-400">
-              <Loader2 size={24} className="animate-spin" /> Cargando usuarios...
-            </div>
+            <Loader variant="page" text="Cargando usuarios…" />
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-left">

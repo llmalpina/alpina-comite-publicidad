@@ -5,6 +5,7 @@ import { Button } from '../../components/ui/Button';
 import { Card, CardContent } from '../../components/ui/Card';
 import { Input } from '../../components/ui/Input';
 import { Badge } from '../../components/ui/Badge';
+import Loader from '../../components/ui/Loader';
 import { STATUS_LABELS } from '../../lib/constants';
 import { formatDate, cn } from '../../lib/utils';
 import { useSolicitudes } from '../../hooks/useSolicitudes';
@@ -263,9 +264,14 @@ const RevisionQueuePage: React.FC = () => {
       </div>
 
       {loading ? (
-        <div className="flex items-center justify-center py-20 gap-3 text-slate-400">
-          <Loader2 size={24} className="animate-spin" /> Cargando cola...
-        </div>
+        <Loader
+          variant="page"
+          messages={[
+            'Cargando la cola de revisión…',
+            'Trayendo las piezas pendientes…',
+            'Ordenando por prioridad…',
+          ]}
+        />
       ) : items.length === 0 ? (
         <div className="text-center py-20 bg-white dark:bg-slate-800 rounded-xl border">
           <CheckCircle2 size={48} className="mx-auto text-emerald-200 mb-4" />
