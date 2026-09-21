@@ -20,8 +20,10 @@ import type { ArteDetailResponse } from '../../../types/artes';
 const fechaHora = (iso?: string | null) => {
   if (!iso) return '—';
   try {
+    // Hora de Colombia siempre (America/Bogota), independientemente del equipo.
     return new Date(iso).toLocaleString('es-CO', {
       day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit',
+      timeZone: 'America/Bogota',
     });
   } catch { return String(iso); }
 };
@@ -74,6 +76,20 @@ const ArteDetailPage: React.FC = () => {
 
   const flow = data?.flow;
   const myTeamIds = useMemo(() => (data?.myTeams || []).map(t => t.id), [data]);
+  /**
+   * Equipos que realmente participan en este flujo, en el orden de la ruta
+   * elegida al iniciar (flow.teamOrder). Antes se listaban TODOS los equipos
+   * configurados (data.teams), por lo que los equipos que no estaban en la ruta
+   * aparecían como "sin firmar" aunque el flujo se cerró bien. Si el flujo es
+   * antiguo y no tiene teamOrder, se cae a la lista completa.
+   */
+  const firmantesDeLaRuta = useMemo(() => {
+    const teams = data?.teams || [];
+    const order = flow?.teamOrder || [];
+    if (!order.length) return teams;
+    const byId = new Map(teams.map(t => [t.id, t]));
+    return order.map(id => byId.get(id) || ({ id, label: id } as (typeof teams)[number]));
+  }, [data, flow]);
   const esMiTurno = !!flow?.currentTeamId && myTeamIds.includes(flow.currentTeamId);
   const esDiseno = !!data?.designTeam && myTeamIds.includes(data.designTeam.id);
   // El backend calcula callerCanSign considerando el integrante asignado y la
@@ -152,11 +168,40 @@ const ArteDetailPage: React.FC = () => {
     }
   };
 
+  // Descarga el PDF del arte tal cual (la versión que se está viendo), sin la
+  // hoja de firmas, para que el aprobador pueda revisarlo con detalle antes de firmar.
+  const [descargando, setDescargando] = useState(false);
+  const descargarPdf = async () => {
+    if (!flow?.s3Key) { notify('Este arte no tiene un PDF asociado', 'error'); return; }
+    setDescargando(true);
+    try {
+      const s3Key = viendoVersion !== null
+        ? ((data?.versions || []).find(v => v.versionNumber === viendoVersion)?.s3Key || flow.s3Key)
+        : flow.s3Key;
+      const url = await getArteDownloadUrl(s3Key);
+      const res = await fetch(url, { mode: 'cors' });
+      if (!res.ok) throw new Error(`No se pudo descargar el PDF (${res.status})`);
+      const blob = await res.blob();
+      const nombre = (flow.fileName || `${flow.consecutive || 'arte'}.pdf`).replace(/\s+/g, '_');
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = nombre.toLowerCase().endsWith('.pdf') ? nombre : `${nombre}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+    } catch (e: any) {
+      notify(e?.message || 'No se pudo descargar el PDF', 'error');
+    } finally {
+      setDescargando(false);
+    }
+  };
+
   const exportar = async () => {
     if (!data) return;
     setExportando(true);
     try {
-      await exportArteFirmado({ flow: data.flow, approvals: data.approvals, teams: data.teams });
+      await exportArteFirmado({ flow: data.flow, approvals: data.approvals, teams: firmantesDeLaRuta });
       notify('PDF con la hoja de firmas descargado', 'success');
     } catch (e: any) {
       notify(e?.message || 'No se pudo generar el PDF firmado', 'error');
@@ -229,6 +274,9 @@ const ArteDetailPage: React.FC = () => {
           <Link to={`/solicitudes/${flow.solicitudId}`}>
             <Button variant="outline" size="sm" className="gap-1"><FileText size={14} /> Ver en el comité</Button>
           </Link>
+          <Button variant="outline" size="sm" className="gap-1" onClick={descargarPdf} disabled={descargando} title="Descargar el PDF para revisarlo antes de firmar">
+            {descargando ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />} Descargar PDF
+          </Button>
           <Button size="sm" className="gap-1" onClick={exportar} disabled={exportando}>
             {exportando ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />} PDF firmado
           </Button>
@@ -422,7 +470,7 @@ const ArteDetailPage: React.FC = () => {
           {panel === 'FIRMAS' && (
             <Card>
               <CardContent className="p-4 space-y-2">
-                {data.teams.map((team, i) => {
+                {firmantesDeLaRuta.map((team, i) => {
                   const firma = (flow.approvals || {})[team.id];
                   const firmado = firma?.decision === 'APROBADO';
                   const turno = flow.currentTeamId === team.id;
