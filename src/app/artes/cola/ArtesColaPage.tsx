@@ -31,6 +31,10 @@ const ArtesColaPage: React.FC = () => {
 
   // Piezas elegibles sin flujo (solo para el admin del flujo)
   const [pendientesInicio, setPendientesInicio] = useState<any[]>([]);
+  const [cargandoPendientes, setCargandoPendientes] = useState(false);
+  const [busquedaInicio, setBusquedaInicio] = useState('');
+  const [paginaInicio, setPaginaInicio] = useState(1);
+  const POR_PAGINA_INICIO = 5;
   const [iniciando, setIniciando] = useState<string | null>(null);
   // Modal de asignación de responsables por equipo al iniciar
   const [asignarPara, setAsignarPara] = useState<any | null>(null);
@@ -58,6 +62,7 @@ const ArtesColaPage: React.FC = () => {
   // El admin puede arrancar el flujo de piezas aprobadas antes de este módulo
   const cargarPendientesInicio = useCallback(async (flujos: ArteFlow[]) => {
     if (!puedeIniciarFlujo) return;
+    setCargandoPendientes(true);
     try {
       const solicitudes = await solicitudesApi.list();
       const conFlujo = new Set(flujos.map(f => f.solicitudId));
@@ -68,6 +73,7 @@ const ArtesColaPage: React.FC = () => {
           && !conFlujo.has(s.id))
       );
     } catch { setPendientesInicio([]); }
+    finally { setCargandoPendientes(false); }
   }, [puedeIniciarFlujo, config.contentTypes, config.startOnStatuses]);
 
   useEffect(() => { if (!loading) cargarPendientesInicio(items); }, [loading, items, cargarPendientesInicio]);
@@ -82,6 +88,25 @@ const ArtesColaPage: React.FC = () => {
     () => [...new Set(items.map(f => f.brand).filter(Boolean))].sort(),
     [items],
   );
+
+  // Piezas listas para iniciar flujo: filtradas por búsqueda y paginadas.
+  const pendientesFiltradas = useMemo(() => {
+    const q = busquedaInicio.trim().toLowerCase();
+    if (!q) return pendientesInicio;
+    return pendientesInicio.filter((s: any) =>
+      [s.title, s.consecutive, s.brand, s.product, s.solicitanteName]
+        .some(v => String(v || '').toLowerCase().includes(q)));
+  }, [pendientesInicio, busquedaInicio]);
+
+  const totalPaginasInicio = Math.max(1, Math.ceil(pendientesFiltradas.length / POR_PAGINA_INICIO));
+  const pendientesPagina = useMemo(
+    () => pendientesFiltradas.slice((paginaInicio - 1) * POR_PAGINA_INICIO, paginaInicio * POR_PAGINA_INICIO),
+    [pendientesFiltradas, paginaInicio],
+  );
+
+  // Si cambia el filtro o la lista, vuelve a la primera página (y corrige si la página quedó fuera de rango).
+  useEffect(() => { setPaginaInicio(1); }, [busquedaInicio]);
+  useEffect(() => { if (paginaInicio > totalPaginasInicio) setPaginaInicio(totalPaginasInicio); }, [paginaInicio, totalPaginasInicio]);
 
   const coincide = useCallback((f: ArteFlow) => {
     const q = search.trim().toLowerCase();
@@ -220,26 +245,78 @@ const ArtesColaPage: React.FC = () => {
         </div>
       )}
 
-      {/* Piezas aprobadas por el comité, listas para que Diseño inicie el flujo */}
-      {puedeIniciarFlujo && pendientesInicio.length > 0 && (
+      {/* Piezas aprobadas por el comité, listas para que Diseño inicie el flujo.
+          Se cargan en una segunda petición (solicitudes), por eso tienen su propio
+          loader: antes aparecían tarde y en blanco. */}
+      {puedeIniciarFlujo && (cargandoPendientes || pendientesInicio.length > 0) && (
         <Card className="border-dashed border-brand/40 bg-brand-50/30 dark:bg-blue-900/10">
-          <CardContent className="p-4 space-y-2">
-            <p className="text-xs font-bold text-brand uppercase tracking-wider">
-              {pendientesInicio.length} pieza{pendientesInicio.length === 1 ? '' : 's'} aprobada{pendientesInicio.length === 1 ? '' : 's'} por el comité · lista{pendientesInicio.length === 1 ? '' : 's'} para iniciar el flujo de firmas
-            </p>
-            {pendientesInicio.slice(0, 8).map((s: any) => (
-              <div key={s.id} className="flex items-center justify-between gap-3 bg-slate-50 dark:bg-slate-900/40 rounded-lg px-3 py-2">
-                <div className="min-w-0">
-                  <p className="text-sm font-semibold text-slate-800 dark:text-slate-200 truncate">{s.title}</p>
-                  <p className="text-[11px] text-slate-500 truncate">{s.consecutive} · {s.brand}</p>
+          <CardContent className="p-4 space-y-3">
+            {cargandoPendientes ? (
+              <Loader
+                variant="panel"
+                text="Buscando piezas listas para iniciar el flujo…"
+              />
+            ) : (
+              <>
+                <p className="text-xs font-bold text-brand uppercase tracking-wider">
+                  {pendientesInicio.length} pieza{pendientesInicio.length === 1 ? '' : 's'} aprobada{pendientesInicio.length === 1 ? '' : 's'} por el comité · lista{pendientesInicio.length === 1 ? '' : 's'} para iniciar el flujo de firmas
+                </p>
+
+                {/* Buscador dentro de las piezas por iniciar */}
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+                  <Input
+                    placeholder="Buscar pieza por título, consecutivo o marca…"
+                    className="pl-9 h-9 text-sm"
+                    value={busquedaInicio}
+                    onChange={e => setBusquedaInicio(e.target.value)}
+                  />
                 </div>
-                <Button size="sm" variant="outline" className="gap-1 shrink-0" disabled={iniciando === s.id} onClick={() => abrirAsignacion(s)}>
-                  {iniciando === s.id ? <Loader2 size={14} className="animate-spin" /> : <PlayCircle size={14} />} Iniciar flujo
-                </Button>
-              </div>
-            ))}
-            {pendientesInicio.length > 8 && (
-              <p className="text-[11px] text-slate-400">Y {pendientesInicio.length - 8} más…</p>
+
+                {pendientesFiltradas.length === 0 ? (
+                  <p className="text-[11px] text-slate-400 py-2">No hay piezas que coincidan con la búsqueda.</p>
+                ) : (
+                  <>
+                    {pendientesPagina.map((s: any) => (
+                      <div key={s.id} className="flex items-center justify-between gap-3 bg-slate-50 dark:bg-slate-900/40 rounded-lg px-3 py-2">
+                        <div className="min-w-0">
+                          <p className="text-sm font-semibold text-slate-800 dark:text-slate-200 truncate">{s.title}</p>
+                          <p className="text-[11px] text-slate-500 truncate">{s.consecutive} · {s.brand}</p>
+                        </div>
+                        <Button size="sm" variant="outline" className="gap-1 shrink-0" disabled={iniciando === s.id} onClick={() => abrirAsignacion(s)}>
+                          {iniciando === s.id ? <Loader2 size={14} className="animate-spin" /> : <PlayCircle size={14} />} Iniciar flujo
+                        </Button>
+                      </div>
+                    ))}
+
+                    {/* Paginación */}
+                    {totalPaginasInicio > 1 && (
+                      <div className="flex items-center justify-between pt-1">
+                        <span className="text-[11px] text-slate-400">
+                          {(paginaInicio - 1) * POR_PAGINA_INICIO + 1}–{Math.min(paginaInicio * POR_PAGINA_INICIO, pendientesFiltradas.length)} de {pendientesFiltradas.length}
+                        </span>
+                        <div className="flex items-center gap-1">
+                          <Button
+                            size="sm" variant="outline" className="h-7 px-2"
+                            disabled={paginaInicio <= 1}
+                            onClick={() => setPaginaInicio(p => Math.max(1, p - 1))}
+                          >
+                            Anterior
+                          </Button>
+                          <span className="text-[11px] text-slate-500 px-1">{paginaInicio} / {totalPaginasInicio}</span>
+                          <Button
+                            size="sm" variant="outline" className="h-7 px-2"
+                            disabled={paginaInicio >= totalPaginasInicio}
+                            onClick={() => setPaginaInicio(p => Math.min(totalPaginasInicio, p + 1))}
+                          >
+                            Siguiente
+                          </Button>
+                        </div>
+                      </div>
+                    )}
+                  </>
+                )}
+              </>
             )}
           </CardContent>
         </Card>
