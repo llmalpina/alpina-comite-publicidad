@@ -64,7 +64,8 @@ const ArtesColaPage: React.FC = () => {
     if (!puedeIniciarFlujo) return;
     setCargandoPendientes(true);
     try {
-      const solicitudes = await solicitudesApi.list();
+      // Lista ligera: solo cabeceras, sin annotations/comments/versions/iaResult.
+      const solicitudes = await solicitudesApi.listLight();
       const conFlujo = new Set(flujos.map(f => f.solicitudId));
       setPendientesInicio(
         (solicitudes || []).filter((s: any) =>

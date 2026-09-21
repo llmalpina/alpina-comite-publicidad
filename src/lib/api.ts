@@ -32,6 +32,12 @@ export async function apiFetch<T>(path: string, options: RequestInit = {}): Prom
 
 export const solicitudesApi = {
   list: () => apiFetch<any[]>('/solicitudes'),
+  /**
+   * Lista "ligera": el backend omite campos pesados (annotations, comments,
+   * versions, iaResult, description, files). Úsala cuando solo necesitas datos
+   * de cabecera para listar/filtrar; reduce el payload de ~MB a KB.
+   */
+  listLight: () => apiFetch<any[]>('/solicitudes?fields=light'),
   get: (id: string) => apiFetch<any>(`/solicitudes/${id}`),
   create: (data: any) => apiFetch<any>('/solicitudes', { method: 'POST', body: JSON.stringify(data) }),
   updateStatus: (id: string, status: string, nota?: string, files?: any[], currentVersion?: number) =>
