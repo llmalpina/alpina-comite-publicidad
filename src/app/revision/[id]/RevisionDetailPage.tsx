@@ -9,7 +9,7 @@ import { useNotifications } from '../../../contexts/NotificationContext';
 import { useConfig } from '../../../contexts/ConfigContext';
 import { cn, formatDate } from '../../../lib/utils';
 import { Solicitud, Comment, PdfAnnotation, AnnotationTool } from '../../../types';
-import { solicitudesApi, comentariosApi, anotacionesApi, versionesApi, apiFetch, uploadCommentImage, getImageUrl } from '../../../lib/api';
+import { solicitudesApi, comentariosApi, anotacionesApi, versionesApi, apiFetch, getUserIdentity, uploadCommentImage, getImageUrl } from '../../../lib/api';
 import PdfViewer from '../../../components/ui/PdfViewer';
 import Loader from '../../../components/ui/Loader';
 import { FormattedText } from '../../../components/ui/FormattedText';
@@ -63,6 +63,7 @@ const RevisionDetailPage: React.FC = () => {
   const [editAnnotationText, setEditAnnotationText] = useState('');
   const [exportingPdf, setExportingPdf] = useState(false);
   const [savingAnnotation, setSavingAnnotation] = useState(false);
+  const [savingPriority, setSavingPriority] = useState(false);
   const [pendingImage, setPendingImage] = useState<File | null>(null);
   const [pendingImagePreview, setPendingImagePreview] = useState<string | null>(null);
   const [uploadingImage, setUploadingImage] = useState(false);
@@ -755,21 +756,44 @@ const RevisionDetailPage: React.FC = () => {
               Legal {solicitud.approvalLegal?.approved ? '✓' : solicitud.approvalLegal?.approved === false ? '✗' : '—'}
             </span>
           </div>
-          {/* Semáforo de prioridad */}
+          {/* Semáforo de prioridad (para el informe de gerencia) */}
           {canAnnotate && (
-            <div className="hidden sm:flex items-center gap-1 mr-2">
-              {(['green', 'yellow', 'red'] as const).map(color => (
-                <button key={color} onClick={async () => {
-                  try {
-                    await apiFetch(`/solicitudes/${solicitud.id}/status`, { method: 'PATCH', body: JSON.stringify({ priority: color }) });
-                    setSolicitud(prev => prev ? { ...prev, priority: color } : prev);
-                  } catch {}
-                }}
-                  className={cn('w-6 h-6 rounded-full border-2 transition-all',
-                    color === 'red' ? 'bg-red-500' : color === 'yellow' ? 'bg-yellow-400' : 'bg-emerald-500',
-                    solicitud.priority === color ? 'border-slate-800 scale-125 ring-2 ring-offset-1 ring-slate-400' : 'border-white/50 opacity-50 hover:opacity-100'
-                  )} title={color === 'red' ? 'Urgente' : color === 'yellow' ? 'Media' : 'Normal'} />
-              ))}
+            <div className="flex items-center gap-1.5 mr-2">
+              <span className="text-[10px] font-bold text-slate-400 uppercase hidden md:inline">Prioridad:</span>
+              {(['green', 'yellow', 'red'] as const).map(color => {
+                const prioLabel = color === 'red' ? 'Urgente' : color === 'yellow' ? 'Media' : 'Normal';
+                const activo = solicitud.priority === color;
+                return (
+                  <button
+                    key={color}
+                    disabled={savingPriority}
+                    onClick={async () => {
+                      const prev = solicitud.priority;
+                      // Optimista: refleja el cambio ya
+                      setSolicitud(p => p ? { ...p, priority: color } : p);
+                      setSavingPriority(true);
+                      try {
+                        await apiFetch(`/solicitudes/${solicitud.id}/status`, {
+                          method: 'PATCH',
+                          body: JSON.stringify({ priority: color, ...getUserIdentity() }),
+                        });
+                        notify(`Prioridad "${prioLabel}" guardada`, 'success');
+                      } catch (e: any) {
+                        // Revierte si falla, para no dar falsa sensación de guardado
+                        setSolicitud(p => p ? { ...p, priority: prev } : p);
+                        notify(`No se pudo guardar la prioridad: ${e.message || 'error'}`, 'error');
+                      } finally {
+                        setSavingPriority(false);
+                      }
+                    }}
+                    className={cn('w-6 h-6 rounded-full border-2 transition-all disabled:opacity-40',
+                      color === 'red' ? 'bg-red-500' : color === 'yellow' ? 'bg-yellow-400' : 'bg-emerald-500',
+                      activo ? 'border-slate-800 scale-125 ring-2 ring-offset-1 ring-slate-400' : 'border-white/50 opacity-50 hover:opacity-100'
+                    )}
+                    title={activo ? `Prioridad actual: ${prioLabel}` : `Marcar como ${prioLabel}`}
+                  />
+                );
+              })}
             </div>
           )}
           {myApproval?.approved ? (

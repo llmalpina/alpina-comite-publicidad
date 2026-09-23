@@ -2,7 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, PieChart, Pie, Cell, Legend } from 'recharts';
 import { Card, CardContent, CardHeader, CardTitle } from '../../../components/ui/Card';
 import { Button } from '../../../components/ui/Button';
-import { Calendar, Clock, FileText, CheckCircle2, XCircle, TrendingUp, Filter, Send, Loader2 } from 'lucide-react';
+import { Calendar, Clock, FileText, CheckCircle2, XCircle, TrendingUp, Filter, Send, Loader2, MessageSquare } from 'lucide-react';
 import { useSolicitudes } from '../../../hooks/useSolicitudes';
 import { useMaestros } from '../../../contexts/MaestrosContext';
 import { useNotifications } from '../../../contexts/NotificationContext';
@@ -10,11 +10,12 @@ import { useConfig } from '../../../contexts/ConfigContext';
 import { cn, formatDate } from '../../../lib/utils';
 import { Input } from '../../../components/ui/Input';
 import { comentariosApi } from '../../../lib/api';
+import Loader from '../../../components/ui/Loader';
 
 type Periodo = 'semana' | 'mes' | 'trimestre' | 'anio';
 
 const ReportsPage: React.FC = () => {
-  const { solicitudes } = useSolicitudes();
+  const { solicitudes, loading } = useSolicitudes();
   const { config } = useMaestros();
   const [periodo, setPeriodo] = useState<Periodo>('mes');
 
@@ -119,6 +120,17 @@ const ReportsPage: React.FC = () => {
         </div>
       </div>
 
+      {loading ? (
+        <Loader
+          variant="page"
+          messages={[
+            'Cargando reportes…',
+            'Calculando métricas del comité…',
+            'Armando las gráficas…',
+          ]}
+        />
+      ) : (
+      <>
       {/* KPIs */}
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3">
         {[
@@ -275,6 +287,8 @@ const ReportsPage: React.FC = () => {
 
       {/* Informe semanal para gerencia */}
       <InformeSemanal solicitudes={filtered} />
+      </>
+      )}
     </div>
   );
 };
@@ -297,6 +311,10 @@ const InformeSemanal: React.FC<{ solicitudes: any[] }> = ({ solicitudes }) => {
   const [topN, setTopN] = useState(10);
   const [emailTo, setEmailTo] = useState(defaultEmails.join(', '));
   const [comentariosDestacados, setComentariosDestacados] = useState<Record<string, any[]>>({});
+  // Nota de contexto de gerencia por pieza (ej: "urgente porque sale al aire el lunes")
+  const [notasContexto, setNotasContexto] = useState<Record<string, string>>({});
+  // Nota general del informe (encabezado que resume la semana)
+  const [notaGeneral, setNotaGeneral] = useState('');
 
   const piezasInforme = useMemo(() => {
     const start = new Date(fechaInicio);
@@ -365,16 +383,17 @@ const InformeSemanal: React.FC<{ solicitudes: any[] }> = ({ solicitudes }) => {
       const sesUrl = (import.meta as any).env?.VITE_SES_LAMBDA_URL as string;
       const apiUrl = (import.meta as any).env?.VITE_API_URL as string;
       const token = localStorage.getItem('alpina_id_token');
-      // Usar comentarios ya cargados del preview
+      // Usar comentarios ya cargados del preview + nota de contexto por pieza
       const piezasConComentarios = piezasInforme.map(s => ({
         id: s.id, title: s.title, consecutive: s.consecutive, brand: s.brand,
         status: s.status, priority: s.priority, description: s.description,
         highlightedComments: comentariosDestacados[s.id] || [],
+        notaContexto: (notasContexto[s.id] || '').trim() || undefined,
       }));
       await fetch(sesUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
-        body: JSON.stringify({ template: 'informe_semanal', to: emailTo.split(',').map(e => e.trim()).filter(Boolean), cc: defaultCc, data: { piezas: piezasConComentarios, totalRevisadas } }),
+        body: JSON.stringify({ template: 'informe_semanal', to: emailTo.split(',').map(e => e.trim()).filter(Boolean), cc: defaultCc, data: { piezas: piezasConComentarios, totalRevisadas, notaGeneral: notaGeneral.trim() || undefined } }),
       });
       notify('Informe enviado por correo', 'success');
     } catch (e: any) { notify(e.message || 'Error al enviar', 'error'); }
@@ -405,6 +424,18 @@ const InformeSemanal: React.FC<{ solicitudes: any[] }> = ({ solicitudes }) => {
             <p className="text-xs text-slate-500">
               Total revisadas: <strong>{totalRevisadas}</strong> — Mostrando top {piezasInforme.length} por prioridad
             </p>
+
+            {/* Nota general del informe (contexto para gerencia) */}
+            <div className="p-3 rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
+              <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Nota general para gerencia (opcional)</label>
+              <textarea
+                value={notaGeneral}
+                onChange={e => setNotaGeneral(e.target.value)}
+                rows={2}
+                placeholder="Resumen o contexto de la semana. Ej: Esta semana priorizamos las piezas de la campaña de fin de año…"
+                className="mt-1 w-full text-sm rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand resize-y"
+              />
+            </div>
             {piezasInforme.map((s, i) => (
               <div key={s.id} className={cn('p-4 rounded-lg border', s.priority === 'red' ? 'bg-red-50 border-red-200' : s.priority === 'yellow' ? 'bg-yellow-50 border-yellow-200' : 'bg-slate-50 border-slate-200')}>
                 <div className="flex items-center justify-between mb-2">
@@ -437,6 +468,20 @@ const InformeSemanal: React.FC<{ solicitudes: any[] }> = ({ solicitudes }) => {
                     ))}
                   </div>
                 )}
+
+                {/* Nota de contexto de esta pieza (por qué es urgente, etc.) */}
+                <div className="mt-2 pt-2 border-t border-current/10">
+                  <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1">
+                    <MessageSquare size={11} /> Nota para gerencia (opcional)
+                  </label>
+                  <textarea
+                    value={notasContexto[s.id] || ''}
+                    onChange={e => setNotasContexto(prev => ({ ...prev, [s.id]: e.target.value }))}
+                    rows={2}
+                    placeholder="Ej: Urgente porque sale al aire el lunes / requiere validación legal antes de publicar…"
+                    className="mt-1 w-full text-xs rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-2.5 py-1.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand resize-y"
+                  />
+                </div>
               </div>
             ))}
           </div>
