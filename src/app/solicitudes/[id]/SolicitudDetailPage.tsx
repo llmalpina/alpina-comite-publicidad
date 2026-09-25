@@ -518,7 +518,7 @@ const SolicitudDetailPage: React.FC = () => {
           <div>
             <div className="flex items-center gap-3">
               <h1 className="text-2xl font-bold text-slate-900 dark:text-white">{solicitud.title}</h1>
-              <Badge className={STATUS_LABELS[solicitud.status].color}>{STATUS_LABELS[solicitud.status].label}</Badge>
+              <Badge className={STATUS_LABELS[solicitud.status]?.color || 'bg-slate-100 text-slate-700'}>{STATUS_LABELS[solicitud.status]?.label || solicitud.status}</Badge>
             </div>
             <p className="text-slate-500 dark:text-slate-400">{solicitud.consecutive} · {solicitud.brand} · {solicitud.product}</p>
           </div>

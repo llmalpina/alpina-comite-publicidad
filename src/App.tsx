@@ -10,6 +10,7 @@ import Header from './components/layout/Header';
 import AnnouncementBanner from './components/layout/AnnouncementBanner';
 import Loader from './components/ui/Loader';
 import { LoadingOverlay } from './components/ui/LoadingOverlay';
+import ErrorBoundary from './components/ui/ErrorBoundary';
 import LoginPage from './app/login/LoginPage';
 import DashboardPage from './app/dashboard/DashboardPage';
 import SolicitudesPage from './app/solicitudes/SolicitudesListPage';
@@ -62,7 +63,10 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode; roles?: string[]; pe
         {mobileMenuOpen && <div className="fixed inset-0 bg-black/40 z-40 md:hidden" onClick={() => setMobileMenuOpen(false)} />}
         <Sidebar collapsed={sidebarCollapsed} onToggle={() => setSidebarCollapsed(v => !v)} mobileOpen={mobileMenuOpen} onMobileClose={() => setMobileMenuOpen(false)} />
         <main className="flex-1 overflow-y-auto bg-brand-50 dark:bg-slate-900">
-          <div className="max-w-7xl mx-auto p-4 md:p-8">{children}</div>
+          <div className="max-w-7xl mx-auto p-4 md:p-8">
+            {/* key por ruta: al navegar a otra página se resetea el estado de error */}
+            <ErrorBoundary key={location.pathname}>{children}</ErrorBoundary>
+          </div>
         </main>
       </div>
     </div>
