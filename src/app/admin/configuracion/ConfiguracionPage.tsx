@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Plus, Trash2, Save, Mail, Shield, Check, X, Bell, ChevronDown, ChevronUp, BookOpen, Filter, Megaphone } from 'lucide-react';
+import { Plus, Trash2, Save, Mail, Shield, Check, X, Bell, ChevronDown, ChevronUp, BookOpen, Filter, Megaphone, Eye, EyeOff, RefreshCw } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '../../../components/ui/Card';
 import { Button } from '../../../components/ui/Button';
 import { Input } from '../../../components/ui/Input';
@@ -350,15 +350,52 @@ const TabCorreos: React.FC = () => {
       smtpPassword: emailConfig.smtpPassword,
       fromName: emailConfig.fromName,
     });
-  }, [emailConfig.smtpHost, emailConfig.smtpUser]);
+  }, [emailConfig.smtpHost, emailConfig.smtpUser, emailConfig.smtpPassword]);
   const [showNewRule, setShowNewRule] = useState(false);
   const [newRuleLabel, setNewRuleLabel] = useState('');
   const [newRuleEvent, setNewRuleEvent] = useState<NotificationEvent>('solicitud_creada');
   const [newRuleDesc, setNewRuleDesc] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [savingSmtp, setSavingSmtp] = useState(false);
+  const [testingSmtp, setTestingSmtp] = useState(false);
 
   const saveSmtp = async () => {
-    await updateEmailConfig(smtpLocal);
-    notify('Configuración SMTP guardada', 'success');
+    setSavingSmtp(true);
+    try {
+      await updateEmailConfig(smtpLocal);
+      notify('Configuración SMTP guardada', 'success');
+    } catch (e: any) {
+      notify(e?.message || 'No se pudo guardar la configuración SMTP', 'error');
+    } finally {
+      setSavingSmtp(false);
+    }
+  };
+
+  // Prueba la conexión SMTP y envía un correo de prueba al remitente.
+  // Primero guarda la config para que la lambda use los valores actuales.
+  const probarSmtp = async () => {
+    if (!smtpLocal.smtpPassword) { notify('Ingresa la contraseña de aplicación antes de probar', 'warning'); return; }
+    setTestingSmtp(true);
+    try {
+      await updateEmailConfig(smtpLocal); // guarda primero (DynamoDB tiene prioridad en la lambda)
+      const sesUrl = (import.meta as any).env?.VITE_SES_LAMBDA_URL as string;
+      const token = localStorage.getItem('alpina_id_token');
+      const res = await fetch(sesUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+        body: JSON.stringify({ action: 'test', to: smtpLocal.smtpUser }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok && data.ok) {
+        notify(`Prueba exitosa. Se envió un correo a ${smtpLocal.smtpUser}`, 'success');
+      } else {
+        notify(data.message || 'La prueba SMTP falló. Revisa la contraseña de aplicación.', 'error');
+      }
+    } catch (e: any) {
+      notify(e?.message || 'No se pudo probar la conexión SMTP', 'error');
+    } finally {
+      setTestingSmtp(false);
+    }
   };
 
   const handleAddRule = async () => {
@@ -397,16 +434,47 @@ const TabCorreos: React.FC = () => {
             <Input value={smtpLocal.smtpUser} onChange={e => setSmtpLocal(s => ({ ...s, smtpUser: e.target.value }))} placeholder="asist.auto@alpina.com" />
           </div>
           <div className="space-y-1">
-            <label className="text-xs font-semibold text-slate-600 dark:text-slate-400">Contraseña</label>
-            <Input type="password" value={smtpLocal.smtpPassword} onChange={e => setSmtpLocal(s => ({ ...s, smtpPassword: e.target.value }))} />
+            <label className="text-xs font-semibold text-slate-600 dark:text-slate-400">Contraseña de aplicación</label>
+            <div className="relative">
+              <Input
+                type={showPassword ? 'text' : 'password'}
+                value={smtpLocal.smtpPassword}
+                onChange={e => setSmtpLocal(s => ({ ...s, smtpPassword: e.target.value }))}
+                placeholder="App Password de Google (ej: abcd efgh ijkl mnop)"
+                className="pr-10"
+                autoComplete="new-password"
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword(v => !v)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                title={showPassword ? 'Ocultar' : 'Mostrar'}
+              >
+                {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+              </button>
+            </div>
+            <p className="text-[11px] text-slate-400 mt-1">
+              No es la contraseña normal del correo. Es una <strong>contraseña de aplicación</strong> de 16 caracteres
+              que se genera en la cuenta de Google (Seguridad → Contraseñas de aplicaciones). Si se cambia la
+              contraseña del correo, hay que generar una nueva aquí.
+            </p>
           </div>
           <div className="space-y-1">
             <label className="text-xs font-semibold text-slate-600 dark:text-slate-400">Nombre del remitente</label>
             <Input value={smtpLocal.fromName} onChange={e => setSmtpLocal(s => ({ ...s, fromName: e.target.value }))} placeholder="Comité Publicidad Alpina" />
           </div>
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
             <p className="text-xs text-slate-500">Correos enviados desde <strong>{smtpLocal.smtpUser}</strong> via {smtpLocal.smtpHost}:{smtpLocal.smtpPort}</p>
-            <Button size="sm" onClick={saveSmtp} className="gap-2 shrink-0"><Save size={14} />Guardar</Button>
+            <div className="flex gap-2 shrink-0">
+              <Button size="sm" variant="outline" onClick={probarSmtp} disabled={testingSmtp || savingSmtp} className="gap-2">
+                {testingSmtp ? <RefreshCw size={14} className="animate-spin" /> : <Mail size={14} />}
+                {testingSmtp ? 'Probando...' : 'Probar envío'}
+              </Button>
+              <Button size="sm" onClick={saveSmtp} disabled={savingSmtp || testingSmtp} className="gap-2">
+                {savingSmtp ? <RefreshCw size={14} className="animate-spin" /> : <Save size={14} />}
+                {savingSmtp ? 'Guardando...' : 'Guardar'}
+              </Button>
+            </div>
           </div>
         </CardContent>
       </Card>
