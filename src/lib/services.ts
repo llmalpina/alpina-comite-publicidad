@@ -14,6 +14,10 @@ export interface EmailPayload {
   to: string | string[];
   cc?: string | string[];
   data: Record<string, any>;
+  /** Roles destinatarios (para notificar también al espacio de Google Chat del rol) */
+  roles?: string[];
+  /** URLs de webhook de Chat directas (ej. webhook personal de un usuario) */
+  chatWebhookUrls?: string[];
   /** Config SMTP — se pasa desde ConfigContext para que la lambda use los valores actuales */
   smtpConfig?: {
     host: string;
@@ -42,6 +46,7 @@ export async function sendEmail(payload: EmailPayload): Promise<void> {
         'Content-Type': 'application/json',
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
       },
+      // payload ya incluye template, to, cc, data y (opcional) roles/chatWebhookUrls
       body: JSON.stringify(payload),
     });
     if (!res.ok) {
@@ -192,6 +197,8 @@ export async function dispararRegla(
     const template = templateMap[event];
     if (!template) continue;
 
-    await sendEmail({ template, to: finalTo, cc: finalCc, data });
+    // Los roles de la regla sirven para que el backend notifique también al
+    // espacio de Google Chat de cada rol (si tiene webhook configurado).
+    await sendEmail({ template, to: finalTo, cc: finalCc, data, roles: regla.toRoles });
   }
 }

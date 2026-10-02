@@ -54,6 +54,13 @@ export interface EmailConfig {
   smtpPassword: string;
   fromName:     string;
   rules: NotificationRule[];
+  /**
+   * Webhooks de Google Chat por rol/equipo. La clave es el id del rol
+   * (REVISOR_ARA, REVISOR_LEGAL, etc.) o 'COMITE' para un espacio general.
+   * Cuando se dispara una notificación dirigida a ese rol, además del correo
+   * se publica un mensaje en el espacio de Chat correspondiente.
+   */
+  chatWebhooks?: Record<string, string>;
 }
 
 export interface ScheduleConfig {
@@ -282,6 +289,7 @@ const DEFAULT_EMAIL: EmailConfig = {
   smtpUser:     'asist.auto@alpina.com',
   smtpPassword: '',
   fromName:     'Comité Publicidad Alpina',
+  chatWebhooks: {},
   rules: [
     {
       id: 'rule-1', system: true, enabled: false,

@@ -358,6 +358,11 @@ const TabCorreos: React.FC = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [savingSmtp, setSavingSmtp] = useState(false);
   const [testingSmtp, setTestingSmtp] = useState(false);
+  // Google Chat: webhooks por rol/equipo
+  const [chatLocal, setChatLocal] = useState<Record<string, string>>(emailConfig.chatWebhooks || {});
+  const [savingChat, setSavingChat] = useState(false);
+  const [testingChatKey, setTestingChatKey] = useState<string | null>(null);
+  React.useEffect(() => { setChatLocal(emailConfig.chatWebhooks || {}); }, [emailConfig.chatWebhooks]);
 
   const saveSmtp = async () => {
     setSavingSmtp(true);
@@ -395,6 +400,51 @@ const TabCorreos: React.FC = () => {
       notify(e?.message || 'No se pudo probar la conexión SMTP', 'error');
     } finally {
       setTestingSmtp(false);
+    }
+  };
+
+  // Roles/equipos a los que se les puede configurar un espacio de Google Chat
+  const chatTargets: { key: string; label: string }[] = [
+    { key: 'COMITE', label: 'Comité (general)' },
+    { key: 'REVISOR_ARA', label: 'ARA & Nutrición' },
+    { key: 'REVISOR_LEGAL', label: 'Legal' },
+    { key: 'REVISOR_BOYDORR', label: 'Boydorr' },
+  ];
+
+  const guardarChat = async () => {
+    setSavingChat(true);
+    try {
+      // Limpia entradas vacías antes de guardar
+      const limpio: Record<string, string> = {};
+      Object.entries(chatLocal).forEach(([k, v]) => { if (v && v.trim()) limpio[k] = v.trim(); });
+      await updateEmailConfig({ chatWebhooks: limpio });
+      notify('Webhooks de Google Chat guardados', 'success');
+    } catch (e: any) {
+      notify(e?.message || 'No se pudo guardar la configuración de Chat', 'error');
+    } finally {
+      setSavingChat(false);
+    }
+  };
+
+  const probarChat = async (key: string) => {
+    const url = (chatLocal[key] || '').trim();
+    if (!url) { notify('Pega la URL del webhook antes de probar', 'warning'); return; }
+    setTestingChatKey(key);
+    try {
+      const sesUrl = (import.meta as any).env?.VITE_SES_LAMBDA_URL as string;
+      const token = localStorage.getItem('alpina_id_token');
+      const res = await fetch(sesUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+        body: JSON.stringify({ action: 'test-chat', webhookUrl: url }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok && data.ok) notify('Mensaje de prueba enviado al espacio de Chat', 'success');
+      else notify(data.message || 'No se pudo enviar al webhook', 'error');
+    } catch (e: any) {
+      notify(e?.message || 'Error al probar el webhook', 'error');
+    } finally {
+      setTestingChatKey(null);
     }
   };
 
@@ -475,6 +525,53 @@ const TabCorreos: React.FC = () => {
                 {savingSmtp ? 'Guardando...' : 'Guardar'}
               </Button>
             </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Google Chat (webhooks por equipo) */}
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-base flex items-center gap-2"><Megaphone size={16} />Notificaciones por Google Chat</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="text-[11px] text-slate-500 bg-slate-50 dark:bg-slate-800 rounded-lg p-3 leading-relaxed">
+            Además del correo, las notificaciones pueden publicarse en un <strong>espacio de Google Chat</strong> por equipo.
+            Para obtener la URL: abre el espacio en Google Chat → nombre del espacio → <em>Apps e integraciones</em> →
+            <em> Administrar webhooks</em> → crea uno y copia la URL (empieza por <code>https://chat.googleapis.com/</code>).
+            Deja en blanco los equipos que no quieras notificar por Chat.
+          </div>
+
+          {chatTargets.map(t => (
+            <div key={t.key} className="space-y-1">
+              <label className="text-xs font-semibold text-slate-600 dark:text-slate-400">{t.label}</label>
+              <div className="flex gap-2">
+                <Input
+                  value={chatLocal[t.key] || ''}
+                  onChange={e => setChatLocal(s => ({ ...s, [t.key]: e.target.value }))}
+                  placeholder="https://chat.googleapis.com/v1/spaces/..."
+                  className="flex-1"
+                />
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => probarChat(t.key)}
+                  disabled={testingChatKey === t.key || !chatLocal[t.key]}
+                  className="gap-1 shrink-0"
+                  title="Enviar mensaje de prueba"
+                >
+                  {testingChatKey === t.key ? <RefreshCw size={14} className="animate-spin" /> : <Megaphone size={14} />}
+                  Probar
+                </Button>
+              </div>
+            </div>
+          ))}
+
+          <div className="flex justify-end">
+            <Button size="sm" onClick={guardarChat} disabled={savingChat} className="gap-2">
+              {savingChat ? <RefreshCw size={14} className="animate-spin" /> : <Save size={14} />}
+              {savingChat ? 'Guardando...' : 'Guardar webhooks'}
+            </Button>
           </div>
         </CardContent>
       </Card>
