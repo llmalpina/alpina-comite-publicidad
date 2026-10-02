@@ -23,6 +23,7 @@ import MaestrosPage from './app/admin/maestros/MaestrosPage';
 import UsuariosPage from './app/admin/usuarios/UsuariosPage';
 import ConfiguracionPage from './app/admin/configuracion/ConfiguracionPage';
 import ManualPage from './app/manual/ManualPage';
+import MisNotificacionesPage from './app/perfil/MisNotificacionesPage';
 import { ArtesProvider, useArtes } from './contexts/ArtesContext';
 import ArtesColaPage from './app/artes/cola/ArtesColaPage';
 import ArtesAprobadosPage from './app/artes/aprobados/ArtesAprobadosPage';
@@ -112,6 +113,7 @@ const AppRoutes: React.FC = () => (
     <Route path="/artes/equipos" element={<ProtectedRoute><ArtesRoute need="config"><ArtesEquiposPage /></ArtesRoute></ProtectedRoute>} />
     <Route path="/artes/:id" element={<ProtectedRoute><ArtesRoute need="cola"><ArteDetailPage /></ArtesRoute></ProtectedRoute>} />
     <Route path="/manual" element={<ProtectedRoute><ManualPage /></ProtectedRoute>} />
+    <Route path="/mis-notificaciones" element={<ProtectedRoute><MisNotificacionesPage /></ProtectedRoute>} />
     <Route path="/" element={<Navigate to="/dashboard" replace />} />
   </Routes>
 );

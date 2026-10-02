@@ -2,7 +2,7 @@ import React from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { getAssetPath } from '../../lib/constants';
-import { LayoutDashboard, FileText, CheckSquare, Settings, BarChart3, Users, PlusCircle, SlidersHorizontal, BookOpen, PenTool, Archive, UsersRound } from 'lucide-react';
+import { LayoutDashboard, FileText, CheckSquare, Settings, BarChart3, Users, PlusCircle, SlidersHorizontal, BookOpen, PenTool, Archive, UsersRound, Megaphone } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { useArtes } from '../../contexts/ArtesContext';
 import { useConfig } from '../../contexts/ConfigContext';
@@ -32,6 +32,7 @@ const NAV_GROUPS = [
     { label: 'Configuración', icon: Settings, path: '/admin/configuracion', roles: ['ADMIN'] },
   ]},
   { label: 'Ayuda', items: [
+    { label: 'Mis Notificaciones', icon: Megaphone, path: '/mis-notificaciones', roles: ['SOLICITANTE','REVISOR_ARA','REVISOR_LEGAL','REVISOR_BOYDORR','ADMIN'] },
     { label: 'Manual de Uso', icon: BookOpen, path: '/manual', roles: ['SOLICITANTE','REVISOR_ARA','REVISOR_LEGAL','REVISOR_BOYDORR','ADMIN'] },
   ]},
 ];

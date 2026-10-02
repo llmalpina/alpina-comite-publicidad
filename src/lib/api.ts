@@ -138,6 +138,20 @@ export const usuariosApi = {
     apiFetch<any>(`/usuarios/${id}/editar`, { method: 'PATCH', body: JSON.stringify(data) }),
   remove: (id: string) =>
     apiFetch<{ message: string }>(`/usuarios/${id}`, { method: 'DELETE' }),
+
+  // ─── Webhook personal de Google Chat (cada usuario configura el suyo) ───
+  /** Lee el webhook personal del usuario actual. El backend lo identifica por el token. */
+  getMiWebhook: () =>
+    apiFetch<{ ok: boolean; chatWebhook: string }>(`/usuarios/me/mi-webhook`, {
+      method: 'PATCH',
+      body: JSON.stringify({ read: true, ...getUserIdentity() }),
+    }),
+  /** Guarda (o vacía) el webhook personal del usuario actual. */
+  setMiWebhook: (chatWebhook: string) =>
+    apiFetch<{ ok: boolean; chatWebhook: string }>(`/usuarios/me/mi-webhook`, {
+      method: 'PATCH',
+      body: JSON.stringify({ chatWebhook, ...getUserIdentity() }),
+    }),
 };
 
 // ─── S3 Presigned URL ────────────────────────────────────────────────────────
