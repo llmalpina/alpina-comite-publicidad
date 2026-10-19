@@ -10,7 +10,50 @@ export { API_URL };
 
 // ─── Helper base ──────────────────────────────────────────────────────────────
 
-export async function apiFetch<T>(path: string, options: RequestInit = {}): Promise<T> {
+/**
+ * Renovación automática del ID token.
+ *
+ * El ID token de Cognito dura 1 hora; el refresh token, 30 días. Con el JWT
+ * Authorizer del API Gateway activo, un token expirado hace que TODAS las
+ * llamadas devuelvan 401. Para que la sesión no se "rompa" tras 1 hora con la
+ * pestaña abierta, ante un 401 refrescamos el ID token (usando el refresh token)
+ * y reintentamos la petición UNA vez, de forma transparente.
+ *
+ * Se memoiza la promesa de refresh para que varias llamadas que fallen a la vez
+ * compartan un único refresh (evita una tormenta de refrescos simultáneos).
+ */
+let refreshPromise: Promise<string | null> | null = null;
+
+async function refreshIdToken(): Promise<string | null> {
+  if (refreshPromise) return refreshPromise;
+  refreshPromise = (async () => {
+    try {
+      const refreshToken = localStorage.getItem('alpina_refresh_token');
+      if (!refreshToken) return null;
+      const res = await fetch(`${API_URL}/auth`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ refreshToken, action: 'refresh' }),
+      });
+      if (!res.ok) return null;
+      const data = await res.json();
+      const newIdToken = data?.AuthenticationResult?.IdToken;
+      if (!newIdToken) return null;
+      localStorage.setItem('alpina_id_token', newIdToken);
+      const newAccess = data.AuthenticationResult.AccessToken;
+      if (newAccess) localStorage.setItem('alpina_access_token', newAccess);
+      return newIdToken;
+    } catch {
+      return null;
+    } finally {
+      // Libera el memo en el siguiente tick para que reintentos concurrentes lo compartan.
+      setTimeout(() => { refreshPromise = null; }, 0);
+    }
+  })();
+  return refreshPromise;
+}
+
+export async function apiFetch<T>(path: string, options: RequestInit = {}, _isRetry = false): Promise<T> {
   const token = localStorage.getItem('alpina_id_token');
   const res = await fetch(`${API_URL}${path}`, {
     ...options,
@@ -20,6 +63,13 @@ export async function apiFetch<T>(path: string, options: RequestInit = {}): Prom
       ...options.headers,
     },
   });
+  // 401 (token expirado): intenta refrescar UNA vez y reintentar de forma transparente.
+  if (res.status === 401 && !_isRetry) {
+    const newToken = await refreshIdToken();
+    if (newToken) return apiFetch<T>(path, options, true);
+    // No se pudo refrescar (refresh token vencido): sesión terminada.
+    throw new Error('Sesión expirada. Vuelve a iniciar sesión.');
+  }
   if (!res.ok) {
     const err = await res.json().catch(() => ({ message: res.statusText }));
     throw new Error(err.message || `Error ${res.status}`);

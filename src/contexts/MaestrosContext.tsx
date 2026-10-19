@@ -99,8 +99,17 @@ export const MaestrosProvider: React.FC<{ children: React.ReactNode }> = ({ chil
           if (p?.prompt) promptIA = p.prompt;
         } catch { /* usa el default */ }
 
-        const toItems = (apiItems: any[] | null, fallback: MaestroItem[]) => {
-          if (!apiItems || apiItems.length === 0) return fallback;
+        // Distingue tres casos (antes se confundían, y una lista vacía de la API
+        // "borraba" los maestros o dejaba los del localStorage corrupto):
+        //   - apiItems === null  → la API FALLÓ (red/401/timeout): conserva lo que
+        //     había en localStorage (fallback) para no perder datos.
+        //   - apiItems.length > 0 → la API respondió datos: se usan tal cual.
+        //   - apiItems === []     → la API respondió VACÍO (no hay nada persistido
+        //     en la tabla): se usan los defaults base del código, NO el localStorage,
+        //     para que la pantalla nunca quede vacía ni muestre estado corrupto.
+        const toItems = (apiItems: any[] | null, fallback: MaestroItem[], defaults: MaestroItem[]) => {
+          if (apiItems === null) return fallback;          // API falló → conserva lo previo
+          if (apiItems.length === 0) return defaults;       // API vacía → defaults base
           return apiItems.map((i: any) => ({
             id: i.id || i.sk || Date.now().toString(),
             label: i.label || i.value || '',
@@ -110,11 +119,11 @@ export const MaestrosProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         };
 
         const merged: MaestrosConfig = {
-          marcas: toItems(marcas, currentConfig.marcas),
-          canales: toItems(canales, currentConfig.canales),
-          tiposContenido: toItems(tiposContenido, currentConfig.tiposContenido),
-          areas: toItems(areas, currentConfig.areas),
-          motivosRechazo: toItems(motivosRechazo, currentConfig.motivosRechazo || DEFAULT_CONFIG.motivosRechazo),
+          marcas: toItems(marcas, currentConfig.marcas, DEFAULT_CONFIG.marcas),
+          canales: toItems(canales, currentConfig.canales, DEFAULT_CONFIG.canales),
+          tiposContenido: toItems(tiposContenido, currentConfig.tiposContenido, DEFAULT_CONFIG.tiposContenido),
+          areas: toItems(areas, currentConfig.areas, DEFAULT_CONFIG.areas),
+          motivosRechazo: toItems(motivosRechazo, currentConfig.motivosRechazo || DEFAULT_CONFIG.motivosRechazo, DEFAULT_CONFIG.motivosRechazo),
           promptIA,
         };
         setConfig(merged);
