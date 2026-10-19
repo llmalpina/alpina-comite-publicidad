@@ -2,7 +2,7 @@ import React from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { getAssetPath } from '../../lib/constants';
-import { LayoutDashboard, FileText, CheckSquare, Settings, BarChart3, Users, PlusCircle, SlidersHorizontal, BookOpen, PenTool, Archive, UsersRound, Megaphone } from 'lucide-react';
+import { LayoutDashboard, FileText, CheckSquare, Settings, BarChart3, Users, PlusCircle, SlidersHorizontal, BookOpen, PenTool, Archive, UsersRound, Megaphone, Film } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { useArtes } from '../../contexts/ArtesContext';
 import { useConfig } from '../../contexts/ConfigContext';
@@ -24,6 +24,11 @@ const NAV_GROUPS = [
   ]},
   { label: 'Revisión', items: [
     { label: 'Cola de Revisión', icon: CheckSquare, path: '/revision', roles: ['REVISOR_ARA','REVISOR_LEGAL','REVISOR_BOYDORR','ADMIN'], permission: 'revisar_solicitud' },
+  ]},
+  { label: 'Medios', items: [
+    // FASE INICIAL: solo ADMIN. El módulo de Medios (Cuadro de Materiales) arranca
+    // restringido a administradores; se ampliará a roles de Medios/agencias después.
+    { label: 'Cuadro de Materiales', icon: Film, path: '/medios', roles: ['ADMIN'] },
   ]},
   { label: 'Administración', items: [
     { label: 'Reportes', icon: BarChart3, path: '/admin/reportes', roles: ['ADMIN'] },

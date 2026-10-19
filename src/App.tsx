@@ -29,6 +29,7 @@ import ArtesColaPage from './app/artes/cola/ArtesColaPage';
 import ArtesAprobadosPage from './app/artes/aprobados/ArtesAprobadosPage';
 import ArtesEquiposPage from './app/artes/equipos/ArtesEquiposPage';
 import ArteDetailPage from './app/artes/[id]/ArteDetailPage';
+import MediosDashboardPage from './app/medios/MediosDashboardPage';
 import { BrowserRouter } from 'react-router-dom';
 
 const ProtectedRoute: React.FC<{ children: React.ReactNode; roles?: string[]; permission?: string }> = ({ children, roles, permission }) => {
@@ -112,6 +113,8 @@ const AppRoutes: React.FC = () => (
     <Route path="/artes/aprobados" element={<ProtectedRoute><ArtesRoute need="repositorio"><ArtesAprobadosPage /></ArtesRoute></ProtectedRoute>} />
     <Route path="/artes/equipos" element={<ProtectedRoute><ArtesRoute need="config"><ArtesEquiposPage /></ArtesRoute></ProtectedRoute>} />
     <Route path="/artes/:id" element={<ProtectedRoute><ArtesRoute need="cola"><ArteDetailPage /></ArtesRoute></ProtectedRoute>} />
+    {/* Módulo de Medios — FASE INICIAL: solo ADMIN (visibilidad y acceso restringidos) */}
+    <Route path="/medios" element={<ProtectedRoute roles={['ADMIN']}><MediosDashboardPage /></ProtectedRoute>} />
     <Route path="/manual" element={<ProtectedRoute><ManualPage /></ProtectedRoute>} />
     <Route path="/mis-notificaciones" element={<ProtectedRoute><MisNotificacionesPage /></ProtectedRoute>} />
     <Route path="/" element={<Navigate to="/dashboard" replace />} />
