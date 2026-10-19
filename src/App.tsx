@@ -30,6 +30,7 @@ import ArtesAprobadosPage from './app/artes/aprobados/ArtesAprobadosPage';
 import ArtesEquiposPage from './app/artes/equipos/ArtesEquiposPage';
 import ArteDetailPage from './app/artes/[id]/ArteDetailPage';
 import MediosDashboardPage from './app/medios/MediosDashboardPage';
+import CampanaDetailPage from './app/medios/CampanaDetailPage';
 import { BrowserRouter } from 'react-router-dom';
 
 const ProtectedRoute: React.FC<{ children: React.ReactNode; roles?: string[]; permission?: string }> = ({ children, roles, permission }) => {
@@ -115,6 +116,7 @@ const AppRoutes: React.FC = () => (
     <Route path="/artes/:id" element={<ProtectedRoute><ArtesRoute need="cola"><ArteDetailPage /></ArtesRoute></ProtectedRoute>} />
     {/* Módulo de Medios — FASE INICIAL: solo ADMIN (visibilidad y acceso restringidos) */}
     <Route path="/medios" element={<ProtectedRoute roles={['ADMIN']}><MediosDashboardPage /></ProtectedRoute>} />
+    <Route path="/medios/campanas/:id" element={<ProtectedRoute roles={['ADMIN']}><CampanaDetailPage /></ProtectedRoute>} />
     <Route path="/manual" element={<ProtectedRoute><ManualPage /></ProtectedRoute>} />
     <Route path="/mis-notificaciones" element={<ProtectedRoute><MisNotificacionesPage /></ProtectedRoute>} />
     <Route path="/" element={<Navigate to="/dashboard" replace />} />

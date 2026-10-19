@@ -37,4 +37,10 @@ export const mediosApi = {
       method: 'POST',
       body: JSON.stringify({ solicitudId, ...extra }),
     }),
+  /** Agrega una línea táctica a una campaña (nomenclatura y UTM los genera el backend). */
+  crearLinea: (campaignId: string, data: Partial<MedioLinea>) =>
+    apiFetch<MedioLinea>(`/medios/campanas/${campaignId}/lineas`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
 };

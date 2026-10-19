@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { Film, Inbox, LayoutGrid, Loader2, Play, RefreshCw, PackageOpen } from 'lucide-react';
 import { Card, CardContent } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
@@ -138,16 +139,18 @@ const MediosDashboardPage: React.FC = () => {
           {campanas.map(c => {
             const estado = MEDIO_ESTADO_LABELS[c.estadoAgregado] || MEDIO_ESTADO_LABELS.PENDIENTE;
             return (
-              <Card key={c.campaignId} className="hover:shadow-md transition-shadow">
-                <CardContent className="p-4">
-                  <div className="flex items-center justify-between gap-2">
-                    <p className="font-bold text-slate-900 dark:text-white truncate">{c.title}</p>
-                    <Badge className={estado.color + ' text-[10px] shrink-0'}>{estado.label}</Badge>
-                  </div>
-                  <p className="text-[11px] text-slate-500 mt-1">{c.consecutive} · {c.marca}</p>
-                  <p className="text-[10px] text-slate-400 mt-2">{c.totalPiezas || 0} línea(s) · iniciada {formatDate(c.createdAt)}</p>
-                </CardContent>
-              </Card>
+              <Link key={c.campaignId} to={`/medios/campanas/${c.campaignId}`} className="block">
+                <Card className="hover:shadow-md hover:border-violet-200 transition-all cursor-pointer">
+                  <CardContent className="p-4">
+                    <div className="flex items-center justify-between gap-2">
+                      <p className="font-bold text-slate-900 dark:text-white truncate">{c.title}</p>
+                      <Badge className={estado.color + ' text-[10px] shrink-0'}>{estado.label}</Badge>
+                    </div>
+                    <p className="text-[11px] text-slate-500 mt-1">{c.consecutive} · {c.marca}</p>
+                    <p className="text-[10px] text-slate-400 mt-2">{c.totalPiezas || 0} línea(s) · iniciada {formatDate(c.createdAt)}</p>
+                  </CardContent>
+                </Card>
+              </Link>
             );
           })}
         </div>
