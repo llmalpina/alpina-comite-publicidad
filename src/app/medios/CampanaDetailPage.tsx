@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { ArrowLeft, Plus, Loader2, Film, History, Hash, Link2, X } from 'lucide-react';
+import { ArrowLeft, Plus, Loader2, Film, History, Hash, Link2, X, Upload, CheckCircle2, XCircle, Play } from 'lucide-react';
 import { Card, CardContent } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { Badge } from '../../components/ui/Badge';
@@ -25,6 +25,20 @@ const CampanaDetailPage: React.FC = () => {
   const [data, setData] = useState<MedioCampanaDetalle | null>(null);
   const [loading, setLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
+  const [materialLinea, setMaterialLinea] = useState<MedioLinea | null>(null);
+  const [aprobarLinea, setAprobarLinea] = useState<MedioLinea | null>(null);
+
+  const cambiarEstado = async (l: MedioLinea, estado: string) => {
+    if (!id) return;
+    const nota = estado === 'RECHAZADO' ? (window.prompt('Motivo del rechazo (opcional):') ?? '') : '';
+    try {
+      await mediosApi.cambiarEstado(id, l.lineId, estado, { nota });
+      notify('Estado actualizado', 'success');
+      await cargar();
+    } catch (e: any) {
+      notify(e.message || 'No se pudo cambiar el estado', 'error');
+    }
+  };
 
   const cargar = async () => {
     if (!id) return;
@@ -96,6 +110,23 @@ const CampanaDetailPage: React.FC = () => {
                     <div className="mt-2 space-y-1">
                       <p className="text-[10px] text-slate-500 flex items-center gap-1"><Hash size={11} className="shrink-0" /> <code className="bg-slate-100 dark:bg-slate-700 px-1 rounded">{l.nomenclaturaAuto}</code></p>
                       <p className="text-[10px] text-slate-500 flex items-center gap-1"><Link2 size={11} className="shrink-0" /> <code className="bg-slate-100 dark:bg-slate-700 px-1 rounded break-all">{l.utmAuto}</code></p>
+                      {l.linkMaterial && <p className="text-[10px] text-slate-500 flex items-center gap-1"><Film size={11} className="shrink-0" /> Material: <a href={l.linkMaterial} target="_blank" rel="noreferrer" className="text-violet-600 underline break-all">{l.linkMaterial}</a></p>}
+                      {l.urlDefinitiva && <p className="text-[10px] text-emerald-600 flex items-center gap-1"><CheckCircle2 size={11} className="shrink-0" /> URL definitiva: <a href={l.urlDefinitiva} target="_blank" rel="noreferrer" className="underline break-all">{l.urlDefinitiva}</a></p>}
+                    </div>
+                    {/* Acciones según estado (fase ADMIN: el admin ejecuta todas las transiciones) */}
+                    <div className="flex items-center gap-2 mt-3 flex-wrap">
+                      {(l.estadoQA === 'PENDIENTE' || l.estadoQA === 'RECHAZADO') && (
+                        <Button size="sm" variant="outline" className="gap-1 text-[11px] h-7" onClick={() => setMaterialLinea(l)}><Upload size={12} /> Cargar material</Button>
+                      )}
+                      {l.estadoQA === 'EN_QA' && (
+                        <>
+                          <Button size="sm" className="gap-1 text-[11px] h-7 bg-emerald-600 hover:bg-emerald-700" onClick={() => setAprobarLinea(l)}><CheckCircle2 size={12} /> Aprobar QA</Button>
+                          <Button size="sm" variant="outline" className="gap-1 text-[11px] h-7 text-red-600 border-red-200" onClick={() => cambiarEstado(l, 'RECHAZADO')}><XCircle size={12} /> Rechazar</Button>
+                        </>
+                      )}
+                      {l.estadoQA === 'APROBADO' && (
+                        <Button size="sm" className="gap-1 text-[11px] h-7 bg-violet-600 hover:bg-violet-700" onClick={() => cambiarEstado(l, 'IMPLEMENTADO')}><Play size={12} /> Marcar implementado</Button>
+                      )}
                     </div>
                   </div>
                 );
@@ -121,9 +152,98 @@ const CampanaDetailPage: React.FC = () => {
       </Card>
 
       {modalOpen && <NuevaLineaModal campaignId={meta.campaignId} onClose={() => setModalOpen(false)} onSaved={() => { setModalOpen(false); cargar(); }} />}
+      {materialLinea && <MaterialModal campaignId={meta.campaignId} linea={materialLinea} onClose={() => setMaterialLinea(null)} onSaved={() => { setMaterialLinea(null); cargar(); }} />}
+      {aprobarLinea && <AprobarModal campaignId={meta.campaignId} linea={aprobarLinea} onClose={() => setAprobarLinea(null)} onSaved={() => { setAprobarLinea(null); cargar(); }} />}
     </div>
   );
 };
+
+// ─── Modal cargar material ─────────────────────────────────────────────────────
+
+const MaterialModal: React.FC<{ campaignId: string; linea: MedioLinea; onClose: () => void; onSaved: () => void }> = ({ campaignId, linea, onClose, onSaved }) => {
+  const { notify } = useNotifications();
+  const [saving, setSaving] = useState(false);
+  const [linkMaterial, setLinkMaterial] = useState('');
+  const [urlDestino, setUrlDestino] = useState('');
+
+  const guardar = async () => {
+    if (!/^https:\/\/.+/.test(linkMaterial.trim())) { notify('El link del material debe ser https://', 'error'); return; }
+    setSaving(true);
+    try {
+      await mediosApi.cargarMaterial(campaignId, linea.lineId, { linkMaterial: linkMaterial.trim(), urlDestino: urlDestino.trim() || undefined });
+      notify('Material cargado. La línea pasó a QA.', 'success');
+      onSaved();
+    } catch (e: any) {
+      notify(e.message || 'No se pudo cargar el material', 'error');
+    } finally { setSaving(false); }
+  };
+
+  return (
+    <ModalShell title={`Cargar material · ${linea.canal} ${linea.formato}`} onClose={onClose}>
+      <Field label="Link del material (agencia)">
+        <input className={inputCls} value={linkMaterial} onChange={e => setLinkMaterial(e.target.value)} placeholder="https://drive.google.com/file/..." />
+      </Field>
+      <Field label="URL de destino de pauta (opcional)">
+        <input className={inputCls} value={urlDestino} onChange={e => setUrlDestino(e.target.value)} placeholder="https://www.alpina.com/..." />
+      </Field>
+      <p className="text-[10px] text-slate-400">Al guardar, la línea pasa automáticamente a <strong>En QA</strong>.</p>
+      <ModalActions saving={saving} onClose={onClose} onSave={guardar} label="Guardar material" />
+    </ModalShell>
+  );
+};
+
+// ─── Modal aprobar QA (exige URL definitiva) ───────────────────────────────────
+
+const AprobarModal: React.FC<{ campaignId: string; linea: MedioLinea; onClose: () => void; onSaved: () => void }> = ({ campaignId, linea, onClose, onSaved }) => {
+  const { notify } = useNotifications();
+  const [saving, setSaving] = useState(false);
+  const [urlDefinitiva, setUrlDefinitiva] = useState('');
+
+  const aprobar = async () => {
+    if (!/^https:\/\/.+/.test(urlDefinitiva.trim())) { notify('La URL definitiva debe ser https://', 'error'); return; }
+    setSaving(true);
+    try {
+      await mediosApi.cambiarEstado(campaignId, linea.lineId, 'APROBADO', { urlDefinitiva: urlDefinitiva.trim() });
+      notify('Línea aprobada', 'success');
+      onSaved();
+    } catch (e: any) {
+      notify(e.message || 'No se pudo aprobar', 'error');
+    } finally { setSaving(false); }
+  };
+
+  return (
+    <ModalShell title={`Aprobar QA · ${linea.canal} ${linea.formato}`} onClose={onClose}>
+      <Field label="URL definitiva del material (CDN público)">
+        <input className={inputCls} value={urlDefinitiva} onChange={e => setUrlDefinitiva(e.target.value)} placeholder="https://cdn.alpina.com/media/..." />
+      </Field>
+      <p className="text-[10px] text-slate-400">La aprobación libera la pieza para pauta e inyecta la URL definitiva.</p>
+      <ModalActions saving={saving} onClose={onClose} onSave={aprobar} label="Aprobar" />
+    </ModalShell>
+  );
+};
+
+// ─── Shells reutilizables de modal ─────────────────────────────────────────────
+
+const ModalShell: React.FC<{ title: string; onClose: () => void; children: React.ReactNode }> = ({ title, onClose, children }) => (
+  <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={onClose}>
+    <div className="bg-white dark:bg-slate-800 rounded-2xl p-5 w-full max-w-md" onClick={e => e.stopPropagation()}>
+      <div className="flex items-center justify-between mb-4">
+        <h3 className="font-bold text-slate-900 dark:text-white text-sm">{title}</h3>
+        <button onClick={onClose} className="text-slate-400 hover:text-slate-600"><X size={18} /></button>
+      </div>
+      <div className="space-y-3">{children}</div>
+    </div>
+  </div>
+);
+
+const ModalActions: React.FC<{ saving: boolean; onClose: () => void; onSave: () => void; label: string }> = ({ saving, onClose, onSave, label }) => (
+  <div className="flex justify-end gap-2 mt-5">
+    <Button variant="outline" size="sm" onClick={onClose}>Cancelar</Button>
+    <Button size="sm" disabled={saving} onClick={onSave} className="gap-1">
+      {saving ? <Loader2 size={14} className="animate-spin" /> : null} {label}
+    </Button>
+  </div>
+);
 
 // ─── Modal de nueva línea ──────────────────────────────────────────────────────
 

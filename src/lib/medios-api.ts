@@ -43,4 +43,16 @@ export const mediosApi = {
       method: 'POST',
       body: JSON.stringify(data),
     }),
+  /** Carga el material de una línea (link + URL destino). Pasa la línea a EN_QA. */
+  cargarMaterial: (campaignId: string, lineId: string, data: { linkMaterial: string; urlDestino?: string }) =>
+    apiFetch<MedioLinea>(`/medios/lineas/${lineId}/material`, {
+      method: 'PATCH',
+      body: JSON.stringify({ campaignId, ...data }),
+    }),
+  /** Cambia el estado QA de una línea. Al APROBAR exige urlDefinitiva (https). */
+  cambiarEstado: (campaignId: string, lineId: string, estado: string, extra?: { nota?: string; urlDefinitiva?: string }) =>
+    apiFetch<MedioLinea>(`/medios/lineas/${lineId}/estado`, {
+      method: 'PATCH',
+      body: JSON.stringify({ campaignId, estado, ...extra }),
+    }),
 };
