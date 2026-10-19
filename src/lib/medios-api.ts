@@ -66,4 +66,16 @@ export const mediosApi = {
       method: 'PATCH',
       body: JSON.stringify({ campaignId, estado, ...extra }),
     }),
+  /** Edita campos de una línea (recalcula nomenclatura/UTM y SLA). */
+  editarLinea: (campaignId: string, lineId: string, data: Partial<MedioLinea>) =>
+    apiFetch<MedioLinea>(`/medios/lineas/${lineId}/editar`, {
+      method: 'PATCH',
+      body: JSON.stringify({ campaignId, ...data }),
+    }),
+  /** Elimina una línea. */
+  eliminarLinea: (campaignId: string, lineId: string) =>
+    apiFetch<{ ok: boolean }>(`/medios/lineas/${lineId}`, {
+      method: 'DELETE',
+      body: JSON.stringify({ campaignId }),
+    }),
 };

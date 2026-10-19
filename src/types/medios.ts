@@ -60,6 +60,8 @@ export interface MedioLinea {
   fechaSLAEntrega?: string;
   fechaMontaje?: string;
   fechaRecepcion?: string;
+  diasMontaje?: number;
+  diasRecepcion?: number;
   estadoQA: MedioEstadoQA;
   /** Generados por el backend, read-only. */
   nomenclaturaAuto?: string;

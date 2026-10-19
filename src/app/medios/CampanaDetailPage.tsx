@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { ArrowLeft, Plus, Loader2, Film, History, Hash, Link2, X, Upload, CheckCircle2, XCircle, Play } from 'lucide-react';
+import { ArrowLeft, Plus, Loader2, Film, History, Hash, Link2, X, Upload, CheckCircle2, XCircle, Play, Trash2, Layers } from 'lucide-react';
 import { Card, CardContent } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { Badge } from '../../components/ui/Badge';
@@ -28,6 +28,8 @@ const CampanaDetailPage: React.FC = () => {
   const [materialLinea, setMaterialLinea] = useState<MedioLinea | null>(null);
   const [aprobarLinea, setAprobarLinea] = useState<MedioLinea | null>(null);
 
+  const [masivaOpen, setMasivaOpen] = useState(false);
+
   const cambiarEstado = async (l: MedioLinea, estado: string) => {
     if (!id) return;
     const nota = estado === 'RECHAZADO' ? (window.prompt('Motivo del rechazo (opcional):') ?? '') : '';
@@ -37,6 +39,18 @@ const CampanaDetailPage: React.FC = () => {
       await cargar();
     } catch (e: any) {
       notify(e.message || 'No se pudo cambiar el estado', 'error');
+    }
+  };
+
+  const eliminarLinea = async (l: MedioLinea) => {
+    if (!id) return;
+    if (!window.confirm(`¿Eliminar la línea ${l.canal} · ${l.formato}?`)) return;
+    try {
+      await mediosApi.eliminarLinea(id, l.lineId);
+      notify('Línea eliminada', 'success');
+      await cargar();
+    } catch (e: any) {
+      notify(e.message || 'No se pudo eliminar', 'error');
     }
   };
 
@@ -85,7 +99,10 @@ const CampanaDetailPage: React.FC = () => {
         <CardContent className="p-5">
           <div className="flex items-center justify-between mb-3">
             <h2 className="font-bold text-slate-800 dark:text-slate-100">Líneas tácticas ({lineas.length})</h2>
-            <Button size="sm" className="gap-1" onClick={() => setModalOpen(true)}><Plus size={14} /> Agregar línea</Button>
+            <div className="flex gap-2">
+              <Button size="sm" variant="outline" className="gap-1" onClick={() => setMasivaOpen(true)}><Layers size={14} /> Carga masiva</Button>
+              <Button size="sm" className="gap-1" onClick={() => setModalOpen(true)}><Plus size={14} /> Agregar línea</Button>
+            </div>
           </div>
           {lineas.length === 0 ? (
             <p className="text-sm text-slate-500 py-6 text-center">Aún no hay líneas. Agrega la primera pieza táctica (medio, formato, fechas).</p>
@@ -107,6 +124,13 @@ const CampanaDetailPage: React.FC = () => {
                     {(l.fechaSalidaPauta || l.fechaFinPauta) && (
                       <p className="text-[10px] text-slate-400 mt-0.5">Pauta: {l.fechaSalidaPauta || '—'} → {l.fechaFinPauta || '—'}</p>
                     )}
+                    {(l.fechaRecepcion || l.fechaMontaje) && (
+                      <p className="text-[10px] mt-0.5 flex gap-2 flex-wrap">
+                        <span className="text-orange-600">📥 Recepción: {l.fechaRecepcion || '—'}</span>
+                        <span className="text-purple-600">🛠️ Montaje: {l.fechaMontaje || '—'}</span>
+                        <span className="text-slate-400">(SLA días hábiles)</span>
+                      </p>
+                    )}
                     <div className="mt-2 space-y-1">
                       <p className="text-[10px] text-slate-500 flex items-center gap-1"><Hash size={11} className="shrink-0" /> <code className="bg-slate-100 dark:bg-slate-700 px-1 rounded">{l.nomenclaturaAuto}</code></p>
                       <p className="text-[10px] text-slate-500 flex items-center gap-1"><Link2 size={11} className="shrink-0" /> <code className="bg-slate-100 dark:bg-slate-700 px-1 rounded break-all">{l.utmAuto}</code></p>
@@ -127,6 +151,9 @@ const CampanaDetailPage: React.FC = () => {
                       {l.estadoQA === 'APROBADO' && (
                         <Button size="sm" className="gap-1 text-[11px] h-7 bg-violet-600 hover:bg-violet-700" onClick={() => cambiarEstado(l, 'IMPLEMENTADO')}><Play size={12} /> Marcar implementado</Button>
                       )}
+                      <button onClick={() => eliminarLinea(l)} className="text-[11px] text-red-500 hover:text-red-700 ml-auto flex items-center gap-1" title="Eliminar línea">
+                        <Trash2 size={12} /> Eliminar
+                      </button>
                     </div>
                   </div>
                 );
@@ -151,7 +178,11 @@ const CampanaDetailPage: React.FC = () => {
         </CardContent>
       </Card>
 
+      {/* Gantt simple de fechas (recepción → montaje → pauta) */}
+      {lineas.some(l => l.fechaSalidaPauta) && <GanttFechas lineas={lineas} />}
+
       {modalOpen && <NuevaLineaModal campaignId={meta.campaignId} onClose={() => setModalOpen(false)} onSaved={() => { setModalOpen(false); cargar(); }} />}
+      {masivaOpen && <CargaMasivaModal campaignId={meta.campaignId} onClose={() => setMasivaOpen(false)} onSaved={() => { setMasivaOpen(false); cargar(); }} />}
       {materialLinea && <MaterialModal campaignId={meta.campaignId} linea={materialLinea} onClose={() => setMaterialLinea(null)} onSaved={() => { setMaterialLinea(null); cargar(); }} />}
       {aprobarLinea && <AprobarModal campaignId={meta.campaignId} linea={aprobarLinea} onClose={() => setAprobarLinea(null)} onSaved={() => { setAprobarLinea(null); cargar(); }} />}
     </div>
@@ -340,6 +371,134 @@ const NuevaLineaModal: React.FC<{ campaignId: string; onClose: () => void; onSav
         </div>
       </div>
     </div>
+  );
+};
+
+// ─── Gantt simple de fechas ────────────────────────────────────────────────────
+
+const GanttFechas: React.FC<{ lineas: MedioLinea[] }> = ({ lineas }) => {
+  const conFecha = lineas.filter(l => l.fechaSalidaPauta);
+  if (!conFecha.length) return null;
+  // Rango temporal: de la fecha de recepción más temprana a la de fin de pauta más tardía.
+  const fechas: number[] = [];
+  conFecha.forEach(l => {
+    [l.fechaRecepcion, l.fechaMontaje, l.fechaSalidaPauta, l.fechaFinPauta].forEach(f => { if (f) fechas.push(Date.parse(f)); });
+  });
+  const min = Math.min(...fechas), max = Math.max(...fechas);
+  const span = Math.max(max - min, 1);
+  const pos = (f?: string) => (f ? ((Date.parse(f) - min) / span) * 100 : 0);
+
+  return (
+    <Card>
+      <CardContent className="p-5">
+        <h2 className="font-bold text-slate-800 dark:text-slate-100 mb-3">Cronograma</h2>
+        <div className="space-y-3">
+          {conFecha.map(l => {
+            const r = pos(l.fechaRecepcion), m = pos(l.fechaMontaje), s = pos(l.fechaSalidaPauta), f = pos(l.fechaFinPauta || l.fechaSalidaPauta);
+            return (
+              <div key={l.lineId}>
+                <p className="text-[11px] font-semibold text-slate-600 dark:text-slate-300 mb-1">{l.canal} · {l.formato}</p>
+                <div className="relative h-6 bg-slate-100 dark:bg-slate-700 rounded">
+                  {/* Barra de pauta (verde) */}
+                  <div className="absolute h-6 bg-emerald-400/70 rounded" style={{ left: `${s}%`, width: `${Math.max(f - s, 2)}%` }} title={`Pauta ${l.fechaSalidaPauta} → ${l.fechaFinPauta}`} />
+                  {/* Hitos recepción (naranja) y montaje (morado) */}
+                  {l.fechaRecepcion && <div className="absolute w-2 h-6 bg-orange-500 rounded-sm" style={{ left: `${r}%` }} title={`Recepción ${l.fechaRecepcion}`} />}
+                  {l.fechaMontaje && <div className="absolute w-2 h-6 bg-purple-500 rounded-sm" style={{ left: `${m}%` }} title={`Montaje ${l.fechaMontaje}`} />}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+        <div className="flex gap-4 mt-3 text-[10px] text-slate-500">
+          <span className="flex items-center gap-1"><span className="w-2 h-2 bg-orange-500 rounded-sm inline-block" /> Recepción</span>
+          <span className="flex items-center gap-1"><span className="w-2 h-2 bg-purple-500 rounded-sm inline-block" /> Montaje</span>
+          <span className="flex items-center gap-1"><span className="w-2 h-2 bg-emerald-400 rounded-sm inline-block" /> Pauta al aire</span>
+        </div>
+      </CardContent>
+    </Card>
+  );
+};
+
+// ─── Modal de carga masiva (objetivos × audiencias) ─────────────────────────────
+
+const CargaMasivaModal: React.FC<{ campaignId: string; onClose: () => void; onSaved: () => void }> = ({ campaignId, onClose, onSaved }) => {
+  const { notify } = useNotifications();
+  const [saving, setSaving] = useState(false);
+  const [catMedio, setCatMedio] = useState('TTL');
+  const [canal, setCanal] = useState(MEDIA_MAP.TTL[0]);
+  const [formato, setFormato] = useState('');
+  const [objetivos, setObjetivos] = useState<string[]>(['Awareness']);
+  const [audiencias, setAudiencias] = useState<string[]>([AUDIENCIAS[0]]);
+  const [fechaSalidaPauta, setFechaSalidaPauta] = useState('');
+  const [fechaFinPauta, setFechaFinPauta] = useState('');
+
+  const toggle = (arr: string[], set: (v: string[]) => void, v: string) =>
+    set(arr.includes(v) ? arr.filter(x => x !== v) : [...arr, v]);
+
+  const totalLineas = objetivos.length * audiencias.length;
+
+  const guardar = async () => {
+    if (!canal || !formato) { notify('Canal y formato son obligatorios', 'error'); return; }
+    if (totalLineas === 0) { notify('Selecciona al menos un objetivo y una audiencia', 'error'); return; }
+    setSaving(true);
+    try {
+      // Genera una línea por cada combinación objetivo × audiencia.
+      for (const objetivo of objetivos) {
+        for (const audiencia of audiencias) {
+          await mediosApi.crearLinea(campaignId, {
+            catMedio: catMedio as any, canal, formato, objetivo: objetivo as any, audiencia,
+            ratios: ['16:9', '9:16', '1:1', '4:5'], cantidadPiezas: 1, fechaSalidaPauta, fechaFinPauta,
+          });
+        }
+      }
+      notify(`${totalLineas} líneas creadas`, 'success');
+      onSaved();
+    } catch (e: any) {
+      notify(e.message || 'Error en carga masiva', 'error');
+    } finally { setSaving(false); }
+  };
+
+  const mediosDeCategoria = MEDIA_MAP[catMedio] || [];
+
+  return (
+    <ModalShell title="Carga masiva por objetivos × audiencias" onClose={onClose}>
+      <div className="grid grid-cols-2 gap-3">
+        <Field label="Categoría">
+          <select className={inputCls} value={catMedio} onChange={e => { setCatMedio(e.target.value); setCanal((MEDIA_MAP[e.target.value] || [''])[0]); }}>
+            {Object.keys(MEDIA_MAP).map(c => <option key={c} value={c}>{c}</option>)}
+          </select>
+        </Field>
+        <Field label="Canal / Medio">
+          <select className={inputCls} value={canal} onChange={e => setCanal(e.target.value)}>
+            {mediosDeCategoria.map(m => <option key={m} value={m}>{m}</option>)}
+          </select>
+        </Field>
+        <Field label="Formato">
+          <input className={inputCls} value={formato} onChange={e => setFormato(e.target.value)} placeholder="Ej. Reels Video" />
+        </Field>
+        <Field label="Salida pauta">
+          <input type="date" className={inputCls} value={fechaSalidaPauta} onChange={e => setFechaSalidaPauta(e.target.value)} />
+        </Field>
+      </div>
+      <Field label={`Objetivos (${objetivos.length})`}>
+        <div className="flex gap-2 flex-wrap">
+          {OBJETIVOS.map(o => (
+            <button key={o} type="button" onClick={() => toggle(objetivos, setObjetivos, o)}
+              className={`text-[11px] font-bold px-3 py-1.5 rounded-lg border ${objetivos.includes(o) ? 'bg-violet-100 border-violet-300 text-violet-700' : 'bg-slate-50 border-slate-200 text-slate-500'}`}>{o}</button>
+          ))}
+        </div>
+      </Field>
+      <Field label={`Audiencias (${audiencias.length})`}>
+        <div className="flex gap-2 flex-wrap">
+          {AUDIENCIAS.map(a => (
+            <button key={a} type="button" onClick={() => toggle(audiencias, setAudiencias, a)}
+              className={`text-[11px] font-bold px-3 py-1.5 rounded-lg border ${audiencias.includes(a) ? 'bg-violet-100 border-violet-300 text-violet-700' : 'bg-slate-50 border-slate-200 text-slate-500'}`}>{a}</button>
+          ))}
+        </div>
+      </Field>
+      <p className="text-[11px] font-bold text-violet-600">Se crearán {totalLineas} línea(s) · ratios: todos por defecto</p>
+      <ModalActions saving={saving} onClose={onClose} onSave={guardar} label={`Crear ${totalLineas} líneas`} />
+    </ModalShell>
   );
 };
 
