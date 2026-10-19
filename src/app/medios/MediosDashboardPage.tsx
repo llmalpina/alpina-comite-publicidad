@@ -6,7 +6,7 @@ import { Button } from '../../components/ui/Button';
 import { Badge } from '../../components/ui/Badge';
 import { formatDate } from '../../lib/utils';
 import { useNotifications } from '../../contexts/NotificationContext';
-import { mediosApi, type MedioDisponible } from '../../lib/medios-api';
+import { mediosApi, type MedioDisponible, type MedioResumen } from '../../lib/medios-api';
 import type { MedioCampana } from '../../types/medios';
 import { MEDIO_ESTADO_LABELS } from '../../types/medios';
 
@@ -25,17 +25,20 @@ const MediosDashboardPage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [disponibles, setDisponibles] = useState<MedioDisponible[]>([]);
   const [campanas, setCampanas] = useState<MedioCampana[]>([]);
+  const [resumen, setResumen] = useState<MedioResumen | null>(null);
   const [iniciando, setIniciando] = useState<string | null>(null);
 
   const cargar = async () => {
     setLoading(true);
     try {
-      const [disp, camp] = await Promise.all([
+      const [disp, camp, res] = await Promise.all([
         mediosApi.disponibles().catch(() => []),
         mediosApi.listCampanas().catch(() => []),
+        mediosApi.resumen().catch(() => null),
       ]);
       setDisponibles(disp);
       setCampanas(camp);
+      setResumen(res);
     } finally {
       setLoading(false);
     }
@@ -74,6 +77,9 @@ const MediosDashboardPage: React.FC = () => {
           <RefreshCw size={18} className={loading ? 'animate-spin' : ''} />
         </Button>
       </div>
+
+      {/* Termómetro de cumplimiento (HU-04) */}
+      {resumen && resumen.total > 0 && <Termometro r={resumen} />}
 
       {/* Tabs */}
       <div className="flex gap-1 p-1 bg-slate-100 dark:bg-slate-800 rounded-lg w-fit">
@@ -156,6 +162,49 @@ const MediosDashboardPage: React.FC = () => {
         </div>
       )}
     </div>
+  );
+};
+
+/** Termómetro de cumplimiento: contadores por estado + alerta de vencidas. */
+const Termometro: React.FC<{ r: MedioResumen }> = ({ r }) => {
+  const pct = (n: number) => (r.total ? Math.round((n / r.total) * 100) : 0);
+  const chips = [
+    { label: 'Pendientes', n: r.counts.PENDIENTE || 0, cls: 'bg-blue-100 text-blue-700' },
+    { label: 'En QA', n: r.counts.EN_QA || 0, cls: 'bg-amber-100 text-amber-700' },
+    { label: 'Rechazadas', n: r.counts.RECHAZADO || 0, cls: 'bg-red-100 text-red-700' },
+    { label: 'Aprobadas', n: r.counts.APROBADO || 0, cls: 'bg-emerald-100 text-emerald-700' },
+    { label: 'Implementadas', n: r.counts.IMPLEMENTADO || 0, cls: 'bg-violet-100 text-violet-700' },
+  ];
+  return (
+    <Card>
+      <CardContent className="p-4">
+        <div className="flex items-center justify-between mb-3">
+          <span className="text-xs font-bold uppercase tracking-wide text-slate-500">📊 Termómetro de cumplimiento</span>
+          <span className="text-xs font-bold text-slate-600 dark:text-slate-300">Total: {r.total} pieza(s)</span>
+        </div>
+        <div className="flex items-center gap-2 flex-wrap">
+          {chips.map(c => (
+            <span key={c.label} className={`text-[11px] font-bold px-3 py-1.5 rounded-full ${c.cls}`}>
+              {c.label}: {c.n} ({pct(c.n)}%)
+            </span>
+          ))}
+          {r.vencidas > 0 && (
+            <span className="text-[11px] font-bold px-3 py-1.5 rounded-full bg-red-600 text-white animate-pulse">⚠️ Vencidas: {r.vencidas}</span>
+          )}
+          {r.enRiesgo > 0 && (
+            <span className="text-[11px] font-bold px-3 py-1.5 rounded-full bg-orange-100 text-orange-700 border border-orange-300">⏰ En riesgo (≤48h): {r.enRiesgo}</span>
+          )}
+        </div>
+        {/* Barra de progreso tricolor simple */}
+        <div className="mt-3 h-2 rounded-full overflow-hidden bg-slate-100 dark:bg-slate-700 flex">
+          <div className="bg-violet-500" style={{ width: `${pct(r.counts.IMPLEMENTADO || 0)}%` }} />
+          <div className="bg-emerald-500" style={{ width: `${pct(r.counts.APROBADO || 0)}%` }} />
+          <div className="bg-amber-400" style={{ width: `${pct(r.counts.EN_QA || 0)}%` }} />
+          <div className="bg-blue-400" style={{ width: `${pct(r.counts.PENDIENTE || 0)}%` }} />
+          <div className="bg-red-400" style={{ width: `${pct(r.counts.RECHAZADO || 0)}%` }} />
+        </div>
+      </CardContent>
+    </Card>
   );
 };
 

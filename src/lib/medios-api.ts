@@ -24,7 +24,18 @@ export interface MedioCampanaDetalle {
   eventos: MedioEvento[];
 }
 
+/** Resumen para el termómetro de cumplimiento. */
+export interface MedioResumen {
+  total: number;
+  counts: Record<string, number>;
+  vencidas: number;
+  enRiesgo: number;
+  alertas: { campaignId: string; lineId: string; canal: string; formato: string; fechaSalidaPauta: string; tipo: 'VENCIDA' | 'RIESGO' }[];
+}
+
 export const mediosApi = {
+  /** Resumen de cumplimiento (contadores por estado + vencidas/en riesgo). */
+  resumen: () => apiFetch<MedioResumen>('/medios/resumen'),
   /** Piezas publicadas por el comité que aún no se han iniciado en Medios. */
   disponibles: () => apiFetch<MedioDisponible[]>('/medios/disponibles'),
   /** Campañas ya iniciadas en Medios. */
