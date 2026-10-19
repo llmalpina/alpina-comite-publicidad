@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
-import { Search, Clock, ChevronRight, ChevronUp, ChevronDown, CheckCircle2, Loader2, Eye, RefreshCw, Archive, CheckSquare, Square, X } from 'lucide-react';
+import { Search, Clock, ChevronRight, ChevronUp, ChevronDown, CheckCircle2, Eye, RefreshCw, Archive, CheckSquare, Square, X } from 'lucide-react';
 import { Button } from '../../components/ui/Button';
 import { Card, CardContent } from '../../components/ui/Card';
 import { Input } from '../../components/ui/Input';
@@ -366,63 +366,78 @@ const RevisionQueuePage: React.FC = () => {
                       </p>
                     </div>
 
-                    {/* Fecha */}
-                    <div>
-                      <p className="text-xs text-slate-600 dark:text-slate-400">{formatDate(isPublished ? (s.updatedAt || s.createdAt) : s.createdAt)}</p>
-                      <p className="text-[10px] text-slate-400">{s.createdAt ? new Date(s.createdAt).toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' }) : ''}</p>
+                    {/*
+                      Metadatos (fecha / versión / ARA / Legal).
+                      - En <lg (móvil y tablet/ventana mediana): se agrupan en una barra
+                        horizontal compacta CON ETIQUETAS, separada por un borde superior.
+                        Antes caían como bloques verticales sueltos y sin rótulo, lo que
+                        se veía desordenado al achicar la ventana.
+                      - En lg: `lg:contents` disuelve este contenedor para que cada celda
+                        vuelva a ocupar su columna en la grilla de 9 (desktop intacto).
+                    */}
+                    <div className="flex flex-wrap items-center gap-x-4 gap-y-1 pt-2 border-t border-slate-100 dark:border-slate-700 lg:contents lg:pt-0 lg:border-0">
+                      {/* Fecha */}
+                      <div className="flex items-center gap-1.5 lg:block lg:gap-0">
+                        <span className="text-[9px] font-bold uppercase tracking-wide text-slate-400 lg:hidden">{isPublished ? 'Publicada' : 'Recibida'}:</span>
+                        <span className="text-xs text-slate-600 dark:text-slate-400">{formatDate(isPublished ? (s.updatedAt || s.createdAt) : s.createdAt)}</span>
+                        <span className="text-[10px] text-slate-400 lg:block">{s.createdAt ? new Date(s.createdAt).toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' }) : ''}</span>
+                      </div>
+
+                      {/* Versión */}
+                      <div className="flex items-center gap-1.5 lg:block lg:text-center lg:gap-0">
+                        <span className="text-[9px] font-bold uppercase tracking-wide text-slate-400 lg:hidden">Versión:</span>
+                        <Badge className="bg-slate-100 dark:bg-slate-700 text-slate-600 text-[10px]">v{s.currentVersion || 1}</Badge>
+                      </div>
+
+                      {/* ARA */}
+                      <div className="flex items-center gap-1.5 lg:block lg:text-center lg:gap-0">
+                        <span className="text-[9px] font-bold uppercase tracking-wide text-slate-400 lg:hidden">ARA:</span>
+                        {(() => {
+                          const araApproved = (s as any).approvalARA?.approved;
+                          const araHasComments = (s as any).araReviewing === true;
+                          return (
+                            <span className={cn('text-[10px] font-bold px-1.5 py-0.5 rounded-full border',
+                              araApproved ? 'bg-emerald-100 text-emerald-700 border-emerald-200' :
+                              araHasComments ? 'bg-purple-100 text-purple-700 border-purple-200' :
+                              'bg-slate-100 text-slate-400 border-slate-200')}>
+                              {araApproved ? '✓' : araHasComments ? '✎' : '—'}
+                            </span>
+                          );
+                        })()}
+                      </div>
+
+                      {/* Legal */}
+                      <div className="flex items-center gap-1.5 lg:block lg:text-center lg:gap-0">
+                        <span className="text-[9px] font-bold uppercase tracking-wide text-slate-400 lg:hidden">Legal:</span>
+                        {(() => {
+                          const legalApproved = (s as any).approvalLegal?.approved;
+                          const legalHasComments = (s as any).legalReviewing === true;
+                          return (
+                            <span className={cn('text-[10px] font-bold px-1.5 py-0.5 rounded-full border',
+                              legalApproved ? 'bg-emerald-100 text-emerald-700 border-emerald-200' :
+                              legalHasComments ? 'bg-amber-100 text-amber-700 border-amber-200' :
+                              'bg-slate-100 text-slate-400 border-slate-200')}>
+                              {legalApproved ? '✓' : legalHasComments ? '✎' : '—'}
+                            </span>
+                          );
+                        })()}
+                      </div>
                     </div>
 
-                    {/* Versión */}
-                    <div className="text-center">
-                      <Badge className="bg-slate-100 dark:bg-slate-700 text-slate-600 text-[10px]">v{s.currentVersion || 1}</Badge>
-                    </div>
-
-                    {/* ARA */}
-                    <div className="text-center">
-                      {(() => {
-                        const araApproved = (s as any).approvalARA?.approved;
-                        const araHasComments = (s as any).araReviewing === true;
-                        return (
-                          <span className={cn('text-[10px] font-bold px-1.5 py-0.5 rounded-full border',
-                            araApproved ? 'bg-emerald-100 text-emerald-700 border-emerald-200' :
-                            araHasComments ? 'bg-purple-100 text-purple-700 border-purple-200' :
-                            'bg-slate-100 text-slate-400 border-slate-200')}>
-                            {araApproved ? '✓' : araHasComments ? '✎' : '—'}
-                          </span>
-                        );
-                      })()}
-                    </div>
-
-                    {/* Legal */}
-                    <div className="text-center">
-                      {(() => {
-                        const legalApproved = (s as any).approvalLegal?.approved;
-                        const legalHasComments = (s as any).legalReviewing === true;
-                        return (
-                          <span className={cn('text-[10px] font-bold px-1.5 py-0.5 rounded-full border',
-                            legalApproved ? 'bg-emerald-100 text-emerald-700 border-emerald-200' :
-                            legalHasComments ? 'bg-amber-100 text-amber-700 border-amber-200' :
-                            'bg-slate-100 text-slate-400 border-slate-200')}>
-                            {legalApproved ? '✓' : legalHasComments ? '✎' : '—'}
-                          </span>
-                        );
-                      })()}
-                    </div>
-
-                    {/* Acción */}
-                    <div className="flex flex-col gap-1">
+                    {/* Acción — en <lg fila que envuelve y se alinea a la izquierda; en lg columna estrecha */}
+                    <div className="flex flex-row flex-wrap items-center gap-2 pt-1 border-t border-slate-100 dark:border-slate-700 lg:flex-col lg:gap-1 lg:pt-0 lg:border-0">
                       {isPublished ? (
-                        <Link to={`/revision/${s.id}`} onClick={() => markAsSeen(s.id)}>
+                        <Link to={`/revision/${s.id}`} onClick={() => markAsSeen(s.id)} className="inline-block">
                           <Button variant="outline" size="sm" className="gap-1 w-full text-slate-500"><Eye size={14} /> Ver</Button>
                         </Link>
                       ) : alreadyApproved ? (
-                        <Link to={`/revision/${s.id}`} onClick={() => markAsSeen(s.id)}>
+                        <Link to={`/revision/${s.id}`} onClick={() => markAsSeen(s.id)} className="inline-block">
                           <Button variant="outline" size="sm" className="gap-1 w-full text-emerald-600 border-emerald-200">
                             <CheckCircle2 size={14} /> Aprobada
                           </Button>
                         </Link>
                       ) : (
-                        <Link to={`/revision/${s.id}`} onClick={() => markAsSeen(s.id)}>
+                        <Link to={`/revision/${s.id}`} onClick={() => markAsSeen(s.id)} className="inline-block">
                           <Button size="sm" className="gap-1 w-full">Revisar <ChevronRight size={14} /></Button>
                         </Link>
                       )}

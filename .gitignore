@@ -9,3 +9,6 @@ coverage/
 
 # Salida de las pruebas locales (PDF de revision de la hoja de firmas)
 scripts/out/
+
+# Documentacion local sensible (no versionar: contiene notas de migracion/secretos)
+MIGRACION_LOCAL.md
