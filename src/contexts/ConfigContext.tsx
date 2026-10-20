@@ -36,7 +36,13 @@ export type PermissionKey =
   | 'artes_subir_ajuste'
   | 'artes_ver_repositorio'
   | 'artes_gestionar_equipos'
-  | 'artes_admin_flujo';
+  | 'artes_admin_flujo'
+  // ─── Módulo de Medios (Cuadro de Materiales & QA Audiovisual) ───
+  | 'medios_ver'
+  | 'medios_gestionar_config'
+  | 'medios_iniciar_campana'
+  | 'medios_gestionar_lineas'
+  | 'medios_qa';
 
 export interface RoleConfig {
   id: string;
@@ -198,6 +204,8 @@ export const ALL_PERMISSIONS: PermissionKey[] = [
   'gestionar_maestros', 'gestionar_usuarios', 'gestionar_roles', 'configurar_correos', 'eliminar_solicitudes',
   'artes_ver_cola', 'artes_aprobar', 'artes_subir_ajuste', 'artes_ver_repositorio',
   'artes_gestionar_equipos', 'artes_admin_flujo',
+  'medios_ver', 'medios_gestionar_config', 'medios_iniciar_campana',
+  'medios_gestionar_lineas', 'medios_qa',
 ];
 
 /**

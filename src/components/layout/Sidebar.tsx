@@ -26,9 +26,9 @@ const NAV_GROUPS = [
     { label: 'Cola de Revisión', icon: CheckSquare, path: '/revision', roles: ['REVISOR_ARA','REVISOR_LEGAL','REVISOR_BOYDORR','ADMIN'], permission: 'revisar_solicitud' },
   ]},
   { label: 'Medios', items: [
-    // FASE INICIAL: solo ADMIN. El módulo de Medios (Cuadro de Materiales) arranca
-    // restringido a administradores; se ampliará a roles de Medios/agencias después.
-    { label: 'Cuadro de Materiales', icon: Film, path: '/medios', roles: ['ADMIN'] },
+    // ADMIN siempre, o cualquier rol con el permiso 'medios_ver' (escalable a
+    // roles de Medios/agencias). El Sidebar muestra el link por rol O por permiso.
+    { label: 'Cuadro de Materiales', icon: Film, path: '/medios', roles: ['ADMIN'], permission: 'medios_ver' },
   ]},
   { label: 'Administración', items: [
     { label: 'Reportes', icon: BarChart3, path: '/admin/reportes', roles: ['ADMIN'] },

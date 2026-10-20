@@ -11,11 +11,15 @@ import { MEDIO_ESTADO_LABELS, type MedioLinea, type MedioSpec } from '../../../t
 const EntregablesTable: React.FC<{
   lineas: MedioLinea[];
   specs: MedioSpec[];
+  /** Permite editar línea y cargar/editar material (ocultamiento de UX; el backend es la barrera real). */
+  puedeGestionarLineas?: boolean;
+  /** Permite abrir el modal de estado/QA para cambiar estados. Si es false, el estado se muestra como badge de solo lectura. */
+  puedeQA?: boolean;
   onEditar: (l: MedioLinea) => void;
   onSpecs: (l: MedioLinea) => void;
   onMaterial: (l: MedioLinea) => void;
   onEstado: (l: MedioLinea) => void;
-}> = ({ lineas, specs, onEditar, onSpecs, onMaterial, onEstado }) => {
+}> = ({ lineas, specs, puedeGestionarLineas = true, puedeQA = true, onEditar, onSpecs, onMaterial, onEstado }) => {
   // Agrupa por objetivo___audiencia.
   const grupos = new Map<string, { objetivo: string; audiencia: string; items: MedioLinea[] }>();
   lineas.forEach(l => {
@@ -65,9 +69,11 @@ const EntregablesTable: React.FC<{
                 return (
                   <tr key={l.lineId} className="border-b border-slate-50 dark:border-slate-700/50 align-top">
                     <td className="py-2 px-2">
-                      <button onClick={() => onEditar(l)} className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-1 rounded bg-brand text-white hover:bg-brand-600" title="Editar línea">
-                        <Pencil size={11} /> Editar
-                      </button>
+                      {puedeGestionarLineas && (
+                        <button onClick={() => onEditar(l)} className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-1 rounded bg-brand text-white hover:bg-brand-600" title="Editar línea">
+                          <Pencil size={11} /> Editar
+                        </button>
+                      )}
                     </td>
                     <td className="py-2 px-2">
                       <div className="text-[12px] font-semibold text-slate-800 dark:text-slate-100">📺 {l.canal}</div>
@@ -95,9 +101,15 @@ const EntregablesTable: React.FC<{
                       <DatePill titulo="Inicio pauta" valor={l.fechaSalidaPauta} tono="emerald" />
                     </td>
                     <td className="py-2 px-2">
-                      <button onClick={() => onEstado(l)} className={`text-[10px] font-bold px-2.5 py-1 rounded-full ${le.color}`} title="Cambiar estado / ver bitácora">
-                        {le.label}
-                      </button>
+                      {puedeQA ? (
+                        <button onClick={() => onEstado(l)} className={`text-[10px] font-bold px-2.5 py-1 rounded-full ${le.color}`} title="Cambiar estado / ver bitácora">
+                          {le.label}
+                        </button>
+                      ) : (
+                        <span className={`inline-block text-[10px] font-bold px-2.5 py-1 rounded-full ${le.color}`} title="Estado QA">
+                          {le.label}
+                        </span>
+                      )}
                     </td>
                     <td className="py-2 px-2">
                       {hasMaterial ? (
@@ -105,14 +117,20 @@ const EntregablesTable: React.FC<{
                           <a href={l.linkMaterial!} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-1 rounded bg-brand/10 text-brand hover:bg-brand/20" title="Abrir material">
                             <Link2 size={11} /> Material
                           </a>
-                          <button onClick={() => onMaterial(l)} className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-1 rounded border border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700" title="Editar material / UTM">
-                            <Pencil size={11} /> Editar
-                          </button>
+                          {puedeGestionarLineas && (
+                            <button onClick={() => onMaterial(l)} className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-1 rounded border border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700" title="Editar material / UTM">
+                              <Pencil size={11} /> Editar
+                            </button>
+                          )}
                         </div>
                       ) : (
-                        <button onClick={() => onMaterial(l)} className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-1 rounded border border-dashed border-slate-300 dark:border-slate-600 text-slate-500 hover:border-brand hover:text-brand" title="Cargar material y generar UTM">
-                          <Upload size={11} /> Cargar material
-                        </button>
+                        puedeGestionarLineas ? (
+                          <button onClick={() => onMaterial(l)} className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-1 rounded border border-dashed border-slate-300 dark:border-slate-600 text-slate-500 hover:border-brand hover:text-brand" title="Cargar material y generar UTM">
+                            <Upload size={11} /> Cargar material
+                          </button>
+                        ) : (
+                          <span className="text-[10px] text-slate-400">—</span>
+                        )
                       )}
                     </td>
                   </tr>

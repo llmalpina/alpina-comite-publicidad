@@ -6,6 +6,8 @@ import { Button } from '../../components/ui/Button';
 import { Badge } from '../../components/ui/Badge';
 import { formatDate } from '../../lib/utils';
 import { useNotifications } from '../../contexts/NotificationContext';
+import { useAuth } from '../../contexts/AuthContext';
+import { useConfig } from '../../contexts/ConfigContext';
 import { mediosApi, type MedioDisponible, type MedioResumen, type MedioResumenCampana } from '../../lib/medios-api';
 import type { MedioCampana } from '../../types/medios';
 import { useMediosConfig } from './hooks/useMediosConfig';
@@ -31,9 +33,15 @@ const emptyCampana = (): MedioResumenCampana => ({ total: 0, activas: 0, cargada
  */
 const MediosDashboardPage: React.FC = () => {
   const { notify } = useNotifications();
+  const { user } = useAuth();
+  const { hasPermission } = useConfig();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const { config, reload: reloadConfig } = useMediosConfig();
+
+  // Gating de acciones por permiso (ADMIN pasa siempre vía hasPermission).
+  const puedeConfig = hasPermission(user?.role || '', 'medios_gestionar_config');
+  const puedeIniciar = hasPermission(user?.role || '', 'medios_iniciar_campana');
 
   const [tab, setTab] = useState<Tab>('JERARQUIA');
   const [loading, setLoading] = useState(true);
@@ -191,7 +199,7 @@ const MediosDashboardPage: React.FC = () => {
           </div>
         </div>
         <div className="flex items-center gap-2">
-          {config && (
+          {config && puedeConfig && (
             <>
               <Button variant="outline" size="sm" className="gap-1" onClick={() => setConfigCanchasOpen(true)}>
                 <Settings size={14} /> Canchas/Marcas
@@ -252,10 +260,12 @@ const MediosDashboardPage: React.FC = () => {
                     </p>
                     <p className="text-[10px] text-slate-400">Publicada el {formatDate(d.publishedAt)}</p>
                   </div>
-                  <Button size="sm" className="gap-1 shrink-0" disabled={iniciando === d.solicitudId} onClick={() => iniciar(d)}>
-                    {iniciando === d.solicitudId ? <Loader2 size={14} className="animate-spin" /> : <Play size={14} />}
-                    Iniciar en Medios
-                  </Button>
+                  {puedeIniciar && (
+                    <Button size="sm" className="gap-1 shrink-0" disabled={iniciando === d.solicitudId} onClick={() => iniciar(d)}>
+                      {iniciando === d.solicitudId ? <Loader2 size={14} className="animate-spin" /> : <Play size={14} />}
+                      Iniciar en Medios
+                    </Button>
+                  )}
                 </CardContent>
               </Card>
             ))}

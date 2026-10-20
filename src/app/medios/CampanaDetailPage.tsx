@@ -5,6 +5,8 @@ import { Card, CardContent } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { Badge } from '../../components/ui/Badge';
 import { useNotifications } from '../../contexts/NotificationContext';
+import { useAuth } from '../../contexts/AuthContext';
+import { useConfig } from '../../contexts/ConfigContext';
 import { mediosApi, type MedioCampanaDetalle } from '../../lib/medios-api';
 import { MEDIO_ESTADO_LABELS, type MedioLinea } from '../../types/medios';
 import { useMediosConfig } from './hooks/useMediosConfig';
@@ -32,7 +34,13 @@ const CampanaDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { notify } = useNotifications();
+  const { user } = useAuth();
+  const { hasPermission } = useConfig();
   const { config } = useMediosConfig();
+
+  // Gating de acciones por permiso (ADMIN pasa siempre vía hasPermission).
+  const puedeGestionarLineas = hasPermission(user?.role || '', 'medios_gestionar_lineas');
+  const puedeQA = hasPermission(user?.role || '', 'medios_qa');
 
   const [data, setData] = useState<MedioCampanaDetalle | null>(null);
   const [loading, setLoading] = useState(true);
@@ -142,10 +150,12 @@ const CampanaDetailPage: React.FC = () => {
         <CardContent className="p-5">
           <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
             <h2 className="font-bold text-slate-800 dark:text-slate-100">Entregables ({lineas.length})</h2>
-            <div className="flex gap-2">
-              <Button size="sm" variant="outline" className="gap-1" disabled={!taxonomia} onClick={() => setMasivaOpen(true)}><Layers size={14} /> Carga masiva</Button>
-              <Button size="sm" className="gap-1" disabled={!taxonomia} onClick={() => setLineaModal({ open: true, linea: null })}><Plus size={14} /> Agregar línea</Button>
-            </div>
+            {puedeGestionarLineas && (
+              <div className="flex gap-2">
+                <Button size="sm" variant="outline" className="gap-1" disabled={!taxonomia} onClick={() => setMasivaOpen(true)}><Layers size={14} /> Carga masiva</Button>
+                <Button size="sm" className="gap-1" disabled={!taxonomia} onClick={() => setLineaModal({ open: true, linea: null })}><Plus size={14} /> Agregar línea</Button>
+              </div>
+            )}
           </div>
           {lineas.length === 0 ? (
             <p className="text-sm text-slate-500 py-6 text-center">Aún no hay entregables. Agrega la primera pieza táctica (medio, formato, fechas).</p>
@@ -153,6 +163,8 @@ const CampanaDetailPage: React.FC = () => {
             <EntregablesTable
               lineas={lineas}
               specs={specs}
+              puedeGestionarLineas={puedeGestionarLineas}
+              puedeQA={puedeQA}
               onEditar={l => setLineaModal({ open: true, linea: l })}
               onSpecs={l => setSpecsLinea(l)}
               onMaterial={l => setMaterialLinea(l)}

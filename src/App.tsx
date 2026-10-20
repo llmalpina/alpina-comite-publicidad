@@ -114,9 +114,9 @@ const AppRoutes: React.FC = () => (
     <Route path="/artes/aprobados" element={<ProtectedRoute><ArtesRoute need="repositorio"><ArtesAprobadosPage /></ArtesRoute></ProtectedRoute>} />
     <Route path="/artes/equipos" element={<ProtectedRoute><ArtesRoute need="config"><ArtesEquiposPage /></ArtesRoute></ProtectedRoute>} />
     <Route path="/artes/:id" element={<ProtectedRoute><ArtesRoute need="cola"><ArteDetailPage /></ArtesRoute></ProtectedRoute>} />
-    {/* Módulo de Medios — FASE INICIAL: solo ADMIN (visibilidad y acceso restringidos) */}
-    <Route path="/medios" element={<ProtectedRoute roles={['ADMIN']}><MediosDashboardPage /></ProtectedRoute>} />
-    <Route path="/medios/campanas/:id" element={<ProtectedRoute roles={['ADMIN']}><CampanaDetailPage /></ProtectedRoute>} />
+    {/* Módulo de Medios — ADMIN o roles con el permiso 'medios_ver' (escalable a agencias) */}
+    <Route path="/medios" element={<ProtectedRoute roles={['ADMIN']} permission="medios_ver"><MediosDashboardPage /></ProtectedRoute>} />
+    <Route path="/medios/campanas/:id" element={<ProtectedRoute roles={['ADMIN']} permission="medios_ver"><CampanaDetailPage /></ProtectedRoute>} />
     <Route path="/manual" element={<ProtectedRoute><ManualPage /></ProtectedRoute>} />
     <Route path="/mis-notificaciones" element={<ProtectedRoute><MisNotificacionesPage /></ProtectedRoute>} />
     <Route path="/" element={<Navigate to="/dashboard" replace />} />

@@ -36,6 +36,11 @@ const PERMISSION_LABELS: Record<PermissionKey, string> = {
   artes_ver_repositorio:    'Ver repositorio de artes aprobados',
   artes_gestionar_equipos:  'Configurar equipos y recordatorios de artes',
   artes_admin_flujo:        'Administrar todo el flujo de artes',
+  medios_ver:               'Ver módulo de Medios',
+  medios_gestionar_config:  'Gestionar canchas/marcas/specs',
+  medios_iniciar_campana:   'Iniciar/editar campañas',
+  medios_gestionar_lineas:  'Gestionar líneas y material',
+  medios_qa:                'QA: aprobar/rechazar',
 };
 
 const PERMISSION_GROUPS = [
@@ -43,6 +48,7 @@ const PERMISSION_GROUPS = [
   { label: 'Revisión', keys: ['revisar_solicitud', 'aprobar_rechazar', 'agregar_comentario', 'agregar_anotacion_pdf', 'editar_tipo_pieza', 'enviar_informe'] as PermissionKey[] },
   { label: 'Administración', keys: ['ver_reportes', 'gestionar_maestros', 'gestionar_usuarios', 'gestionar_roles', 'configurar_correos'] as PermissionKey[] },
   { label: 'Aprobación de artes por equipos', keys: ['artes_ver_cola', 'artes_aprobar', 'artes_subir_ajuste', 'artes_ver_repositorio', 'artes_gestionar_equipos', 'artes_admin_flujo'] as PermissionKey[] },
+  { label: 'Medios (Cuadro de Materiales)', keys: ['medios_ver', 'medios_gestionar_config', 'medios_iniciar_campana', 'medios_gestionar_lineas', 'medios_qa'] as PermissionKey[] },
 ];
 
 const COLOR_OPTIONS = [
