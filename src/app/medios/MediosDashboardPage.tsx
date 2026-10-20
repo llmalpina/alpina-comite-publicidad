@@ -1,32 +1,51 @@
-import React, { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
-import { Film, Inbox, LayoutGrid, Loader2, Play, RefreshCw, PackageOpen } from 'lucide-react';
+import React, { useEffect, useMemo, useState } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import { Film, Inbox, LayoutGrid, Loader2, Play, RefreshCw, PackageOpen, Settings, FileText } from 'lucide-react';
 import { Card, CardContent } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { Badge } from '../../components/ui/Badge';
 import { formatDate } from '../../lib/utils';
 import { useNotifications } from '../../contexts/NotificationContext';
-import { mediosApi, type MedioDisponible, type MedioResumen } from '../../lib/medios-api';
+import { mediosApi, type MedioDisponible, type MedioResumen, type MedioResumenCampana } from '../../lib/medios-api';
 import type { MedioCampana } from '../../types/medios';
-import { MEDIO_ESTADO_LABELS } from '../../types/medios';
+import { useMediosConfig } from './hooks/useMediosConfig';
+import Breadcrumb from './components/Breadcrumb';
+import NivelCards, { type NivelCardItem } from './components/NivelCards';
+import Termometro from './components/Termometro';
+import ConfigCanchasModal from './components/ConfigCanchasModal';
+import SpecsManagerModal from './components/SpecsManagerModal';
 
-type Tab = 'DISPONIBLES' | 'CAMPANAS';
+type Tab = 'JERARQUIA' | 'DISPONIBLES';
+type Nivel = 'HOME' | 'CANCHA' | 'MARCA';
+
+const SIN_ASIGNAR = 'SIN ASIGNAR';
+const SIN_MARCA = 'SIN MARCA';
+
+const emptyCampana = (): MedioResumenCampana => ({ total: 0, activas: 0, cargadas: 0, enQA: 0, implementadas: 0 });
 
 /**
- * Dashboard del módulo de Medios — Cuadro de Materiales & QA Audiovisual.
- * FASE 2: flujo de inicio. Dos pestañas:
- *   - Disponibles: piezas PUBLICADAS por el comité, aún sin iniciar en Medios.
- *   - Campañas: las ya iniciadas (cabeceras). El detalle/líneas/QA llegan después.
- * Acceso solo-ADMIN (gate en App.tsx + Sidebar; backend valida ADMIN).
+ * Dashboard del módulo de Medios. Contenedor de la jerarquía navegable
+ * Canchas → Marcas → Campañas (deriva la agrupación en memoria de las campañas
+ * + porCampana del resumen), con termómetro global y pestaña "Disponibles" para
+ * iniciar campañas. Lee useSearchParams (nivel/cancha/marca) al montar. Solo-ADMIN.
  */
 const MediosDashboardPage: React.FC = () => {
   const { notify } = useNotifications();
-  const [tab, setTab] = useState<Tab>('DISPONIBLES');
+  const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const { config, reload: reloadConfig } = useMediosConfig();
+
+  const [tab, setTab] = useState<Tab>('JERARQUIA');
   const [loading, setLoading] = useState(true);
   const [disponibles, setDisponibles] = useState<MedioDisponible[]>([]);
   const [campanas, setCampanas] = useState<MedioCampana[]>([]);
   const [resumen, setResumen] = useState<MedioResumen | null>(null);
   const [iniciando, setIniciando] = useState<string | null>(null);
+
+  // Nivel de jerarquía derivado de la query string (RI-4).
+  const nivel = (searchParams.get('nivel') as Nivel) || 'HOME';
+  const canchaSel = searchParams.get('cancha') || '';
+  const marcaSel = searchParams.get('marca') || '';
 
   const cargar = async () => {
     setLoading(true);
@@ -46,19 +65,104 @@ const MediosDashboardPage: React.FC = () => {
 
   useEffect(() => { cargar(); }, []);
 
+  const [configCanchasOpen, setConfigCanchasOpen] = useState(false);
+  const [specsOpen, setSpecsOpen] = useState(false);
+
   const iniciar = async (d: MedioDisponible) => {
     setIniciando(d.solicitudId);
     try {
       await mediosApi.iniciarCampana(d.solicitudId);
       notify(`"${d.title}" se inició en Medios`, 'success');
       await cargar();
-      setTab('CAMPANAS');
+      setTab('JERARQUIA');
     } catch (e: any) {
       notify(e.message || 'No se pudo iniciar en Medios', 'error');
     } finally {
       setIniciando(null);
     }
   };
+
+  const goNivel = (next: Nivel, cancha?: string, marca?: string) => {
+    const p: Record<string, string> = { nivel: next };
+    if (cancha) p.cancha = cancha;
+    if (marca) p.marca = marca;
+    setSearchParams(p);
+  };
+
+  // ─── Agrupación en memoria de la jerarquía ────────────────────────────────────
+  const canchaDe = (c: MedioCampana) => (c.cancha && c.cancha.trim() ? c.cancha : SIN_ASIGNAR);
+  const marcaDe = (c: MedioCampana) => (c.marca && c.marca.trim() ? c.marca : SIN_MARCA);
+  const porCampana = resumen?.porCampana || {};
+
+  const agg = (ids: string[]): MedioResumenCampana =>
+    ids.reduce((acc, id) => {
+      const r = porCampana[id] || emptyCampana();
+      acc.total += r.total; acc.activas += r.activas; acc.cargadas += r.cargadas;
+      acc.enQA += r.enQA; acc.implementadas += r.implementadas;
+      return acc;
+    }, emptyCampana());
+
+  // Canchas con sus marcas y campañas.
+  const canchasCards: NivelCardItem[] = useMemo(() => {
+    const map = new Map<string, MedioCampana[]>();
+    campanas.forEach(c => {
+      const k = canchaDe(c);
+      if (!map.has(k)) map.set(k, []);
+      map.get(k)!.push(c);
+    });
+    return Array.from(map.entries())
+      .sort((a, b) => a[0].localeCompare(b[0]))
+      .map(([cancha, camps]) => {
+        const marcas = new Set(camps.map(marcaDe));
+        const a = agg(camps.map(c => c.campaignId));
+        return {
+          key: cancha,
+          title: cancha,
+          activas: a.activas,
+          implementadas: a.implementadas,
+          hijos: marcas.size,
+          hijosLabel: marcas.size === 1 ? 'marca' : 'marcas',
+          onClick: () => goNivel('CANCHA', cancha),
+        };
+      });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [campanas, porCampana]);
+
+  const marcasCards: NivelCardItem[] = useMemo(() => {
+    const camps = campanas.filter(c => canchaDe(c) === canchaSel);
+    const map = new Map<string, MedioCampana[]>();
+    camps.forEach(c => {
+      const k = marcaDe(c);
+      if (!map.has(k)) map.set(k, []);
+      map.get(k)!.push(c);
+    });
+    return Array.from(map.entries())
+      .sort((a, b) => a[0].localeCompare(b[0]))
+      .map(([marca, cs]) => {
+        const a = agg(cs.map(c => c.campaignId));
+        return {
+          key: marca,
+          title: marca,
+          activas: a.activas,
+          implementadas: a.implementadas,
+          hijos: cs.length,
+          hijosLabel: cs.length === 1 ? 'campaña' : 'campañas',
+          onClick: () => goNivel('MARCA', canchaSel, marca),
+        };
+      });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [campanas, porCampana, canchaSel]);
+
+  const campanasDeMarca = useMemo(
+    () => campanas.filter(c => canchaDe(c) === canchaSel && marcaDe(c) === marcaSel),
+    [campanas, canchaSel, marcaSel],
+  );
+
+  const breadcrumb = [
+    { label: 'Canchas', onClick: () => goNivel('HOME') },
+    ...(nivel !== 'HOME' && canchaSel ? [{ label: canchaSel, onClick: () => goNivel('CANCHA', canchaSel) }] : []),
+    ...(nivel === 'MARCA' && marcaSel ? [{ label: marcaSel }] : []),
+  ];
 
   return (
     <div className="space-y-5">
@@ -73,19 +177,33 @@ const MediosDashboardPage: React.FC = () => {
             <p className="text-slate-500 dark:text-slate-400 text-sm">Piezas liberadas por el comité, listas para producción y QA.</p>
           </div>
         </div>
-        <Button variant="ghost" size="icon" onClick={cargar} title="Actualizar" className="text-slate-400 hover:text-slate-600">
-          <RefreshCw size={18} className={loading ? 'animate-spin' : ''} />
-        </Button>
+        <div className="flex items-center gap-2">
+          {config && (
+            <>
+              <Button variant="outline" size="sm" className="gap-1" onClick={() => setConfigCanchasOpen(true)}>
+                <Settings size={14} /> Canchas/Marcas
+              </Button>
+              <Button variant="outline" size="sm" className="gap-1" onClick={() => setSpecsOpen(true)}>
+                <FileText size={14} /> Specs
+              </Button>
+            </>
+          )}
+          <Button variant="ghost" size="icon" onClick={cargar} title="Actualizar" className="text-slate-400 hover:text-slate-600">
+            <RefreshCw size={18} className={loading ? 'animate-spin' : ''} />
+          </Button>
+        </div>
       </div>
 
-      {/* Termómetro de cumplimiento (HU-04) */}
-      {resumen && resumen.total > 0 && <Termometro r={resumen} />}
+      {/* Termómetro global */}
+      {resumen && resumen.total > 0 && (
+        <Termometro data={resumen} titulo="📊 Termómetro global de cumplimiento" />
+      )}
 
       {/* Tabs */}
       <div className="flex gap-1 p-1 bg-slate-100 dark:bg-slate-800 rounded-lg w-fit">
         {([
+          { key: 'JERARQUIA', label: 'Canchas', icon: LayoutGrid, count: canchasCards.length },
           { key: 'DISPONIBLES', label: 'Disponibles', icon: Inbox, count: disponibles.length },
-          { key: 'CAMPANAS', label: 'Campañas', icon: LayoutGrid, count: campanas.length },
         ] as { key: Tab; label: string; icon: any; count: number }[]).map(t => (
           <button
             key={t.key}
@@ -105,11 +223,7 @@ const MediosDashboardPage: React.FC = () => {
         </div>
       ) : tab === 'DISPONIBLES' ? (
         disponibles.length === 0 ? (
-          <EmptyState
-            icon={PackageOpen}
-            title="No hay piezas disponibles"
-            text="Cuando el comité publique una pieza, aparecerá aquí para iniciarla en Medios."
-          />
+          <EmptyState icon={PackageOpen} title="No hay piezas disponibles" text="Cuando el comité publique una pieza, aparecerá aquí para iniciarla en Medios." />
         ) : (
           <div className="space-y-3">
             {disponibles.map(d => (
@@ -135,76 +249,61 @@ const MediosDashboardPage: React.FC = () => {
           </div>
         )
       ) : campanas.length === 0 ? (
-        <EmptyState
-          icon={LayoutGrid}
-          title="Sin campañas iniciadas"
-          text="Inicia una pieza desde la pestaña Disponibles para crear su campaña de materiales."
-        />
+        <EmptyState icon={LayoutGrid} title="Sin campañas iniciadas" text="Inicia una pieza desde la pestaña Disponibles para crear su campaña de materiales." />
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {campanas.map(c => {
-            const estado = MEDIO_ESTADO_LABELS[c.estadoAgregado] || MEDIO_ESTADO_LABELS.PENDIENTE;
-            return (
-              <Link key={c.campaignId} to={`/medios/campanas/${c.campaignId}`} className="block">
-                <Card className="hover:shadow-md hover:border-violet-200 transition-all cursor-pointer">
-                  <CardContent className="p-4">
-                    <div className="flex items-center justify-between gap-2">
-                      <p className="font-bold text-slate-900 dark:text-white truncate">{c.title}</p>
-                      <Badge className={estado.color + ' text-[10px] shrink-0'}>{estado.label}</Badge>
-                    </div>
-                    <p className="text-[11px] text-slate-500 mt-1">{c.consecutive} · {c.marca}</p>
-                    <p className="text-[10px] text-slate-400 mt-2">{c.totalPiezas || 0} línea(s) · iniciada {formatDate(c.createdAt)}</p>
-                  </CardContent>
-                </Card>
-              </Link>
-            );
-          })}
+        <div className="space-y-4">
+          {/* Breadcrumb de la jerarquía */}
+          <Breadcrumb segments={breadcrumb} />
+
+          {nivel === 'HOME' && <NivelCards items={canchasCards} icon="🏬" />}
+
+          {nivel === 'CANCHA' && (
+            marcasCards.length === 0
+              ? <EmptyState icon={LayoutGrid} title="Sin marcas en esta cancha" text="No hay campañas agrupadas aquí." />
+              : <NivelCards items={marcasCards} icon="🏷️" />
+          )}
+
+          {nivel === 'MARCA' && (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {campanasDeMarca.map(c => {
+                const rc = porCampana[c.campaignId] || emptyCampana();
+                const p = rc.activas > 0 ? Math.round((rc.implementadas / rc.activas) * 100) : 0;
+                return (
+                  <button key={c.campaignId} onClick={() => navigate(`/medios/campanas/${c.campaignId}`)} className="text-left block w-full">
+                    <Card className="hover:shadow-md hover:border-brand/30 transition-all cursor-pointer h-full">
+                      <CardContent className="p-4">
+                        <p className="font-bold text-slate-900 dark:text-white truncate">🎬 {c.campanaNombre || c.title}</p>
+                        <p className="text-[11px] text-slate-500 mt-1">{c.consecutive}</p>
+                        <div className="mt-3 flex items-center justify-between text-[11px] text-slate-500">
+                          <span>{rc.activas} pieza(s)</span>
+                          <span className="font-bold text-slate-700 dark:text-slate-200">{p}% cumplido</span>
+                        </div>
+                        <p className="text-[10px] text-slate-400 mt-2">{c.totalPiezas || 0} línea(s) · iniciada {formatDate(c.createdAt)}</p>
+                      </CardContent>
+                    </Card>
+                  </button>
+                );
+              })}
+            </div>
+          )}
         </div>
       )}
-    </div>
-  );
-};
 
-/** Termómetro de cumplimiento: contadores por estado + alerta de vencidas. */
-const Termometro: React.FC<{ r: MedioResumen }> = ({ r }) => {
-  const pct = (n: number) => (r.total ? Math.round((n / r.total) * 100) : 0);
-  const chips = [
-    { label: 'Pendientes', n: r.counts.PENDIENTE || 0, cls: 'bg-blue-100 text-blue-700' },
-    { label: 'En QA', n: r.counts.EN_QA || 0, cls: 'bg-amber-100 text-amber-700' },
-    { label: 'Rechazadas', n: r.counts.RECHAZADO || 0, cls: 'bg-red-100 text-red-700' },
-    { label: 'Aprobadas', n: r.counts.APROBADO || 0, cls: 'bg-emerald-100 text-emerald-700' },
-    { label: 'Implementadas', n: r.counts.IMPLEMENTADO || 0, cls: 'bg-violet-100 text-violet-700' },
-  ];
-  return (
-    <Card>
-      <CardContent className="p-4">
-        <div className="flex items-center justify-between mb-3">
-          <span className="text-xs font-bold uppercase tracking-wide text-slate-500">📊 Termómetro de cumplimiento</span>
-          <span className="text-xs font-bold text-slate-600 dark:text-slate-300">Total: {r.total} pieza(s)</span>
-        </div>
-        <div className="flex items-center gap-2 flex-wrap">
-          {chips.map(c => (
-            <span key={c.label} className={`text-[11px] font-bold px-3 py-1.5 rounded-full ${c.cls}`}>
-              {c.label}: {c.n} ({pct(c.n)}%)
-            </span>
-          ))}
-          {r.vencidas > 0 && (
-            <span className="text-[11px] font-bold px-3 py-1.5 rounded-full bg-red-600 text-white animate-pulse">⚠️ Vencidas: {r.vencidas}</span>
-          )}
-          {r.enRiesgo > 0 && (
-            <span className="text-[11px] font-bold px-3 py-1.5 rounded-full bg-orange-100 text-orange-700 border border-orange-300">⏰ En riesgo (≤48h): {r.enRiesgo}</span>
-          )}
-        </div>
-        {/* Barra de progreso tricolor simple */}
-        <div className="mt-3 h-2 rounded-full overflow-hidden bg-slate-100 dark:bg-slate-700 flex">
-          <div className="bg-violet-500" style={{ width: `${pct(r.counts.IMPLEMENTADO || 0)}%` }} />
-          <div className="bg-emerald-500" style={{ width: `${pct(r.counts.APROBADO || 0)}%` }} />
-          <div className="bg-amber-400" style={{ width: `${pct(r.counts.EN_QA || 0)}%` }} />
-          <div className="bg-blue-400" style={{ width: `${pct(r.counts.PENDIENTE || 0)}%` }} />
-          <div className="bg-red-400" style={{ width: `${pct(r.counts.RECHAZADO || 0)}%` }} />
-        </div>
-      </CardContent>
-    </Card>
+      {configCanchasOpen && config && (
+        <ConfigCanchasModal
+          taxonomia={config.taxonomia}
+          onClose={() => setConfigCanchasOpen(false)}
+          onSaved={() => { reloadConfig(); }}
+        />
+      )}
+      {specsOpen && config && (
+        <SpecsManagerModal
+          specs={config.specs}
+          onClose={() => setSpecsOpen(false)}
+          onSaved={() => { reloadConfig(); }}
+        />
+      )}
+    </div>
   );
 };
 

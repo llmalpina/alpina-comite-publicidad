@@ -3,7 +3,7 @@
  * Todas las rutas /medios* exigen JWT y rol ADMIN en el backend (fase inicial).
  */
 import { apiFetch } from './api';
-import type { MedioCampana, MedioLinea, MedioEvento } from '../types/medios';
+import type { MedioCampana, MedioLinea, MedioEvento, MedioConfig, MedioSpec, MedioTaxonomia } from '../types/medios';
 
 /** Solicitud publicada por el comité, disponible para iniciar en Medios. */
 export interface MedioDisponible {
@@ -24,13 +24,27 @@ export interface MedioCampanaDetalle {
   eventos: MedioEvento[];
 }
 
+/** Desglose por campaña del resumen (cumplimiento sobre `activas`). */
+export interface MedioResumenCampana {
+  total: number;      // total físico (incluye canceladas)
+  activas: number;    // no canceladas
+  cargadas: number;   // EN_QA && linkMaterial
+  enQA: number;       // EN_QA && !linkMaterial
+  implementadas: number;
+}
+
 /** Resumen para el termómetro de cumplimiento. */
 export interface MedioResumen {
   total: number;
   counts: Record<string, number>;
+  /** EN_QA con material subido (disjunto de enQA). */
+  cargadas: number;
+  /** EN_QA sin material todavía (disjunto de cargadas). */
+  enQA: number;
   vencidas: number;
   enRiesgo: number;
   alertas: { campaignId: string; lineId: string; canal: string; formato: string; fechaSalidaPauta: string; tipo: 'VENCIDA' | 'RIESGO' }[];
+  porCampana: Record<string, MedioResumenCampana>;
 }
 
 export const mediosApi = {
@@ -43,10 +57,16 @@ export const mediosApi = {
   /** Detalle de una campaña (cabecera + líneas + bitácora). */
   getCampana: (id: string) => apiFetch<MedioCampanaDetalle>(`/medios/campanas/${id}`),
   /** Inicia en Medios una solicitud publicada (crea la cabecera de campaña). */
-  iniciarCampana: (solicitudId: string, extra?: { cancha?: string; tier?: string }) =>
+  iniciarCampana: (solicitudId: string, extra?: { cancha?: string; marca?: string; campanaNombre?: string; tier?: string }) =>
     apiFetch<MedioCampana>('/medios/campanas', {
       method: 'POST',
       body: JSON.stringify({ solicitudId, ...extra }),
+    }),
+  /** Edita la cabecera de campaña (cancha/marca/campanaNombre/tier). */
+  editarCampana: (campaignId: string, body: { cancha?: string; marca?: string; campanaNombre?: string; tier?: 'T1' | 'T2' | 'T3' }) =>
+    apiFetch<MedioCampana>(`/medios/campanas/${campaignId}`, {
+      method: 'PATCH',
+      body: JSON.stringify(body),
     }),
   /** Agrega una línea táctica a una campaña (nomenclatura y UTM los genera el backend). */
   crearLinea: (campaignId: string, data: Partial<MedioLinea>) =>
@@ -77,5 +97,36 @@ export const mediosApi = {
     apiFetch<{ ok: boolean }>(`/medios/lineas/${lineId}`, {
       method: 'DELETE',
       body: JSON.stringify({ campaignId }),
+    }),
+
+  // ─── Configuración / taxonomía / specs ───────────────────────────────────────
+
+  /** Lee taxonomía + specs + config operativa (lazy-init en backend si faltan). */
+  getConfig: () => apiFetch<MedioConfig>('/medios/config'),
+  /**
+   * Edita la taxonomía (canchas/marcas/objetivos/audiencias/ratios/mapas).
+   * Concurrencia optimista: `updatedAt` debe coincidir con el persistido (→409).
+   */
+  patchTaxonomia: (body: Partial<MedioTaxonomia> & { updatedAt: string }) =>
+    apiFetch<MedioTaxonomia>('/medios/config/taxonomia', {
+      method: 'PATCH',
+      body: JSON.stringify(body),
+    }),
+  /** Crea una ficha de spec en el catálogo master. */
+  crearSpec: (body: Partial<MedioSpec>) =>
+    apiFetch<MedioSpec>('/medios/config/specs', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
+  /** Edita una ficha de spec. */
+  editarSpec: (specId: string, body: Partial<MedioSpec>) =>
+    apiFetch<MedioSpec>(`/medios/config/specs/${specId}`, {
+      method: 'PATCH',
+      body: JSON.stringify(body),
+    }),
+  /** Elimina una ficha de spec (no bloquea aunque haya líneas que la usen). */
+  eliminarSpec: (specId: string) =>
+    apiFetch<{ ok: boolean }>(`/medios/config/specs/${specId}`, {
+      method: 'DELETE',
     }),
 };

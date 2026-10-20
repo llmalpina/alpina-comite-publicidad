@@ -14,7 +14,8 @@ export type MedioEstadoQA =
   | 'RECHAZADO'       // falló checkpoint de QA
   | 'APROBADO'        // QA superado, URL definitiva lista
   | 'IMPLEMENTADO'    // pautado en canal
-  | 'VENCIDO';        // fecha de salida venció sin estar aprobado/entregado
+  | 'VENCIDO'         // fecha de salida venció sin estar aprobado/entregado
+  | 'CANCELADO';      // cancelado, fuera de flujo (reversible a PENDIENTE por admin)
 
 /** Categoría de medio. */
 export type MedioCategoria = 'TTL' | 'ATL' | 'BTL';
@@ -33,6 +34,10 @@ export interface MedioCampana {
   consecutive: string;
   cancha: string;
   marca: string;
+  /** Nombre corto de campaña para la jerarquía; si falta se usa `title`. */
+  campanaNombre?: string;
+  /** Producto desnormalizado de la solicitud (opcional). */
+  producto?: string;
   tier?: 'T1' | 'T2' | 'T3';
   title: string;
   estadoAgregado: MedioEstadoQA;
@@ -93,4 +98,78 @@ export const MEDIO_ESTADO_LABELS: Record<MedioEstadoQA, { label: string; color: 
   APROBADO:     { label: 'Aprobado',     color: 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-800 dark:text-emerald-400' },
   IMPLEMENTADO: { label: 'Implementado', color: 'bg-violet-100 dark:bg-violet-900/30 text-violet-800 dark:text-violet-400' },
   VENCIDO:      { label: 'Vencido',      color: 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400' },
+  // Gris/slate: "cancelado" es fuera de flujo (neutro), se distingue de rechazado/vencido (rojo). §3.2
+  CANCELADO:    { label: 'Cancelado',    color: 'bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300' },
 };
+
+/**
+ * Transiciones válidas de la máquina de estados QA (espejo del backend §3.3).
+ * El modal de estado solo ofrece los destinos de TRANSICIONES[estadoActual].
+ * `VENCIDO` queda inerte (sin disparador de UI en esta fase, N-3).
+ */
+export const MEDIO_TRANSICIONES: Record<MedioEstadoQA, MedioEstadoQA[]> = {
+  PENDIENTE:    ['EN_QA', 'VENCIDO', 'CANCELADO'],
+  EN_QA:        ['APROBADO', 'RECHAZADO', 'CANCELADO'],
+  RECHAZADO:    ['EN_QA', 'CANCELADO'],
+  APROBADO:     ['IMPLEMENTADO', 'EN_QA'],
+  IMPLEMENTADO: [],
+  VENCIDO:      ['EN_QA', 'CANCELADO'],
+  CANCELADO:    ['PENDIENTE'],
+};
+
+// ─── Taxonomía / configuración del módulo (items config#* del backend) ─────────
+
+/** Ficha técnica de un formato (catálogo master de specs). */
+export interface MedioSpec {
+  id: string;
+  catMedio: MedioCategoria;
+  medio: string;
+  formato: string;
+  ratios: string[];
+  duracion?: string;
+  fileTypes?: string;
+  audioLufs?: string;
+  copyLimits?: string;
+  linkSpecs?: string;
+  notes?: string;
+  /** Peso máximo del archivo; opcional, "No especificado" si falta. */
+  maxWeight?: string;
+}
+
+/** Marca asociada a una cancha. */
+export interface MedioMarca {
+  nombre: string;
+  cancha: string;
+}
+
+/** Catálogo de canchas/marcas/objetivos/audiencias/ratios y mapas de taxonomía. */
+export interface MedioTaxonomia {
+  canchas: string[];
+  marcas: MedioMarca[];
+  objetivos: string[];
+  audiencias: string[];
+  ratios: string[];
+  mediaMap: Record<string, string[]>;
+  formatMap: Record<string, string[]>;
+  updatedAt: string;
+}
+
+/** Config operativa del módulo (festivos, SLA default, trigger). */
+export interface MedioConfigModulo {
+  triggerMode: MedioTriggerMode;
+  slaMontajeDiasHabiles: number;
+  slaRecepcionDiasHabiles: number;
+  alertaVencidasHoras: number;
+  festivos: string[];
+  updatedAt: string;
+}
+
+/** Respuesta de GET /medios/config. */
+export interface MedioConfig {
+  taxonomia: MedioTaxonomia;
+  specs: MedioSpec[];
+  modulo: MedioConfigModulo;
+}
+
+/** Modo de agrupación del eje Y del Gantt (literales exactos del prototipo). */
+export type GanttGrouping = 'FORMAT' | 'MEDIO' | 'TIPO_MEDIO' | 'OBJETIVO' | 'AUDIENCIA';
