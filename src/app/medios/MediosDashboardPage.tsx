@@ -90,7 +90,19 @@ const MediosDashboardPage: React.FC = () => {
   };
 
   // ─── Agrupación en memoria de la jerarquía ────────────────────────────────────
-  const canchaDe = (c: MedioCampana) => (c.cancha && c.cancha.trim() ? c.cancha : SIN_ASIGNAR);
+  // Deriva la cancha: si la campaña no la trae explícita, se cruza su marca
+  // (c.marca, elegida del maestro del comité) con la cancha asignada a esa marca
+  // en config.taxonomia.marcas (comparación robusta: trim + case-insensitive).
+  const marcasTax = config?.taxonomia?.marcas || [];
+  const canchaDe = (c: MedioCampana) => {
+    if (c.cancha && c.cancha.trim()) return c.cancha;
+    const marca = (c.marca || '').trim().toUpperCase();
+    if (marca) {
+      const match = marcasTax.find(m => (m.nombre || '').trim().toUpperCase() === marca);
+      if (match && match.cancha && match.cancha.trim()) return match.cancha;
+    }
+    return SIN_ASIGNAR;
+  };
   const marcaDe = (c: MedioCampana) => (c.marca && c.marca.trim() ? c.marca : SIN_MARCA);
   const porCampana = resumen?.porCampana || {};
 
@@ -126,7 +138,7 @@ const MediosDashboardPage: React.FC = () => {
         };
       });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [campanas, porCampana]);
+  }, [campanas, porCampana, marcasTax]);
 
   const marcasCards: NivelCardItem[] = useMemo(() => {
     const camps = campanas.filter(c => canchaDe(c) === canchaSel);
@@ -151,11 +163,12 @@ const MediosDashboardPage: React.FC = () => {
         };
       });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [campanas, porCampana, canchaSel]);
+  }, [campanas, porCampana, canchaSel, marcasTax]);
 
   const campanasDeMarca = useMemo(
     () => campanas.filter(c => canchaDe(c) === canchaSel && marcaDe(c) === marcaSel),
-    [campanas, canchaSel, marcaSel],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [campanas, canchaSel, marcaSel, marcasTax],
   );
 
   const breadcrumb = [

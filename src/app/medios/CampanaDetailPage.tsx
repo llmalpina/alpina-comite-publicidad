@@ -77,7 +77,18 @@ const CampanaDetailPage: React.FC = () => {
 
   const { meta, lineas, eventos } = data;
   const estado = MEDIO_ESTADO_LABELS[meta.estadoAgregado] || MEDIO_ESTADO_LABELS.PENDIENTE;
-  const cancha = meta.cancha && meta.cancha.trim() ? meta.cancha : SIN_ASIGNAR;
+  // Deriva la cancha igual que el dashboard: si la campaña no la trae, se cruza su
+  // marca con la cancha asignada en config.taxonomia.marcas (trim + case-insensitive).
+  const derivarCancha = () => {
+    if (meta.cancha && meta.cancha.trim()) return meta.cancha;
+    const marcaKey = (meta.marca || '').trim().toUpperCase();
+    if (marcaKey) {
+      const match = (config?.taxonomia?.marcas || []).find(m => (m.nombre || '').trim().toUpperCase() === marcaKey);
+      if (match && match.cancha && match.cancha.trim()) return match.cancha;
+    }
+    return SIN_ASIGNAR;
+  };
+  const cancha = derivarCancha();
   const marca = meta.marca && meta.marca.trim() ? meta.marca : SIN_MARCA;
   const nombre = meta.campanaNombre || meta.title;
 

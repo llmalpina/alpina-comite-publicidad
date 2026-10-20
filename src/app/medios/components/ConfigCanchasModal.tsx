@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Plus, Trash2, Loader2 } from 'lucide-react';
 import { Button } from '../../../components/ui/Button';
 import { useNotifications } from '../../../contexts/NotificationContext';
+import { useMaestros } from '../../../contexts/MaestrosContext';
 import { mediosApi } from '../../../lib/medios-api';
 import type { MedioTaxonomia, MedioMarca } from '../../../types/medios';
 import { ModalShell, Field, inputCls } from './ui';
@@ -18,6 +19,7 @@ const ConfigCanchasModal: React.FC<{
   onSaved: () => void;
 }> = ({ taxonomia, onClose, onSaved }) => {
   const { notify } = useNotifications();
+  const { config: maestros } = useMaestros();
   const [saving, setSaving] = useState(false);
   const [nuevaCancha, setNuevaCancha] = useState('');
   const [nuevaMarca, setNuevaMarca] = useState('');
@@ -25,6 +27,14 @@ const ConfigCanchasModal: React.FC<{
 
   const canchas = taxonomia.canchas;
   const marcas = taxonomia.marcas;
+
+  // Marcas del maestro de la plataforma (solo activas). Se usan para poblar el
+  // dropdown; el nombre visible es el `label` para que cruce con `c.marca` del comité.
+  const marcasMaestro = useMemo(
+    () => (maestros.marcas || []).filter(m => m.activo !== false).map(m => m.label),
+    [maestros.marcas],
+  );
+  const usarMaestro = marcasMaestro.length > 0;
 
   const guardar = async (patch: { canchas?: string[]; marcas?: MedioMarca[] }) => {
     setSaving(true);
@@ -108,7 +118,14 @@ const ConfigCanchasModal: React.FC<{
         <p className="text-[10px] font-bold uppercase tracking-wide text-slate-400 mb-2">Marcas</p>
         <div className="grid grid-cols-1 sm:grid-cols-[1fr_1fr_auto] gap-2 mb-2">
           <Field label="Marca">
-            <input className={inputCls} value={nuevaMarca} onChange={e => setNuevaMarca(e.target.value)} placeholder="Ej. Bon Yurt" />
+            {usarMaestro ? (
+              <select className={inputCls} value={nuevaMarca} onChange={e => setNuevaMarca(e.target.value)}>
+                <option value="">— Selecciona —</option>
+                {marcasMaestro.map(m => <option key={m} value={m}>{m}</option>)}
+              </select>
+            ) : (
+              <input className={inputCls} value={nuevaMarca} onChange={e => setNuevaMarca(e.target.value)} placeholder="Ej. Bon Yurt" />
+            )}
           </Field>
           <Field label="Cancha">
             <select className={inputCls} value={marcaCancha} onChange={e => setMarcaCancha(e.target.value)}>
