@@ -476,7 +476,7 @@ export const ConfigProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     const load = async () => {
       try {
         const timeout = new Promise<never>((_, reject) =>
-          setTimeout(() => reject(new Error('timeout')), 3000)
+          setTimeout(() => reject(new Error('timeout')), 8000)
         );
         const [dbRoles, dbEmail, dbSchedule, dbArtesFilter, dbAnnouncement] = await Promise.race([
           Promise.all([
@@ -488,14 +488,22 @@ export const ConfigProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           ]),
           timeout,
         ]) as [RoleConfig[], EmailConfig, ScheduleConfig, ArtesFilterConfig, AnnouncementConfig];
-        setRoles(mergeRolesWithDefaults(dbRoles));
+        const mergedRoles = mergeRolesWithDefaults(dbRoles);
+        setRoles(mergedRoles);
         setEmailConfig(dbEmail);
         setScheduleConfig(dbSchedule);
         setArtesFilterConfig(dbArtesFilter);
         setAnnouncementConfig({ ...DEFAULT_ANNOUNCEMENT, ...dbAnnouncement });
+        // Cachea los roles (incluye los personalizados CUSTOM_*) para no perderlos
+        // ante un timeout/cold-start en la siguiente carga y no mostrar ids crudos.
+        try { localStorage.setItem('alpina_roles_config', JSON.stringify(mergedRoles)); } catch {}
         try { localStorage.setItem('alpina_announcement_config', JSON.stringify({ ...DEFAULT_ANNOUNCEMENT, ...dbAnnouncement })); } catch {}
       } catch {
-        // Timeout o error — intenta cargar schedule desde localStorage
+        // Timeout o error — restaura desde localStorage la última config buena.
+        try {
+          const saved = localStorage.getItem('alpina_roles_config');
+          if (saved) setRoles(mergeRolesWithDefaults(JSON.parse(saved)));
+        } catch { /* usa defaults */ }
         try {
           const saved = localStorage.getItem('alpina_schedule_config');
           if (saved) setScheduleConfig(JSON.parse(saved));
@@ -517,6 +525,7 @@ export const ConfigProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
   const persistRoles = async (next: RoleConfig[]) => {
     setRoles(next);
+    try { localStorage.setItem('alpina_roles_config', JSON.stringify(next)); } catch {}
     await saveToDynamo('config-roles', next);
   };
 
