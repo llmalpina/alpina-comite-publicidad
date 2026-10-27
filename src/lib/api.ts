@@ -24,7 +24,7 @@ export { API_URL };
  */
 let refreshPromise: Promise<string | null> | null = null;
 
-async function refreshIdToken(): Promise<string | null> {
+export async function refreshIdToken(): Promise<string | null> {
   if (refreshPromise) return refreshPromise;
   refreshPromise = (async () => {
     try {

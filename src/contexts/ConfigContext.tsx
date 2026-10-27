@@ -8,6 +8,7 @@
  *   - Sin API (dev local): localStorage como fallback
  */
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import { refreshIdToken } from '../lib/api';
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
 
@@ -405,12 +406,20 @@ const DEFAULT_EMAIL: EmailConfig = {
 
 const API_BASE = (import.meta as any).env?.VITE_API_URL as string || '';
 
-async function fetchFromDynamo<T>(tipo: string, fallback: T): Promise<T> {
+async function fetchFromDynamo<T>(tipo: string, fallback: T, _isRetry = false): Promise<T> {
   try {
     const token = localStorage.getItem('alpina_id_token');
     const res = await fetch(`${API_BASE}/maestros/${tipo}`, {
       headers: token ? { Authorization: `Bearer ${token}` } : {},
     });
+    // 401 (token expirado): refresca el ID token UNA vez y reintenta. Sin esto,
+    // al expirar el token la config de roles caía al fallback (perdiendo los
+    // roles personalizados y mostrando su id crudo). Mismo patrón que apiFetch.
+    if (res.status === 401 && !_isRetry) {
+      const newToken = await refreshIdToken();
+      if (newToken) return fetchFromDynamo<T>(tipo, fallback, true);
+      return fallback;
+    }
     if (!res.ok) return fallback;
     const items = await res.json();
     const singleton = items.find((i: any) => i.id === 'singleton');
