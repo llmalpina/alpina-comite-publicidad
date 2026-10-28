@@ -50,8 +50,10 @@ const MediosDashboardPage: React.FC = () => {
   const [campanas, setCampanas] = useState<MedioCampana[]>([]);
   const [resumen, setResumen] = useState<MedioResumen | null>(null);
 
-  // Nivel de jerarquía derivado de la query string (RI-4).
-  const nivel = (searchParams.get('nivel') as Nivel) || 'HOME';
+  // Nivel de jerarquía derivado de la query string (RI-4). Un valor no vacío
+  // pero inválido (p.ej. ?nivel=FOO) degrada a HOME, no a una vista en blanco.
+  const nivelRaw = searchParams.get('nivel');
+  const nivel: Nivel = nivelRaw === 'CANCHA' || nivelRaw === 'MARCA' ? nivelRaw : 'HOME';
   const canchaSel = searchParams.get('cancha') || '';
   const marcaSel = searchParams.get('marca') || '';
 
