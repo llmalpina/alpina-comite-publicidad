@@ -2,21 +2,29 @@ import React, { useState } from 'react';
 import { Layers } from 'lucide-react';
 import { useNotifications } from '../../../contexts/NotificationContext';
 import { mediosApi } from '../../../lib/medios-api';
-import type { MedioLinea, MedioTaxonomia } from '../../../types/medios';
+import type { MedioLinea, MedioTaxonomia, MedioPieza } from '../../../types/medios';
 import { ModalShell, Field, ModalActions, inputCls } from './ui';
 
 /**
  * Carga masiva por bloques: genera una línea por cada combinación
  * objetivo × audiencia. Taxonomía desde config. Ratios: todos por defecto.
+ *
+ * V2: cada línea pertenece a una pieza atada (solicitudId obligatorio en el
+ * backend); el modal exige elegir la pieza dueña y fija marcaLinea desde ella.
  */
 const CargaMasivaModal: React.FC<{
   campaignId: string;
   taxonomia: MedioTaxonomia;
+  piezas: MedioPieza[];
   onClose: () => void;
   onSaved: () => void;
-}> = ({ campaignId, taxonomia, onClose, onSaved }) => {
+}> = ({ campaignId, taxonomia, piezas, onClose, onSaved }) => {
   const { notify } = useNotifications();
   const [saving, setSaving] = useState(false);
+
+  const [solicitudId, setSolicitudId] = useState<string>(piezas[0]?.solicitudId || '');
+  const piezaSel = piezas.find(p => p.solicitudId === solicitudId) || null;
+  const marcaPieza = piezaSel?.marcas?.[0] || '';
 
   const catMedios = Object.keys(taxonomia.mediaMap || {});
   const [catMedio, setCatMedio] = useState(catMedios[0] || 'TTL');
@@ -36,6 +44,7 @@ const CargaMasivaModal: React.FC<{
   const formatos = taxonomia.formatMap?.[canal] || [];
 
   const guardar = async () => {
+    if (!solicitudId) { notify('Selecciona la pieza dueña de las líneas', 'error'); return; }
     if (!canal || !formato) { notify('Canal y formato son obligatorios', 'error'); return; }
     if (totalLineas === 0) { notify('Selecciona al menos un objetivo y una audiencia', 'error'); return; }
     setSaving(true);
@@ -43,6 +52,7 @@ const CargaMasivaModal: React.FC<{
       for (const objetivo of objetivos) {
         for (const audiencia of audiencias) {
           await mediosApi.crearLinea(campaignId, {
+            solicitudId, marcaLinea: marcaPieza,
             catMedio: catMedio as any, canal, formato, objetivo: objetivo as any, audiencia,
             ratios, cantidadPiezas: 1, fechaSalidaPauta, fechaFinPauta,
           });
@@ -57,6 +67,16 @@ const CargaMasivaModal: React.FC<{
 
   return (
     <ModalShell title="⚡ Carga masiva por objetivos × audiencias" onClose={onClose} wide>
+      <Field label="Pieza dueña">
+        <select className={inputCls} value={solicitudId} onChange={e => setSolicitudId(e.target.value)}>
+          {piezas.length === 0 && <option value="">— No hay piezas atadas —</option>}
+          {piezas.map(p => (
+            <option key={p.solicitudId} value={p.solicitudId}>
+              {p.consecutive} · {p.title}{p.marcas?.[0] ? ` (${p.marcas[0]})` : ''}
+            </option>
+          ))}
+        </select>
+      </Field>
       <div className="grid grid-cols-2 gap-3">
         <Field label="Categoría">
           <select className={inputCls} value={catMedio} onChange={e => { setCatMedio(e.target.value); setCanal(mediosDe(e.target.value)[0] || ''); }}>

@@ -253,6 +253,7 @@ const CampanaDetailPage: React.FC = () => {
         <CargaMasivaModal
           campaignId={meta.campaignId}
           taxonomia={taxonomia}
+          piezas={piezas}
           onClose={() => setMasivaOpen(false)}
           onSaved={() => afterMutation(() => setMasivaOpen(false))}
         />
