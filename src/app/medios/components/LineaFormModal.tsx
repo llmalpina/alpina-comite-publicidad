@@ -2,7 +2,7 @@ import React, { useMemo, useState } from 'react';
 import { Minus, Plus, Save } from 'lucide-react';
 import { useNotifications } from '../../../contexts/NotificationContext';
 import { mediosApi } from '../../../lib/medios-api';
-import type { MedioLinea, MedioTaxonomia, MedioCampana } from '../../../types/medios';
+import type { MedioLinea, MedioTaxonomia, MedioCampana, MedioPieza } from '../../../types/medios';
 import { calcularSLA } from '../lib/businessDays';
 import { previewNomenclatura } from '../lib/nomenclatura';
 import { ModalShell, Field, ModalActions, inputCls } from './ui';
@@ -11,21 +11,33 @@ import { ModalShell, Field, ModalActions, inputCls } from './ui';
  * Alta/edición de una línea con dual SLA (steppers +/- recalculando fechas hábiles
  * en vivo con businessDays.ts, mín 1). Taxonomía desde config. El backend recalcula
  * las fechas definitivas al guardar; la nomenclatura es solo previsualización.
+ *
+ * V2: la línea pertenece a una pieza atada (solicitudId obligatorio); la marca de
+ * nomenclatura se fija desde la pieza dueña (piece.marcas[0]).
  */
 const LineaFormModal: React.FC<{
   campana: MedioCampana;
   taxonomia: MedioTaxonomia;
   festivos: string[];
+  /** Piezas atadas a la campaña (una debe ser la dueña de la línea). */
+  piezas: MedioPieza[];
+  /** Pieza preseleccionada al abrir desde el panel de piezas. */
+  piezaPreseleccionada?: MedioPieza | null;
   linea?: MedioLinea | null;
   onClose: () => void;
   onSaved: () => void;
-}> = ({ campana, taxonomia, festivos, linea, onClose, onSaved }) => {
+}> = ({ campana, taxonomia, festivos, piezas, piezaPreseleccionada, linea, onClose, onSaved }) => {
   const { notify } = useNotifications();
   const [saving, setSaving] = useState(false);
 
   const catMedios = Object.keys(taxonomia.mediaMap || {});
   const defCat = linea?.catMedio || (catMedios[0] as any) || 'TTL';
   const mediosDe = (cat: string) => taxonomia.mediaMap?.[cat] || [];
+
+  const [solicitudId, setSolicitudId] = useState<string>(
+    linea?.solicitudId || piezaPreseleccionada?.solicitudId || piezas[0]?.solicitudId || '',
+  );
+  const piezaSel = piezas.find(p => p.solicitudId === solicitudId) || null;
 
   const [form, setForm] = useState<Partial<MedioLinea>>(() => ({
     catMedio: defCat,
@@ -53,23 +65,32 @@ const LineaFormModal: React.FC<{
     [form.fechaSalidaPauta, diasMontaje, diasRecepcion, festivos],
   );
 
+  // La marca de nomenclatura viene de la pieza dueña (no de la campaña: puede ser multimarca).
+  const marcaPieza = piezaSel?.marcas?.[0] || '';
   const nomenclaturaPreview = useMemo(
     () => previewNomenclatura({
       cancha: campana.cancha,
-      marca: campana.marca,
+      marca: marcaPieza,
       campana: campana.campanaNombre || campana.title,
       canal: form.canal,
       formato: form.formato,
     }),
-    [campana, form.canal, form.formato],
+    [campana, marcaPieza, form.canal, form.formato],
   );
 
   const guardar = async () => {
+    if (!solicitudId) { notify('Selecciona la pieza dueña de la línea', 'error'); return; }
     if (!form.canal || !form.formato) { notify('Canal y formato son obligatorios', 'error'); return; }
     if (form.fechaSalidaPauta && form.fechaFinPauta && form.fechaFinPauta < form.fechaSalidaPauta) {
       notify('La fecha de fin no puede ser anterior a la de salida', 'error'); return;
     }
-    const payload: Partial<MedioLinea> = { ...form, diasMontaje, diasRecepcion };
+    const payload: Partial<MedioLinea> = {
+      ...form,
+      solicitudId,
+      marcaLinea: marcaPieza,
+      diasMontaje,
+      diasRecepcion,
+    };
     setSaving(true);
     try {
       if (linea) {
@@ -91,6 +112,21 @@ const LineaFormModal: React.FC<{
 
   return (
     <ModalShell title={linea ? 'Editar línea táctica' : 'Nueva línea táctica'} onClose={onClose} wide>
+      <Field label="Pieza dueña">
+        <select
+          className={inputCls}
+          value={solicitudId}
+          onChange={e => setSolicitudId(e.target.value)}
+          disabled={Boolean(linea)}
+        >
+          {piezas.length === 0 && <option value="">— No hay piezas atadas —</option>}
+          {piezas.map(p => (
+            <option key={p.solicitudId} value={p.solicitudId}>
+              {p.consecutive} · {p.title}{p.marcas?.[0] ? ` (${p.marcas[0]})` : ''}
+            </option>
+          ))}
+        </select>
+      </Field>
       <div className="grid grid-cols-2 gap-3">
         <Field label="Categoría">
           <select className={inputCls} value={form.catMedio} onChange={e => { const c = e.target.value; setForm(f => ({ ...f, catMedio: c as any, canal: mediosDe(c)[0] || '' })); }}>

@@ -1,14 +1,13 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { ArrowLeft, Plus, Loader2, Film, Layers } from 'lucide-react';
+import { ArrowLeft, Plus, Loader2, Film, Layers, Link2 } from 'lucide-react';
 import { Card, CardContent } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
-import { Badge } from '../../components/ui/Badge';
 import { useNotifications } from '../../contexts/NotificationContext';
 import { useAuth } from '../../contexts/AuthContext';
 import { useConfig } from '../../contexts/ConfigContext';
 import { mediosApi, type MedioCampanaDetalle } from '../../lib/medios-api';
-import { MEDIO_ESTADO_LABELS, type MedioLinea } from '../../types/medios';
+import { MEDIO_ESTADO_LABELS, type MedioLinea, type MedioPieza } from '../../types/medios';
 import { useMediosConfig } from './hooks/useMediosConfig';
 import Breadcrumb from './components/Breadcrumb';
 import Termometro, { type TermometroData } from './components/Termometro';
@@ -19,6 +18,10 @@ import CargaMasivaModal from './components/CargaMasivaModal';
 import EstadoBitacoraModal from './components/EstadoBitacoraModal';
 import MaterialDrawer from './components/MaterialDrawer';
 import SpecsDrawer from './components/SpecsDrawer';
+import MultimarcaBadge from './components/MultimarcaBadge';
+import PiezasPanel from './components/PiezasPanel';
+import AssetsPanel from './components/AssetsPanel';
+import BuscadorPiezasModal from './components/BuscadorPiezasModal';
 
 const SIN_ASIGNAR = 'SIN ASIGNAR';
 const SIN_MARCA = 'SIN MARCA';
@@ -40,12 +43,14 @@ const CampanaDetailPage: React.FC = () => {
 
   // Gating de acciones por permiso (ADMIN pasa siempre vía hasPermission).
   const puedeGestionarLineas = hasPermission(user?.role || '', 'medios_gestionar_lineas');
+  const puedeGestionarPiezas = hasPermission(user?.role || '', 'medios_iniciar_campana');
   const puedeQA = hasPermission(user?.role || '', 'medios_qa');
 
   const [data, setData] = useState<MedioCampanaDetalle | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const [lineaModal, setLineaModal] = useState<{ open: boolean; linea: MedioLinea | null }>({ open: false, linea: null });
+  const [lineaModal, setLineaModal] = useState<{ open: boolean; linea: MedioLinea | null; pieza: MedioPieza | null }>({ open: false, linea: null, pieza: null });
+  const [buscadorOpen, setBuscadorOpen] = useState(false);
   const [masivaOpen, setMasivaOpen] = useState(false);
   const [estadoLinea, setEstadoLinea] = useState<MedioLinea | null>(null);
   const [materialLinea, setMaterialLinea] = useState<MedioLinea | null>(null);
@@ -83,8 +88,9 @@ const CampanaDetailPage: React.FC = () => {
   if (loading) return <div className="flex items-center justify-center py-20 text-slate-400"><Loader2 className="animate-spin mr-2" size={20} /> Cargando…</div>;
   if (!data) return <div className="text-center py-16 text-slate-500">Campaña no encontrada. <Link to="/medios" className="text-brand underline">Volver</Link></div>;
 
-  const { meta, lineas, eventos } = data;
+  const { meta, piezas, lineas, eventos, assets } = data;
   const estado = MEDIO_ESTADO_LABELS[meta.estadoAgregado] || MEDIO_ESTADO_LABELS.PENDIENTE;
+  const marcasCampana = meta.marcas && meta.marcas.length ? meta.marcas : (meta.marca ? [meta.marca] : []);
   // Deriva la cancha igual que el dashboard: si la campaña no la trae, se cruza su
   // marca con la cancha asignada en config.taxonomia.marcas (trim + case-insensitive).
   const derivarCancha = () => {
@@ -99,6 +105,7 @@ const CampanaDetailPage: React.FC = () => {
   const cancha = derivarCancha();
   const marca = meta.marca && meta.marca.trim() ? meta.marca : SIN_MARCA;
   const nombre = meta.campanaNombre || meta.title;
+  const afterMutation = (closer: () => void) => { closer(); cargar(); };
 
   const breadcrumb = [
     { label: 'Canchas', href: '/medios?nivel=HOME' },
@@ -110,8 +117,6 @@ const CampanaDetailPage: React.FC = () => {
   const taxonomia = config?.taxonomia;
   const specs = config?.specs || [];
   const festivos = config?.modulo?.festivos || [];
-
-  const afterMutation = (closer: () => void) => { closer(); cargar(); };
 
   return (
     <div className="space-y-5">
@@ -135,15 +140,52 @@ const CampanaDetailPage: React.FC = () => {
           <div>
             <h1 className="text-2xl font-bold text-slate-900 dark:text-white">{nombre}</h1>
             <p className="text-slate-500 dark:text-slate-400 text-sm">
-              {meta.consecutive} · {cancha} · {marca}{meta.tier ? ` · ${meta.tier}` : ''}
+              {meta.consecutive} · {cancha}{meta.tier ? ` · ${meta.tier}` : ''}
             </p>
           </div>
         </div>
-        <Badge className={estado.color}>{estado.label}</Badge>
+        <div className="flex items-center gap-2">
+          <MultimarcaBadge marcas={marcasCampana} />
+          <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-bold ${estado.color}`}>{estado.label}</span>
+        </div>
       </div>
 
       {/* Termómetro de campaña */}
       {termo && termo.total > 0 && <Termometro data={termo} titulo="📊 Termómetro de la campaña" />}
+
+      {/* Piezas de la campaña */}
+      <Card>
+        <CardContent className="p-5">
+          <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
+            <h2 className="font-bold text-slate-800 dark:text-slate-100">Piezas ({piezas.length})</h2>
+            {puedeGestionarPiezas && (
+              <Button size="sm" className="gap-1" onClick={() => setBuscadorOpen(true)}><Link2 size={14} /> Agregar piezas</Button>
+            )}
+          </div>
+          <PiezasPanel
+            campaignId={meta.campaignId}
+            piezas={piezas}
+            lineas={lineas}
+            puedeGestionarPiezas={puedeGestionarPiezas}
+            onAgregarLinea={p => setLineaModal({ open: true, linea: null, pieza: p })}
+            onChanged={cargar}
+          />
+        </CardContent>
+      </Card>
+
+      {/* Archivos de la campaña */}
+      <Card>
+        <CardContent className="p-5">
+          <h2 className="font-bold text-slate-800 dark:text-slate-100 mb-3">Archivos de la campaña</h2>
+          <AssetsPanel
+            campaignId={meta.campaignId}
+            assets={assets.filter(a => a.scope === 'CAMPANA')}
+            scope="CAMPANA"
+            puedeGestionar={puedeGestionarLineas}
+            onChanged={cargar}
+          />
+        </CardContent>
+      </Card>
 
       {/* Entregables */}
       <Card>
@@ -152,20 +194,23 @@ const CampanaDetailPage: React.FC = () => {
             <h2 className="font-bold text-slate-800 dark:text-slate-100">Entregables ({lineas.length})</h2>
             {puedeGestionarLineas && (
               <div className="flex gap-2">
-                <Button size="sm" variant="outline" className="gap-1" disabled={!taxonomia} onClick={() => setMasivaOpen(true)}><Layers size={14} /> Carga masiva</Button>
-                <Button size="sm" className="gap-1" disabled={!taxonomia} onClick={() => setLineaModal({ open: true, linea: null })}><Plus size={14} /> Agregar línea</Button>
+                <Button size="sm" variant="outline" className="gap-1" disabled={!taxonomia || piezas.length === 0} title={piezas.length === 0 ? 'Ata al menos una pieza primero' : undefined} onClick={() => setMasivaOpen(true)}><Layers size={14} /> Carga masiva</Button>
+                <Button size="sm" className="gap-1" disabled={!taxonomia || piezas.length === 0} title={piezas.length === 0 ? 'Ata al menos una pieza primero' : undefined} onClick={() => setLineaModal({ open: true, linea: null, pieza: null })}><Plus size={14} /> Agregar línea</Button>
               </div>
             )}
           </div>
-          {lineas.length === 0 ? (
+          {piezas.length === 0 ? (
+            <p className="text-sm text-slate-500 py-6 text-center">Ata al menos una pieza antes de agregar entregables.</p>
+          ) : lineas.length === 0 ? (
             <p className="text-sm text-slate-500 py-6 text-center">Aún no hay entregables. Agrega la primera pieza táctica (medio, formato, fechas).</p>
           ) : (
             <EntregablesTable
               lineas={lineas}
               specs={specs}
+              piezas={piezas}
               puedeGestionarLineas={puedeGestionarLineas}
               puedeQA={puedeQA}
-              onEditar={l => setLineaModal({ open: true, linea: l })}
+              onEditar={l => setLineaModal({ open: true, linea: l, pieza: null })}
               onSpecs={l => setSpecsLinea(l)}
               onMaterial={l => setMaterialLinea(l)}
               onEstado={l => setEstadoLinea(l)}
@@ -190,9 +235,18 @@ const CampanaDetailPage: React.FC = () => {
           campana={meta}
           taxonomia={taxonomia}
           festivos={festivos}
+          piezas={piezas}
+          piezaPreseleccionada={lineaModal.pieza}
           linea={lineaModal.linea}
-          onClose={() => setLineaModal({ open: false, linea: null })}
-          onSaved={() => afterMutation(() => setLineaModal({ open: false, linea: null }))}
+          onClose={() => setLineaModal({ open: false, linea: null, pieza: null })}
+          onSaved={() => afterMutation(() => setLineaModal({ open: false, linea: null, pieza: null }))}
+        />
+      )}
+      {buscadorOpen && (
+        <BuscadorPiezasModal
+          campaignId={meta.campaignId}
+          onClose={() => setBuscadorOpen(false)}
+          onSaved={() => afterMutation(() => setBuscadorOpen(false))}
         />
       )}
       {masivaOpen && taxonomia && (

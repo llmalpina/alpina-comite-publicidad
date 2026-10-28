@@ -26,14 +26,19 @@ export type MedioObjetivo = 'Awareness' | 'Consideración' | 'Conversión' | 'So
 /** Modo en que la publicación del comité impacta a Medios (config del módulo). */
 export type MedioTriggerMode = 'HABILITAR' | 'AUTO_CREAR';
 
-/** Cabecera de una campaña/entrada de Medios (siempre referencia una solicitud publicada). */
+/** Cabecera de una campaña/entrada de Medios (V2: campaña N:1 con piezas). */
 export interface MedioCampana {
   campaignId: string;
-  /** Solicitud del comité que la originó (obligatorio: todo pasa por el comité). */
-  solicitudId: string;
+  /**
+   * V1 (legacy): solicitud del comité que la originó. En V2 la campaña se crea
+   * vacía y las piezas se atan aparte, por lo que es opcional.
+   */
+  solicitudId?: string;
   consecutive: string;
   cancha: string;
   marca: string;
+  /** Unión dedupe de las marcas de las piezas atadas (multimarca si >1). */
+  marcas?: string[];
   /** Nombre corto de campaña para la jerarquía; si falta se usa `title`. */
   campanaNombre?: string;
   /** Producto desnormalizado de la solicitud (opcional). */
@@ -41,16 +46,56 @@ export interface MedioCampana {
   tier?: 'T1' | 'T2' | 'T3';
   title: string;
   estadoAgregado: MedioEstadoQA;
+  /** @deprecated legacy: cuenta líneas, usar totalLineas. */
   totalPiezas: number;
+  /** Nº de piezas (solicitudes) atadas a la campaña. */
+  totalSolicitudes?: number;
+  /** Nº de líneas tácticas (alias de lectura de totalPiezas). */
+  totalLineas?: number;
   createdAt: string;
   updatedAt: string;
+}
+
+/** Pieza (solicitud del comité) atada a una campaña (item `piece#` del backend). */
+export interface MedioPieza {
+  campaignId: string;
+  solicitudId: string;
+  consecutive: string;
+  title: string;
+  /** Marca de la pieza (el comité expone una sola marca por solicitud). */
+  marcas: string[];
+  producto?: string;
+  area?: string;
+  contentType?: string;
+  numeroPiezas?: number;
+  attachedAt: string;
+  attachedBy: string;
+}
+
+/** Archivo real adjunto a una campaña o pieza (item `asset#` del backend). */
+export interface MedioAsset {
+  campaignId: string;
+  assetId: string;
+  scope: 'CAMPANA' | 'PIEZA';
+  solicitudId?: string | null;
+  lineId?: string | null;
+  kind: 'VIDEO' | 'IMAGEN' | 'AUDIO' | 'DOCUMENTO';
+  fileName: string;
+  contentType: string;
+  sizeBytes: number;
+  s3Key: string;
+  uploadedAt: string;
+  uploadedBy: string;
 }
 
 /** Línea/pieza táctica dentro de una campaña. */
 export interface MedioLinea {
   campaignId: string;
   lineId: string;
+  /** Pieza dueña de la línea (solicitudId de la pieza atada). */
   solicitudId: string;
+  /** Marca de la línea, fijada desde la pieza dueña (piece.marcas[0]). */
+  marcaLinea?: string;
   catMedio: MedioCategoria;
   canal: string;
   formato: string;

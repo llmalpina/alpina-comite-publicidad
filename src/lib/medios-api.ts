@@ -3,7 +3,7 @@
  * Todas las rutas /medios* exigen JWT y rol ADMIN en el backend (fase inicial).
  */
 import { apiFetch } from './api';
-import type { MedioCampana, MedioLinea, MedioEvento, MedioConfig, MedioSpec, MedioTaxonomia } from '../types/medios';
+import type { MedioCampana, MedioLinea, MedioEvento, MedioConfig, MedioSpec, MedioTaxonomia, MedioPieza, MedioAsset } from '../types/medios';
 
 /** Solicitud publicada por el comité, disponible para iniciar en Medios. */
 export interface MedioDisponible {
@@ -11,6 +11,8 @@ export interface MedioDisponible {
   consecutive: string;
   title: string;
   marca: string;
+  /** Marca de la pieza como array (una sola marca por solicitud del comité). */
+  marcas: string[];
   producto: string;
   area: string;
   contentType: string;
@@ -20,8 +22,17 @@ export interface MedioDisponible {
 
 export interface MedioCampanaDetalle {
   meta: MedioCampana;
+  piezas: MedioPieza[];
   lineas: MedioLinea[];
   eventos: MedioEvento[];
+  assets: MedioAsset[];
+}
+
+/** Resultado de atar piezas a una campaña. */
+export interface MedioAtarResult {
+  atadas: string[];
+  omitidas: { solicitudId: string; motivo: string }[];
+  meta: MedioCampana;
 }
 
 /** Desglose por campaña del resumen (cumplimiento sobre `activas`). */
@@ -54,13 +65,57 @@ export const mediosApi = {
   disponibles: () => apiFetch<MedioDisponible[]>('/medios/disponibles'),
   /** Campañas ya iniciadas en Medios. */
   listCampanas: () => apiFetch<MedioCampana[]>('/medios/campanas'),
-  /** Detalle de una campaña (cabecera + líneas + bitácora). */
+  /** Detalle de una campaña (cabecera + piezas + líneas + bitácora + archivos). */
   getCampana: (id: string) => apiFetch<MedioCampanaDetalle>(`/medios/campanas/${id}`),
-  /** Inicia en Medios una solicitud publicada (crea la cabecera de campaña). */
+  /** Crea una campaña VACÍA (flujo V2); las piezas se atan después. */
+  crearCampana: (body: { campanaNombre: string; cancha: string; tier?: string }) =>
+    apiFetch<MedioCampana>('/medios/campanas', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
+  /** @deprecated V1: iniciaba una solicitud publicada creando la campaña 1:1. */
   iniciarCampana: (solicitudId: string, extra?: { cancha?: string; marca?: string; campanaNombre?: string; tier?: string }) =>
     apiFetch<MedioCampana>('/medios/campanas', {
       method: 'POST',
       body: JSON.stringify({ solicitudId, ...extra }),
+    }),
+  /** Ata una o varias piezas (solicitudes publicadas) a una campaña. */
+  atarPiezas: (campaignId: string, solicitudIds: string[]) =>
+    apiFetch<MedioAtarResult>(`/medios/campanas/${campaignId}/piezas`, {
+      method: 'POST',
+      body: JSON.stringify({ solicitudIds }),
+    }),
+  /** Desata una pieza (cascada: borra sus líneas y archivos de pieza). */
+  desatarPieza: (campaignId: string, solicitudId: string) =>
+    apiFetch<{ ok: boolean; lineasEliminadas: number; assetsEliminados: number; meta: MedioCampana }>(
+      `/medios/campanas/${campaignId}/piezas/${solicitudId}`,
+      { method: 'DELETE' },
+    ),
+  /** Lista los archivos adjuntos de una campaña (desc por uploadedAt). */
+  listAssets: (campaignId: string) =>
+    apiFetch<{ assets: MedioAsset[] }>(`/medios/campanas/${campaignId}/assets`),
+  /** Registra un archivo ya subido a S3 (tras el presign + PUT). */
+  registrarAsset: (
+    campaignId: string,
+    body: {
+      scope: 'CAMPANA' | 'PIEZA';
+      solicitudId?: string | null;
+      lineId?: string | null;
+      kind: 'VIDEO' | 'IMAGEN' | 'AUDIO' | 'DOCUMENTO';
+      fileName: string;
+      contentType: string;
+      sizeBytes: number;
+      s3Key: string;
+    },
+  ) =>
+    apiFetch<MedioAsset>(`/medios/campanas/${campaignId}/assets`, {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
+  /** Elimina el registro de un archivo (no borra el binario de S3). */
+  eliminarAsset: (campaignId: string, assetId: string) =>
+    apiFetch<{ ok: boolean }>(`/medios/assets/${assetId}?campaignId=${encodeURIComponent(campaignId)}`, {
+      method: 'DELETE',
     }),
   /** Edita la cabecera de campaña (cancha/marca/campanaNombre/tier). */
   editarCampana: (campaignId: string, body: { cancha?: string; marca?: string; campanaNombre?: string; tier?: 'T1' | 'T2' | 'T3' }) =>

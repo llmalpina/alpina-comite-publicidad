@@ -1,6 +1,6 @@
 import React from 'react';
 import { Pencil, FileText, Upload, Link2 } from 'lucide-react';
-import { MEDIO_ESTADO_LABELS, type MedioLinea, type MedioSpec } from '../../../types/medios';
+import { MEDIO_ESTADO_LABELS, type MedioLinea, type MedioSpec, type MedioPieza } from '../../../types/medios';
 
 /**
  * Tabla de entregables agrupada por Objetivo/Audiencia. Columnas: Editar,
@@ -11,6 +11,8 @@ import { MEDIO_ESTADO_LABELS, type MedioLinea, type MedioSpec } from '../../../t
 const EntregablesTable: React.FC<{
   lineas: MedioLinea[];
   specs: MedioSpec[];
+  /** Piezas atadas, para mostrar el consecutivo de la pieza dueña por fila. */
+  piezas?: MedioPieza[];
   /** Permite editar línea y cargar/editar material (ocultamiento de UX; el backend es la barrera real). */
   puedeGestionarLineas?: boolean;
   /** Permite abrir el modal de estado/QA para cambiar estados. Si es false, el estado se muestra como badge de solo lectura. */
@@ -19,7 +21,8 @@ const EntregablesTable: React.FC<{
   onSpecs: (l: MedioLinea) => void;
   onMaterial: (l: MedioLinea) => void;
   onEstado: (l: MedioLinea) => void;
-}> = ({ lineas, specs, puedeGestionarLineas = true, puedeQA = true, onEditar, onSpecs, onMaterial, onEstado }) => {
+}> = ({ lineas, specs, piezas = [], puedeGestionarLineas = true, puedeQA = true, onEditar, onSpecs, onMaterial, onEstado }) => {
+  const consecutivoDe = (solicitudId: string) => piezas.find(p => p.solicitudId === solicitudId)?.consecutive || '';
   // Agrupa por objetivo___audiencia.
   const grupos = new Map<string, { objetivo: string; audiencia: string; items: MedioLinea[] }>();
   lineas.forEach(l => {
@@ -37,10 +40,11 @@ const EntregablesTable: React.FC<{
 
   return (
     <div className="overflow-x-auto -mx-1 px-1">
-      <table className="w-full min-w-[920px] border-collapse text-left">
+      <table className="w-full min-w-[1000px] border-collapse text-left">
         <thead>
           <tr className="text-[10px] font-bold uppercase tracking-wide text-slate-400 border-b border-slate-100 dark:border-slate-700">
             <th className="py-2 px-2 w-14"> </th>
+            <th className="py-2 px-2">Pieza</th>
             <th className="py-2 px-2">Medio / Formato</th>
             <th className="py-2 px-2 w-16">Specs</th>
             <th className="py-2 px-2">Recepción</th>
@@ -54,7 +58,7 @@ const EntregablesTable: React.FC<{
           {Array.from(grupos.values()).map(g => (
             <React.Fragment key={`${g.objetivo}-${g.audiencia}`}>
               <tr className="bg-slate-50 dark:bg-slate-700/40">
-                <td colSpan={8} className="py-1.5 px-2">
+                <td colSpan={9} className="py-1.5 px-2">
                   <div className="flex items-center gap-2 flex-wrap text-[11px]">
                     <span className="font-bold px-2 py-0.5 rounded bg-violet-100 dark:bg-violet-900/30 text-violet-700 dark:text-violet-300">🎯 {g.objetivo}</span>
                     <span className="font-bold px-2 py-0.5 rounded bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300">👥 {g.audiencia}</span>
@@ -74,6 +78,11 @@ const EntregablesTable: React.FC<{
                           <Pencil size={11} /> Editar
                         </button>
                       )}
+                    </td>
+                    <td className="py-2 px-2">
+                      <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300">
+                        {consecutivoDe(l.solicitudId) || '—'}
+                      </span>
                     </td>
                     <td className="py-2 px-2">
                       <div className="text-[12px] font-semibold text-slate-800 dark:text-slate-100">📺 {l.canal}</div>

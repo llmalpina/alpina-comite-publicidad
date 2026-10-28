@@ -1,9 +1,8 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { Film, Inbox, LayoutGrid, Loader2, Play, RefreshCw, PackageOpen, Settings, FileText } from 'lucide-react';
+import { Film, Inbox, LayoutGrid, Loader2, Plus, RefreshCw, PackageOpen, Settings, FileText } from 'lucide-react';
 import { Card, CardContent } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
-import { Badge } from '../../components/ui/Badge';
 import { formatDate } from '../../lib/utils';
 import { useNotifications } from '../../contexts/NotificationContext';
 import { useAuth } from '../../contexts/AuthContext';
@@ -16,6 +15,8 @@ import NivelCards, { type NivelCardItem } from './components/NivelCards';
 import Termometro from './components/Termometro';
 import ConfigCanchasModal from './components/ConfigCanchasModal';
 import SpecsManagerModal from './components/SpecsManagerModal';
+import CrearCampanaModal from './components/CrearCampanaModal';
+import MultimarcaBadge from './components/MultimarcaBadge';
 
 type Tab = 'JERARQUIA' | 'DISPONIBLES';
 type Nivel = 'HOME' | 'CANCHA' | 'MARCA';
@@ -48,7 +49,6 @@ const MediosDashboardPage: React.FC = () => {
   const [disponibles, setDisponibles] = useState<MedioDisponible[]>([]);
   const [campanas, setCampanas] = useState<MedioCampana[]>([]);
   const [resumen, setResumen] = useState<MedioResumen | null>(null);
-  const [iniciando, setIniciando] = useState<string | null>(null);
 
   // Nivel de jerarquía derivado de la query string (RI-4).
   const nivel = (searchParams.get('nivel') as Nivel) || 'HOME';
@@ -75,20 +75,7 @@ const MediosDashboardPage: React.FC = () => {
 
   const [configCanchasOpen, setConfigCanchasOpen] = useState(false);
   const [specsOpen, setSpecsOpen] = useState(false);
-
-  const iniciar = async (d: MedioDisponible) => {
-    setIniciando(d.solicitudId);
-    try {
-      await mediosApi.iniciarCampana(d.solicitudId);
-      notify(`"${d.title}" se inició en Medios`, 'success');
-      await cargar();
-      setTab('JERARQUIA');
-    } catch (e: any) {
-      notify(e.message || 'No se pudo iniciar en Medios', 'error');
-    } finally {
-      setIniciando(null);
-    }
-  };
+  const [crearOpen, setCrearOpen] = useState(false);
 
   const goNivel = (next: Nivel, cancha?: string, marca?: string) => {
     const p: Record<string, string> = { nivel: next };
@@ -111,7 +98,15 @@ const MediosDashboardPage: React.FC = () => {
     }
     return SIN_ASIGNAR;
   };
-  const marcaDe = (c: MedioCampana) => (c.marca && c.marca.trim() ? c.marca : SIN_MARCA);
+  // V2: una campaña puede tener múltiples marcas (multimarca). Agrupa esas campañas
+  // bajo un nodo "Multimarca" en el nivel CANCHA; si trae una sola, usa esa marca.
+  const MULTIMARCA = 'Multimarca';
+  const marcaDe = (c: MedioCampana) => {
+    const lista = (c.marcas && c.marcas.length ? c.marcas : (c.marca ? [c.marca] : [])).filter(m => m && m.trim());
+    if (lista.length > 1) return MULTIMARCA;
+    if (lista.length === 1) return lista[0];
+    return SIN_MARCA;
+  };
   const porCampana = resumen?.porCampana || {};
 
   const agg = (ids: string[]): MedioResumenCampana =>
@@ -209,6 +204,11 @@ const MediosDashboardPage: React.FC = () => {
               </Button>
             </>
           )}
+          {config && puedeIniciar && (
+            <Button size="sm" className="gap-1" onClick={() => setCrearOpen(true)}>
+              <Plus size={14} /> Nueva campaña
+            </Button>
+          )}
           <Button variant="ghost" size="icon" onClick={cargar} title="Actualizar" className="text-slate-400 hover:text-slate-600">
             <RefreshCw size={18} className={loading ? 'animate-spin' : ''} />
           </Button>
@@ -244,35 +244,32 @@ const MediosDashboardPage: React.FC = () => {
         </div>
       ) : tab === 'DISPONIBLES' ? (
         disponibles.length === 0 ? (
-          <EmptyState icon={PackageOpen} title="No hay piezas disponibles" text="Cuando el comité publique una pieza, aparecerá aquí para iniciarla en Medios." />
+          <EmptyState icon={PackageOpen} title="No hay piezas disponibles" text="Cuando el comité publique una pieza libre, aparecerá aquí para atarla a una campaña." />
         ) : (
           <div className="space-y-3">
+            <p className="text-[12px] text-slate-500 dark:text-slate-400">
+              Piezas publicadas aún sin campaña. Crea una campaña y usa "Agregar piezas" en su detalle para atarlas.
+            </p>
             {disponibles.map(d => (
               <Card key={d.solicitudId} className="hover:shadow-md transition-shadow">
                 <CardContent className="p-4 flex items-center justify-between gap-4 flex-wrap">
                   <div className="min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
                       <p className="font-bold text-slate-900 dark:text-white truncate">{d.title}</p>
-                      <Badge className="bg-violet-100 text-violet-700 text-[10px]">Publicada</Badge>
+                      <MultimarcaBadge marcas={d.marcas && d.marcas.length ? d.marcas : (d.marca ? [d.marca] : [])} />
                     </div>
                     <p className="text-[11px] text-slate-500 mt-0.5">
-                      {d.consecutive} · {d.marca}{d.producto ? ` · ${d.producto}` : ''} · {d.numeroPiezas || 0} pieza(s)
+                      {d.consecutive}{d.producto ? ` · ${d.producto}` : ''} · {d.numeroPiezas || 0} pieza(s)
                     </p>
                     <p className="text-[10px] text-slate-400">Publicada el {formatDate(d.publishedAt)}</p>
                   </div>
-                  {puedeIniciar && (
-                    <Button size="sm" className="gap-1 shrink-0" disabled={iniciando === d.solicitudId} onClick={() => iniciar(d)}>
-                      {iniciando === d.solicitudId ? <Loader2 size={14} className="animate-spin" /> : <Play size={14} />}
-                      Iniciar en Medios
-                    </Button>
-                  )}
                 </CardContent>
               </Card>
             ))}
           </div>
         )
       ) : campanas.length === 0 ? (
-        <EmptyState icon={LayoutGrid} title="Sin campañas iniciadas" text="Inicia una pieza desde la pestaña Disponibles para crear su campaña de materiales." />
+        <EmptyState icon={LayoutGrid} title="Sin campañas" text="Crea una campaña con el botón 'Nueva campaña' y luego átale piezas desde su detalle." />
       ) : (
         <div className="space-y-4">
           {/* Breadcrumb de la jerarquía */}
@@ -295,13 +292,16 @@ const MediosDashboardPage: React.FC = () => {
                   <button key={c.campaignId} onClick={() => navigate(`/medios/campanas/${c.campaignId}`)} className="text-left block w-full">
                     <Card className="hover:shadow-md hover:border-brand/30 transition-all cursor-pointer h-full">
                       <CardContent className="p-4">
-                        <p className="font-bold text-slate-900 dark:text-white truncate">🎬 {c.campanaNombre || c.title}</p>
+                        <div className="flex items-start justify-between gap-2">
+                          <p className="font-bold text-slate-900 dark:text-white truncate">🎬 {c.campanaNombre || c.title}</p>
+                          <MultimarcaBadge marcas={c.marcas && c.marcas.length ? c.marcas : (c.marca ? [c.marca] : [])} className="shrink-0" />
+                        </div>
                         <p className="text-[11px] text-slate-500 mt-1">{c.consecutive}</p>
                         <div className="mt-3 flex items-center justify-between text-[11px] text-slate-500">
-                          <span>{rc.activas} pieza(s)</span>
+                          <span>{c.totalSolicitudes ?? 0} pieza(s)</span>
                           <span className="font-bold text-slate-700 dark:text-slate-200">{p}% cumplido</span>
                         </div>
-                        <p className="text-[10px] text-slate-400 mt-2">{c.totalPiezas || 0} línea(s) · iniciada {formatDate(c.createdAt)}</p>
+                        <p className="text-[10px] text-slate-400 mt-2">{c.totalLineas ?? c.totalPiezas ?? 0} línea(s) · creada {formatDate(c.createdAt)}</p>
                       </CardContent>
                     </Card>
                   </button>
@@ -324,6 +324,13 @@ const MediosDashboardPage: React.FC = () => {
           specs={config.specs}
           onClose={() => setSpecsOpen(false)}
           onSaved={() => { reloadConfig(); }}
+        />
+      )}
+      {crearOpen && config && (
+        <CrearCampanaModal
+          taxonomia={config.taxonomia}
+          onClose={() => setCrearOpen(false)}
+          onConfigCanchas={() => setConfigCanchasOpen(true)}
         />
       )}
     </div>
